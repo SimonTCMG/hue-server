@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Hue — Daily Insight</title>
+  <!--
+  ═══════════════════════════════════════════════════════════════
+  HUE DAILY EMAIL TEMPLATE
+  ═══════════════════════════════════════════════════════════════
+
+  VARIABLES TO REPLACE PER SEND:
+    {{FIRST_NAME}}       — recipient's first name, e.g. "Simon"
+    {{PRIMARY_COLOR}}    — hex for their primary energy:
+                           Spark: #D92010 · Glow: #C9A800 · Root: #1A8C4E · Flow: #1755B8
+                           (Glow uses darker hex for text legibility on yellow)
+    {{ENERGY_NAME}}      — e.g. "Glow"
+    {{CONTENT_TYPE}}     — one of three labels:
+                           "A thought for today" / "A question to sit with" / "A small experiment"
+    {{CONTENT_TEXT}}     — the insight, question, or nudge (1–3 sentences max)
+    {{CTA_URL}}          — link to the Hue app
+    {{UNSUBSCRIBE_URL}}  — unsubscribe link
+
+  THREE CONTENT TYPE EXAMPLES (see bottom of file)
+  ═══════════════════════════════════════════════════════════════
+  -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+
+    /* Reset */
+    body, table, td, p, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; display: block; }
+    body { margin: 0; padding: 0; background: #EDE8DF; }
+
+    /* Mobile */
+    @media only screen and (max-width: 600px) {
+      .email-card { border-radius: 0 !important; }
+      .color-block { padding: 40px 28px 36px !important; }
+      .white-block  { padding: 28px 28px 32px !important; }
+      .headline     { font-size: 22px !important; }
+    }
+  </style>
+</head>
+
+<body style="margin:0;padding:0;background:#EDE8DF;">
+
+  <!-- Preheader (hidden preview text) -->
+  <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#EDE8DF;mso-hide:all;">
+    A thought from Hue, shaped around your colour energy.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <!-- Outer wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background:#EDE8DF;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+
+        <!-- Email card: max 560px -->
+        <table class="email-card" width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+          style="max-width:560px;background:#FDFAF4;border-radius:20px;overflow:hidden;">
+
+          <!-- ── COLOUR BLOCK ─────────────────────────────────────── -->
+          <tr>
+            <td class="color-block" style="background:{{PRIMARY_COLOR}};padding:52px 52px 48px;text-align:center;">
+
+              <!-- Label row: content type + energy -->
+              <p style="margin:0 0 24px 0;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;
+                font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;
+                color:rgba(255,255,255,0.70);">
+                {{CONTENT_TYPE}}
+              </p>
+
+              <!-- Main text — live HTML, never in an image -->
+              <p class="headline" style="margin:0;font-family:'Fraunces',Georgia,'Times New Roman',serif;
+                font-size:26px;font-weight:700;line-height:1.5;
+                color:#ffffff;letter-spacing:-0.01em;">
+                {{CONTENT_TEXT}}
+              </p>
+
+              <!-- Energy attribution -->
+              <p style="margin:28px 0 0;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;
+                font-size:12px;font-weight:600;color:rgba(255,255,255,0.60);letter-spacing:0.04em;">
+                — Hue · {{ENERGY_NAME}} energy
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- ── WHITE BODY ───────────────────────────────────────── -->
+          <tr>
+            <td class="white-block" style="background:#FDFAF4;padding:36px 52px 40px;text-align:center;">
+
+              <!-- Greeting -->
+              <p style="margin:0 0 24px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;
+                font-size:14px;color:#9B8E7E;line-height:1.6;">
+                Hi {{FIRST_NAME}} — your profile is right here whenever you want to explore this further.
+              </p>
+
+              <!-- CTA button -->
+              <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0 auto 36px;">
+                <tr>
+                  <td style="background:#1A1410;border-radius:99px;padding:14px 36px;">
+                    <a href="{{CTA_URL}}"
+                      style="font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;
+                      font-size:14px;font-weight:700;color:#FDFAF4;text-decoration:none;
+                      letter-spacing:-0.01em;white-space:nowrap;">
+                      Continue the conversation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0 0 28px;">
+                <tr>
+                  <td style="border-top:1px solid #E8DFC8;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+
+              <!-- Hue logo mark — four dots + wordmark -->
+              <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0 auto 6px;">
+                <tr>
+                  <td style="padding:0 3px 0 0;">
+                    <div style="width:7px;height:7px;border-radius:50%;background:#D92010;"></div>
+                  </td>
+                  <td style="padding:0 3px;">
+                    <div style="width:7px;height:7px;border-radius:50%;background:#F5D000;"></div>
+                  </td>
+                  <td style="padding:0 3px;">
+                    <div style="width:7px;height:7px;border-radius:50%;background:#1A8C4E;"></div>
+                  </td>
+                  <td style="padding:0 3px 0 0;">
+                    <div style="width:7px;height:7px;border-radius:50%;background:#1755B8;"></div>
+                  </td>
+                  <td style="padding:0 0 0 8px;vertical-align:middle;">
+                    <span style="font-family:'Fraunces',Georgia,'Times New Roman',serif;
+                      font-size:18px;font-weight:700;color:#1A1410;letter-spacing:-0.02em;
+                      line-height:1;">Hue</span>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 24px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;
+                font-size:11px;color:#9B8E7E;letter-spacing:0.02em;">
+                Your colour energy companion
+              </p>
+
+              <!-- Unsubscribe -->
+              <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;
+                font-size:11px;color:#B8AFA3;">
+                <a href="{{UNSUBSCRIBE_URL}}" style="color:#B8AFA3;text-decoration:underline;">
+                  Unsubscribe
+                </a>
+                &nbsp;·&nbsp; You're receiving this because you completed a Hue assessment.
+              </p>
+
+            </td>
+          </tr>
+
+        </table>
+        <!-- End email card -->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+
+
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+EXAMPLE CONTENT — three types, each shown for a Glow-primary person
+Use these as a guide for tone and length when generating content via Claude
+═══════════════════════════════════════════════════════════════════════════════
+
+TYPE 1: "A thought for today"
+────────────────────────────
+PRIMARY_COLOR: #C9A800
+ENERGY_NAME:   Glow
+CONTENT_TEXT:  Your Glow energy means you often read the room before you
+               read the brief. That's not a distraction — it's a form of
+               intelligence most people in the room don't have.
+
+TYPE 2: "A question to sit with"
+─────────────────────────────────
+PRIMARY_COLOR: #C9A800
+ENERGY_NAME:   Glow
+CONTENT_TEXT:  Where this week have you been managing someone else's
+               feelings at the cost of your own clarity? What would it
+               look like to hold both at the same time?
+
+TYPE 3: "A small experiment"
+─────────────────────────────
+PRIMARY_COLOR: #C9A800
+ENERGY_NAME:   Glow
+CONTENT_TEXT:  Before your next meeting, decide one thing you want to say
+               that your Spark energy would say — direct, brief, no
+               softening. Notice what happens.
+
+═══════════════════════════════════════════════════════════════════════════════
+COLOUR VALUES PER ENERGY
+═══════════════════════════════════════════════════════════════════════════════
+Spark (red):   #D92010  — white text, high contrast, works as-is
+Glow (yellow): #C9A800  — use darker gold (not #F5D000) so white text reads
+Root (green):  #1A8C4E  — white text, works as-is
+Flow (blue):   #1755B8  — white text, works as-is
+═══════════════════════════════════════════════════════════════════════════════
+-->

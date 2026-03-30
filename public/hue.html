@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Hue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #FDFAF4;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+    }
+    #root {
+      min-height: 100%;
+      width: 100%;
+      position: relative;
+    }
+    @media (min-width: 768px) {
+      body { background: #F5F0E8; }
+    }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-5px); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes barGrow {
+      from { width: 0%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ─── Design tokens ────────────────────────────────────────────────────────
+    const C = {
+      cream: "#FDFAF4", ink: "#1A1410", sand: "#E8DFC8", stone: "#9B8E7E",
+      spark: "#D92010", sparkLight: "#FFF0ED",
+      glow:  "#F5D000", glowLight:  "#FEFCE8",
+      root:  "#1A8C4E", rootLight:  "#E8F7EF",
+      flow:  "#1755B8", flowLight:  "#E8F0FC",
+    };
+
+    const ENERGIES = [
+      { id: "spark", name: "Spark", color: C.spark, light: C.sparkLight, desc: "Drive · Action · Ignition" },
+      { id: "glow",  name: "Glow",  color: C.glow,  light: C.glowLight,  desc: "Warmth · Optimism · Connection" },
+      { id: "root",  name: "Root",  color: C.root,  light: C.rootLight,  desc: "Steadiness · Care · Depth" },
+      { id: "flow",  name: "Flow",  color: C.flow,  light: C.flowLight,  desc: "Clarity · Systems · Vision" },
+    ];
+
+    // ─── Responsive hook ──────────────────────────────────────────────────────
+    function useIsDesktop() {
+      const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 768);
+      useEffect(() => {
+        const fn = () => setIsDesktop(window.innerWidth >= 768);
+        window.addEventListener("resize", fn);
+        return () => window.removeEventListener("resize", fn);
+      }, []);
+      return isDesktop;
+    }
+
+    // ─── localStorage ─────────────────────────────────────────────────────────
+    const STORAGE_KEY = "hue_profile_v1";
+    const RETAKE_LOCKOUT_DAYS = 90;
+
+    function saveProfile(scores, ranked) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+          savedAt: Date.now(),
+          scores,
+          rankedIds: ranked.map(e => e.id),
+        }));
+      } catch {}
+    }
+
+    function loadProfile() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    }
+
+    function profileToRanked(saved) {
+      const total = Object.values(saved.scores).reduce((a, b) => a + b, 0);
+      return saved.rankedIds.map(id => {
+        const e = ENERGIES.find(e => e.id === id);
+        return { ...e, score: saved.scores[id], pct: Math.round((saved.scores[id] / total) * 100) };
+      });
+    }
+
+    function retakeAvailableDate(saved) {
+      if (!saved) return null;
+      // Fall back to now if savedAt missing (profile pre-dates this field)
+      const savedAt = saved.savedAt || Date.now();
+      const unlockMs = savedAt + RETAKE_LOCKOUT_DAYS * 24 * 60 * 60 * 1000;
+      return unlockMs > Date.now() ? new Date(unlockMs) : null;
+    }
+
+    // ─── Prompts ──────────────────────────────────────────────────────────────
+    const ASSESSMENT_PROMPT = `You are Hue — a warm, curious, and genuinely insightful companion helping people discover their colour energy profile through natural conversation. Warm, occasionally witty, never corporate.
+
+Four colour energies (preferences/tendencies, NOT capabilities):
+- Spark (red): reaches for action, momentum, going first, directness
+- Glow (yellow): reaches for people, connection, ideas, enthusiasm
+- Root (green): reaches for steadiness, inclusion, relationships, listening
+- Flow (blue): reaches for clarity, rigour, the right path, understanding before acting
+
+Ask 8-10 varied questions covering: what energises them, how they handle conflict, what a great day looks like, how they make decisions, what people thank them for, how they spend free time, how they approach new challenges. Keep it flowing conversation, not an interview. One question at a time. No emojis. No markdown formatting — plain prose only.
+
+After 8-10 exchanges, output EXACTLY this JSON on its own line:
+{"done":true,"scores":{"spark":N,"glow":N,"root":N,"flow":N}}
+Where N are integers summing to ~28, genuinely reflecting the conversation.`;
+
+    function buildCompanionPrompt(ranked) {
+      return `You are Hue — a warm, honest, and genuinely useful personal companion. You are not a report reader or a chatbot. You are a thinking partner who happens to know this person's colour energy profile well.
+
+You conducted this assessment yourself through natural conversation — you asked the questions and listened carefully to how this person responded. The profile below reflects patterns you genuinely noticed. When asked how you reached these conclusions, speak to what you observed in the conversation: recurring themes, the way they framed things, what they lit up about. Don't refer to an algorithm or external calculation — you did this, and you can speak to it.
+
+This person's colour energy profile (ranked):
+${ranked.map((e, i) => `${i + 1}. ${e.name} (${e.pct}%) — ${["Natural reach", "Ready reach", "Considered reach", "Deliberate reach"][i]}`).join("\n")}
+
+All four energies are equally valuable and fully accessible — this is reach order only. Never say any colour "can't" do something. Frame everything as tendency and preference. You can say "try raising your [colour] energy here" — all four are tools available to this person.
+
+COACHING REGISTER — you are not just an answer machine. Sometimes the most useful thing you can do is ask one question that helps this person think more clearly for themselves. Use your judgment: don't always explain, sometimes just ask.
+
+Ask rather than answer when:
+- Someone brings a situation, problem, or dilemma they're working through
+- They seem to already know what they think but haven't articulated it yet
+- They're seeking reassurance more than information
+- Sitting with a question would serve them better than a quick answer
+
+Question types to draw from:
+- Clarifying: "What would that actually look like for you?" or "When you say [X], what do you mean?"
+- Challenging: "What's the story you're telling yourself about that?" or "What are you assuming here that might not be true?"
+- Reframing through colour: "What would it look like to bring more [colour] energy to this?" or "Is your [colour] energy helping or getting in the way right now?"
+- Future-focused: "If this resolved well, what would be different?" or "What would the version of you who handled this really well do next?"
+
+Never ask more than one question at a time. Make it count. A single well-placed question is worth more than three paragraphs of advice.
+
+When someone is clearly asking for information or profile explanation, answer directly — don't deflect with a question when a straight answer is what's needed.
+
+When a returning user greets you (e.g. "Hi Hue, I'm back"), welcome them warmly and briefly — mention one or two specific things you could explore together that connect to their particular profile. Make it feel like picking up a conversation, not starting a new one. 2-3 sentences maximum.
+
+IF ASKED "how does this work?" or about the origins of the model, answer in your own words along these lines: People have always known that human nature comes in roughly four flavours — Aristotle saw it in the elements, Hippocrates mapped it to temperament, Jung built a psychology around it, and dozens of frameworks since have rediscovered the same pattern. What most got wrong was treating the four as fixed types — things you were, rather than energies you have. Hue starts from a different place: you don't have a colour, you have colours. All four are real in you. What differs is reach order — which comes naturally first, which takes more intention. The conversation we had wasn't a quiz. I was listening for recurring themes: what you lit up about, how you framed decisions, where you hesitated. That's how the profile came together. And this is just the beginning — the more we talk, the more useful it becomes.
+
+No markdown formatting — plain prose only. No asterisks, no bullet points, no headers. Keep responses concise: 2-4 short paragraphs when explaining, one question when coaching.`;
+    }
+
+    // ─── API ──────────────────────────────────────────────────────────────────
+    async function callClaude(messages, system) {
+      const res = await fetch("http://localhost:3001/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system, messages }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "API error");
+      return d.text;
+    }
+
+    function parseScores(text) {
+      const m = text.match(/\{"done":true,"scores":\{"spark":(\d+),"glow":(\d+),"root":(\d+),"flow":(\d+)\}\}/);
+      if (!m) return null;
+      return { spark: +m[1], glow: +m[2], root: +m[3], flow: +m[4] };
+    }
+
+    // ─── SpinMark — the Hue logo mark ─────────────────────────────────────────
+    // Dots orbit the H continuously. No colour is ever fixed at the top.
+    // variant: "light" (white bg), "dark" (ink bg), "float" (no bg)
+    // speed: seconds per full revolution (default 8 — ambient, noticeable but calm)
+    function SpinMark({
+      size = 48,
+      speed = 8,
+      direction = 1,
+      dotScale = 1,
+      spread = 0.30,
+      showH = true,
+      paused = false,
+      variant = "light",
+    }) {
+      const cx = size / 2, cy = size / 2;
+      const r    = size * spread;
+      const dotR = size * 0.158 * dotScale;
+      const angleRef = useRef(45);
+      const rafRef   = useRef(null);
+      const lastRef  = useRef(null);
+      const svgRef   = useRef(null);
+
+      useEffect(() => {
+        const tick = (ts) => {
+          if (!lastRef.current) lastRef.current = ts;
+          const dt = ts - lastRef.current;
+          lastRef.current = ts;
+          if (!paused) angleRef.current += (dt / 1000) * (360 / speed) * direction;
+          if (svgRef.current) {
+            const g = svgRef.current.querySelector(".spin-group");
+            if (g) g.setAttribute("transform", `rotate(${angleRef.current} ${cx} ${cy})`);
+          }
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafRef.current);
+      }, [speed, direction, paused, cx, cy]);
+
+      // Clockwise from TL: Spark 315°, Glow 45°, Root 135°, Flow 225°
+      const dotAngles = [315, 45, 135, 225];
+
+      const bgFill = variant === "dark" ? C.ink : "#FFFFFF";
+      const hFill  = variant === "dark" ? C.cream : C.ink;
+
+      const hW = size * 0.30, hH = size * 0.28;
+      const sw = size * 0.055, cbH = size * 0.055;
+      const hx = cx - hW / 2, hy = cy - hH / 2;
+
+      return (
+        <svg ref={svgRef} width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none"
+          style={{ display: "block", flexShrink: 0 }}>
+          {variant !== "float" && <circle cx={cx} cy={cy} r={size * 0.48} fill={bgFill} />}
+          <g className="spin-group">
+            {ENERGIES.map((e, i) => {
+              const a = dotAngles[i] * Math.PI / 180;
+              return <circle key={e.id} cx={cx + r * Math.cos(a)} cy={cy + r * Math.sin(a)} r={dotR} fill={e.color} />;
+            })}
+          </g>
+          {showH && (
+            <g fill={hFill}>
+              <rect x={hx}           y={hy}                  width={sw}  height={hH}  rx={sw * 0.3} />
+              <rect x={hx + hW - sw} y={hy}                  width={sw}  height={hH}  rx={sw * 0.3} />
+              <rect x={hx}           y={cy - cbH / 2}        width={hW}  height={cbH} rx={cbH * 0.3} />
+            </g>
+          )}
+        </svg>
+      );
+    }
+
+    // ─── Chat bubble ──────────────────────────────────────────────────────────
+    function renderText(text) {
+      // Handle **bold**, *bold*, and plain text
+      const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+      return parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("*") && part.endsWith("*")) {
+          return <strong key={i}>{part.slice(1, -1)}</strong>;
+        }
+        return part;
+      });
+    }
+
+    function Bubble({ from, text }) {
+      const isHue = from === "hue";
+      return (
+        <div style={{
+          display: "flex",
+          justifyContent: isHue ? "flex-start" : "flex-end",
+          marginBottom: 10,
+          animation: "fadeUp 0.25s ease both",
+        }}>
+          <div style={{
+            maxWidth: "84%",
+            background: isHue ? "#fff" : C.ink,
+            color: isHue ? C.ink : C.cream,
+            borderRadius: isHue ? "4px 20px 20px 20px" : "20px 4px 20px 20px",
+            padding: "12px 16px",
+            fontSize: 15,
+            lineHeight: 1.65,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            border: isHue ? `1px solid ${C.sand}` : "none",
+            boxShadow: isHue ? "0 1px 6px rgba(0,0,0,0.05)" : "none",
+            whiteSpace: "pre-wrap",
+          }}>
+            {renderText(text)}
+          </div>
+        </div>
+      );
+    }
+
+    function TypingIndicator() {
+      return (
+        <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 10 }}>
+          <div style={{
+            background: "#fff",
+            border: `1px solid ${C.sand}`,
+            borderRadius: "4px 20px 20px 20px",
+            padding: "13px 16px",
+            display: "flex", gap: 5, alignItems: "center",
+            boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+          }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{
+                width: 7, height: 7, borderRadius: "50%", background: C.stone,
+                animation: `bounce 1.3s ease-in-out ${i * 0.18}s infinite`,
+              }} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── Shared input bar ─────────────────────────────────────────────────────
+    function InputBar({ value, onChange, onSend, disabled, placeholder, inputRef }) {
+      return (
+        <div style={{
+          padding: "12px 16px calc(12px + env(safe-area-inset-bottom, 8px))",
+          background: C.cream,
+          borderTop: `1px solid ${C.sand}`,
+          display: "flex", gap: 10, alignItems: "center",
+        }}>
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && !e.shiftKey && onSend()}
+            placeholder={placeholder || "Type your response…"}
+            disabled={disabled}
+            style={{
+              flex: 1,
+              background: "#fff",
+              border: `1.5px solid ${C.sand}`,
+              borderRadius: 99,
+              padding: "12px 18px",
+              fontSize: 15,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: C.ink,
+              outline: "none",
+              opacity: disabled ? 0.5 : 1,
+            }}
+          />
+          <button
+            onClick={onSend}
+            disabled={!value.trim() || disabled}
+            style={{
+              width: 44, height: 44, flexShrink: 0,
+              background: value.trim() && !disabled ? C.ink : C.sand,
+              border: "none", borderRadius: "50%",
+              cursor: value.trim() && !disabled ? "pointer" : "default",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.15s",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M9 15V3M3 9l6-6 6 6"
+                stroke={value.trim() && !disabled ? C.cream : C.stone}
+                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      );
+    }
+
+    // ─── Welcome screen ───────────────────────────────────────────────────────
+    function WelcomeScreen({ onStart, onChat, savedProfile }) {
+      const isDesktop = useIsDesktop();
+      const primaryEnergy = savedProfile
+        ? ENERGIES.find(e => e.id === savedProfile.rankedIds[0])
+        : null;
+      const lockedUntil = retakeAvailableDate(savedProfile);
+      const hasProfile = !!savedProfile;
+
+      const retakeLabel = lockedUntil
+        ? `Retake available ${lockedUntil.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`
+        : "Retake the assessment";
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: isDesktop ? "transparent" : C.cream,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: isDesktop ? "64px 32px" : "48px 32px",
+          textAlign: "center",
+        }}>
+          <SpinMark size={isDesktop ? 140 : 100} speed={8} />
+          <h1 style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: isDesktop ? 72 : 48, fontWeight: 900,
+            color: C.ink, letterSpacing: "-0.03em",
+            lineHeight: 1, marginTop: isDesktop ? 32 : 24,
+          }}>Hue</h1>
+          <p style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: isDesktop ? 18 : 16, color: C.stone,
+            lineHeight: 1.65, maxWidth: isDesktop ? 360 : 280,
+            marginTop: 14,
+          }}>
+            {hasProfile
+              ? `Your colour energy profile · ${savedProfile.date}`
+              : "A short conversation maps your four colour energies. Then Hue stays with you."}
+          </p>
+
+          {hasProfile && (
+            <div style={{ display: "flex", gap: isDesktop ? 16 : 8, marginTop: 12, alignItems: "center" }}>
+              {savedProfile.rankedIds.map((id, i) => {
+                const e = ENERGIES.find(e => e.id === id);
+                return (
+                  <div key={id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: isDesktop ? 12 : 10, height: isDesktop ? 12 : 10, borderRadius: "50%", background: e.color }} />
+                    {isDesktop && <span style={{ fontSize: 10, color: C.stone, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600 }}>{e.name}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!hasProfile && (
+            <div style={{ display: "flex", gap: isDesktop ? 20 : 10, marginTop: 12, alignItems: "center" }}>
+              {ENERGIES.map(e => (
+                <div key={e.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: isDesktop ? 12 : 10, height: isDesktop ? 12 : 10, borderRadius: "50%", background: e.color }} />
+                  {isDesktop && <span style={{ fontSize: 10, color: C.stone, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600 }}>{e.name}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Primary CTA */}
+          {hasProfile ? (
+            <button
+              onClick={() => onChat()}
+              style={{
+                marginTop: 36,
+                background: C.ink, color: C.cream,
+                border: "none", borderRadius: 99,
+                padding: "16px 40px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 700, fontSize: 16,
+                cursor: "pointer", letterSpacing: "-0.01em",
+              }}
+            >
+              Chat with Hue
+            </button>
+          ) : (
+            <button
+              onClick={onStart}
+              style={{
+                marginTop: 36,
+                background: C.ink, color: C.cream,
+                border: "none", borderRadius: 99,
+                padding: "16px 40px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 700, fontSize: 16,
+                cursor: "pointer", letterSpacing: "-0.01em",
+              }}
+            >
+              Begin the conversation
+            </button>
+          )}
+
+          {/* Secondary: retake (locked or available) */}
+          {hasProfile && (
+            <button
+              onClick={lockedUntil ? undefined : onStart}
+              disabled={!!lockedUntil}
+              style={{
+                marginTop: 12,
+                background: "transparent",
+                color: lockedUntil ? C.stone : C.ink,
+                border: `1.5px solid ${C.sand}`,
+                borderRadius: 99,
+                padding: "13px 28px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 600, fontSize: 14,
+                cursor: lockedUntil ? "default" : "pointer",
+                opacity: lockedUntil ? 0.5 : 1,
+              }}
+            >
+              {retakeLabel}
+            </button>
+          )}
+
+          {/* View results link */}
+          {hasProfile && (
+            <button
+              onClick={() => onChat(true)}
+              style={{
+                marginTop: 10,
+                background: "none", border: "none",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 13, color: C.stone,
+                cursor: "pointer", textDecoration: "underline",
+                textUnderlineOffset: 3,
+              }}
+            >
+              View my results
+            </button>
+          )}
+
+          {!hasProfile && (
+            <>
+              <p style={{
+                fontSize: 12, color: C.stone, marginTop: 14,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}>About 5 minutes · No right answers</p>
+              <p style={{
+                fontSize: 12, color: C.stone, marginTop: 6,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontStyle: "italic",
+              }}>Most profiles tell you who you are today. Hue stays curious about who you're becoming.</p>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    // ─── Chat wrapper (centres on desktop) ───────────────────────────────────
+    function ChatFrame({ children, isDesktop }) {
+      if (!isDesktop) return children;
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "stretch", justifyContent: "center", padding: "32px 16px" }}>
+          <div style={{
+            width: "100%", maxWidth: 680,
+            background: C.cream,
+            borderRadius: 32,
+            display: "flex", flexDirection: "column",
+            overflow: "hidden",
+            boxShadow: "0 8px 48px rgba(26,20,16,0.10)",
+            minHeight: "calc(100vh - 64px)",
+          }}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── Chat screen (assessment) ─────────────────────────────────────────────
+    function ChatScreen({ onComplete, onHome }) {
+      const isDesktop = useIsDesktop();
+      const [display, setDisplay]   = useState([]);
+      const [history, setHistory]   = useState([]);
+      const [input, setInput]       = useState("");
+      const [typing, setTyping]     = useState(false);
+      const [error, setError]       = useState(null);
+      const bottomRef = useRef(null);
+
+      useEffect(() => {
+        (async () => {
+          setTyping(true);
+          try {
+            const seed = [{ role: "user", content: "Hi, I'm ready to start my colour energy assessment." }];
+            const reply = await callClaude(seed, ASSESSMENT_PROMPT);
+            setHistory([
+              { role: "user",      content: seed[0].content },
+              { role: "assistant", content: reply },
+            ]);
+            setDisplay([{ from: "hue", text: reply }]);
+          } catch {
+            setError("Couldn't reach the server. Make sure it's running on localhost:3001.");
+          } finally {
+            setTyping(false);
+          }
+        })();
+      }, []);
+
+      useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, [display, typing]);
+
+      const send = async () => {
+        const text = input.trim();
+        if (!text || typing) return;
+        setInput("");
+        setError(null);
+
+        const newHistory = [...history, { role: "user", content: text }];
+        setHistory(newHistory);
+        setDisplay(d => [...d, { from: "user", text }]);
+        setTyping(true);
+
+        try {
+          const reply = await callClaude(newHistory, ASSESSMENT_PROMPT);
+          const scores = parseScores(reply);
+
+          if (scores) {
+            const displayText = reply.replace(/\{"done":true.*?\}/, "").trim();
+            if (displayText) setDisplay(d => [...d, { from: "hue", text: displayText }]);
+            setTimeout(() => onComplete(scores), displayText ? 1400 : 400);
+          } else {
+            setHistory(h => [...h, { role: "assistant", content: reply }]);
+            setDisplay(d => [...d, { from: "hue", text: reply }]);
+          }
+        } catch {
+          setError("Something went wrong — please try again.");
+          setDisplay(d => d.slice(0, -1));
+          setHistory(newHistory.slice(0, -1));
+          setInput(text);
+        } finally {
+          setTyping(false);
+        }
+      };
+
+      return (
+        <ChatFrame isDesktop={isDesktop}>
+          <div style={{ background: isDesktop ? "transparent" : C.cream, display: "flex", flexDirection: "column", flex: 1 }}>
+            <div style={{
+              padding: "18px 20px 14px",
+              display: "flex", alignItems: "center", gap: 12,
+              borderBottom: `1px solid ${C.sand}`,
+              background: C.cream,
+              position: "sticky", top: 0, zIndex: 10,
+              borderRadius: isDesktop ? "32px 32px 0 0" : 0,
+            }}>
+              <BackButton onBack={onHome} />
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+                <SpinMark size={38} speed={8} />
+                <div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink }}>Hue</div>
+                  <div style={{ fontSize: 11, color: C.stone, fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.04em", textTransform: "uppercase" }}>Colour Energy Assessment</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
+              {display.length === 0 && !error && (
+                <p style={{ textAlign: "center", color: C.stone, fontSize: 13, marginTop: 48, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  Starting your conversation…
+                </p>
+              )}
+              {display.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
+              {typing && <TypingIndicator />}
+              {error && (
+                <div style={{
+                  background: "#FFF0ED", border: `1px solid #F06040`,
+                  borderRadius: 12, padding: "12px 16px", marginTop: 8,
+                  fontSize: 13, color: C.ink,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", lineHeight: 1.5,
+                }}>{error}</div>
+              )}
+              <div ref={bottomRef} style={{ height: 8 }} />
+            </div>
+
+            <InputBar value={input} onChange={setInput} onSend={send} disabled={typing || display.length === 0} />
+          </div>
+        </ChatFrame>
+      );
+    }
+
+    // ─── Results screen ───────────────────────────────────────────────────────
+    function ResultsScreen({ scores, onContinue, onHome }) {
+      const isDesktop = useIsDesktop();
+      const total = Object.values(scores).reduce((a, b) => a + b, 0);
+      const ranked = ENERGIES
+        .map(e => ({ ...e, score: scores[e.id], pct: Math.round((scores[e.id] / total) * 100) }))
+        .sort((a, b) => b.score - a.score);
+
+      useEffect(() => { saveProfile(scores, ranked); }, []);
+
+      const rankLabels = ["Natural reach", "Ready reach", "Considered reach", "Deliberate reach"];
+
+      const EnergyCard = ({ e, i }) => (
+        <div style={{
+          background: "#fff",
+          borderRadius: 20,
+          padding: isDesktop ? "24px 24px" : "18px 20px",
+          border: `1.5px solid ${i === 0 ? e.color : C.sand}`,
+          boxShadow: i === 0 ? `0 4px 24px ${e.color}28` : "none",
+          animation: `fadeUp 0.35s ease ${i * 0.1}s both`,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 13, height: 13, borderRadius: "50%", background: e.color, flexShrink: 0 }} />
+              <span style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 22 : 21, fontWeight: 700, color: C.ink }}>{e.name}</span>
+              <span style={{
+                fontSize: 10, color: C.stone,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase",
+              }}>{rankLabels[i]}</span>
+            </div>
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 26 : 24, fontWeight: 700, color: e.color }}>{e.pct}%</span>
+          </div>
+          <div style={{ height: 6, background: C.sand, borderRadius: 99, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", background: e.color, borderRadius: 99,
+              width: `${e.pct}%`,
+              animation: `barGrow 0.9s cubic-bezier(0.23,1,0.32,1) ${0.2 + i * 0.1}s both`,
+            }} />
+          </div>
+          <div style={{ fontSize: 11, color: C.stone, marginTop: 7, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{e.desc}</div>
+        </div>
+      );
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: isDesktop ? "transparent" : C.cream,
+          padding: isDesktop ? "0" : "48px 20px 48px",
+        }}>
+          <div style={{
+            maxWidth: isDesktop ? 860 : "100%",
+            margin: "0 auto",
+            padding: isDesktop ? "48px 40px 60px" : "0",
+            background: isDesktop ? C.cream : "transparent",
+            borderRadius: isDesktop ? 32 : 0,
+            marginTop: isDesktop ? 32 : 0,
+            marginBottom: isDesktop ? 32 : 0,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <SpinMark size={42} paused />
+                <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 700, color: C.ink }}>Hue</span>
+              </div>
+              <BackButton onBack={onHome} />
+            </div>
+
+            <h2 style={{
+              fontFamily: "'Fraunces', serif",
+              fontSize: isDesktop ? 44 : 34, fontWeight: 900,
+              color: C.ink, letterSpacing: "-0.02em",
+              lineHeight: 1.1, marginBottom: 10,
+            }}>Your colour{isDesktop ? " " : <br/>}energies</h2>
+            <p style={{
+              fontSize: 14, color: C.stone, lineHeight: 1.65,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              marginBottom: 32, maxWidth: 360,
+            }}>
+              Based on our conversation. These aren't limits — they're the patterns you naturally reach for first.
+            </p>
+
+            {isDesktop ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
+              </div>
+            )}
+
+          <button
+            onClick={() => onContinue(ranked)}
+            style={{
+              width: isDesktop ? "auto" : "100%",
+              display: isDesktop ? "block" : "block",
+              margin: isDesktop ? "32px auto 0" : "28px 0 0",
+              padding: isDesktop ? "16px 56px" : "16px",
+              background: C.ink, color: C.cream,
+              border: "none", borderRadius: 99,
+              padding: "16px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700, fontSize: 16,
+              cursor: "pointer",
+            }}
+          >
+            Talk with Hue about your results
+          </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── Suggested questions ──────────────────────────────────────────────────
+    const RESULTS_SUGGESTIONS = [
+      "How does this work?",
+      "What does my profile say about how I work with others?",
+      "Where am I most likely to get in my own way?",
+      "Which energy should I try to use more deliberately?",
+      "What should I pay attention to this week?",
+    ];
+
+    const RETURNING_SUGGESTIONS = [
+      "I've got something I'm working through — can we talk?",
+      "Where do you think I'm playing it safe?",
+      "What's the most useful thing we could focus on right now?",
+      "I want to get better at one thing — where do you suggest I start?",
+      "What would raising my quieter energy look like in practice?",
+    ];
+
+    // Track how many times user has opened the companion chat
+    function getChatVisitCount() {
+      return parseInt(localStorage.getItem("hue_chat_visits") || "0", 10);
+    }
+    function incrementChatVisitCount() {
+      localStorage.setItem("hue_chat_visits", getChatVisitCount() + 1);
+    }
+
+    // Rotate suggestions so different questions appear each visit
+    // Visit 1: first 3. Visit 2: last 2 (different set). Visit 3+: none.
+    function suggestionsToShow(all, visitCount) {
+      if (visitCount >= 3) return [];
+      if (visitCount === 2) return all.slice(3);
+      return all.slice(0, 3);
+    }
+
+    function SuggestedQuestions({ questions, onSelect, isDesktop }) {
+      if (!questions.length) return null;
+      return (
+        <div style={{
+          padding: "0 16px 12px",
+          // Mobile: single horizontal scrollable row. Desktop: wrap.
+          display: "flex",
+          flexWrap: isDesktop ? "wrap" : "nowrap",
+          gap: 8,
+          overflowX: isDesktop ? "visible" : "auto",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}>
+          {questions.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => onSelect(q)}
+              style={{
+                background: "#fff",
+                border: `1.5px solid ${C.sand}`,
+                borderRadius: 99,
+                padding: "8px 14px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 13,
+                fontWeight: 500,
+                color: C.ink,
+                cursor: "pointer",
+                lineHeight: 1.3,
+                textAlign: "left",
+                whiteSpace: isDesktop ? "normal" : "nowrap",
+                flexShrink: 0,
+                transition: "border-color 0.15s, background 0.15s",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = C.ink;
+                e.currentTarget.style.background = C.cream;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = C.sand;
+                e.currentTarget.style.background = "#fff";
+              }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    // ─── Companion screen ─────────────────────────────────────────────────────
+    function CompanionScreen({ ranked, onHome, returning = false }) {
+      const isDesktop = useIsDesktop();
+      const [display, setDisplay] = useState([]);
+      const [history, setHistory] = useState([]);
+      const [input, setInput]     = useState("");
+      const [typing, setTyping]   = useState(false);
+      const [hasSentMessage, setHasSentMessage] = useState(false);
+      const bottomRef = useRef(null);
+      const inputRef  = useRef(null);
+      const system = buildCompanionPrompt(ranked);
+      const visitCount = useRef(getChatVisitCount());
+      const allSuggestions = returning ? RETURNING_SUGGESTIONS : RESULTS_SUGGESTIONS;
+      const suggestions = suggestionsToShow(allSuggestions, visitCount.current);
+
+      useEffect(() => { incrementChatVisitCount(); }, []);
+
+      useEffect(() => {
+        if (returning) {
+          // Returning from home — ask Claude for a personalised welcome back
+          (async () => {
+            setTyping(true);
+            try {
+              const seed = [{ role: "user", content: "Hi Hue, I'm back." }];
+              const reply = await callClaude(seed, system);
+              setHistory([
+                { role: "user",      content: seed[0].content },
+                { role: "assistant", content: reply },
+              ]);
+              setDisplay([{ from: "hue", text: reply }]);
+            } catch {
+              setDisplay([{ from: "hue", text: "Something went wrong. Try refreshing the page." }]);
+            } finally {
+              setTyping(false);
+            }
+          })();
+        } else {
+          // Coming from results — hardcoded opener, no API call needed
+          const primary = ranked[0];
+          setDisplay([{ from: "hue", text: `Your ${primary.name} profile is right here. What would you like more insight on?` }]);
+        }
+      }, []);
+
+      useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, [display, typing]);
+
+      const send = async () => {
+        const text = input.trim();
+        if (!text || typing) return;
+        setInput("");
+        setHasSentMessage(true);
+        const newHistory = [...history, { role: "user", content: text }];
+        setHistory(newHistory);
+        setDisplay(d => [...d, { from: "user", text }]);
+        setTyping(true);
+        try {
+          const reply = await callClaude(newHistory, system);
+          setHistory(h => [...h, { role: "assistant", content: reply }]);
+          setDisplay(d => [...d, { from: "hue", text: reply }]);
+        } catch {
+          setDisplay(d => [...d, { from: "hue", text: "Something went wrong. Try again." }]);
+        } finally {
+          setTyping(false);
+        }
+      };
+
+      return (
+        <ChatFrame isDesktop={isDesktop}>
+          <div style={{ background: "transparent", display: "flex", flexDirection: "column", flex: 1 }}>
+            <div style={{
+              padding: "18px 20px 14px",
+              display: "flex", alignItems: "center", gap: 12,
+              borderBottom: `1px solid ${C.sand}`,
+              background: C.cream,
+              position: "sticky", top: 0, zIndex: 10,
+              borderRadius: isDesktop ? "32px 32px 0 0" : 0,
+            }}>
+              <SpinMark size={38} paused />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink }}>Hue</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {ranked.map(e => (
+                    <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: e.color }} />
+                      <span style={{ fontSize: 11, color: C.stone, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{e.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={onHome} style={{
+                background: "none", border: `1px solid ${C.sand}`, borderRadius: 99,
+                padding: "6px 14px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 12, fontWeight: 600, color: C.stone, cursor: "pointer",
+              }}>Home</button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
+              {display.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
+              {typing && <TypingIndicator />}
+              <div ref={bottomRef} style={{ height: 8 }} />
+            </div>
+
+            {!hasSentMessage && (
+              <SuggestedQuestions
+                questions={suggestions}
+                onSelect={q => {
+                  setInput(q);
+                  inputRef.current?.focus();
+                }}
+                isDesktop={isDesktop}
+              />
+            )}
+            <InputBar value={input} onChange={setInput} onSend={send} disabled={typing} placeholder="Ask Hue anything…" inputRef={inputRef} />
+          </div>
+        </ChatFrame>
+      );
+    }
+
+    // ─── Back button ──────────────────────────────────────────────────────────
+    function BackButton({ onBack, label = "Home" }) {
+      return (
+        <button onClick={onBack} style={{
+          background: "none", border: "none", padding: "4px 0",
+          display: "flex", alignItems: "center", gap: 6,
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          fontSize: 13, fontWeight: 600, color: C.stone,
+          cursor: "pointer", flexShrink: 0,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3L5 8l5 5" stroke={C.stone} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {label}
+        </button>
+      );
+    }
+
+    // ─── App ──────────────────────────────────────────────────────────────────
+    function App() {
+      const [screen, setScreen] = useState("welcome");
+      const [scores, setScores] = useState(null);
+      const [ranked, setRanked] = useState(null);
+      const [savedProfile] = useState(() => loadProfile());
+
+      // Hook browser back button into app navigation
+      useEffect(() => {
+        window.history.replaceState({ screen: "welcome" }, "");
+        const handlePop = (e) => {
+          const s = e.state?.screen || "welcome";
+          // Only navigate back to results if scores are still in memory
+          if (s === "results" && !scores) setScreen("welcome");
+          else if (s === "companion" && !ranked) setScreen("welcome");
+          else setScreen(s);
+        };
+        window.addEventListener("popstate", handlePop);
+        return () => window.removeEventListener("popstate", handlePop);
+      }, [scores, ranked]);
+
+      const navigate = (newScreen) => {
+        window.history.pushState({ screen: newScreen }, "");
+        setScreen(newScreen);
+      };
+
+      const restoreSaved = () => {
+        const restoredRanked = profileToRanked(savedProfile);
+        setScores(savedProfile.scores);
+        setRanked(restoredRanked);
+        return restoredRanked;
+      };
+
+      const [returningToChat, setReturningToChat] = useState(false);
+
+      // onChat(true) → view results first; onChat() → go straight to companion
+      const handleChat = (viewResults = false) => {
+        const restoredRanked = restoreSaved();
+        if (viewResults) {
+          navigate("results");
+        } else {
+          setRanked(restoredRanked);
+          setReturningToChat(true);
+          navigate("companion");
+        }
+      };
+
+      return (
+        <>
+          <style>{`
+            input::placeholder { color: ${C.stone}; }
+            input:focus { border-color: ${C.ink} !important; outline: none; }
+          `}</style>
+          {screen === "welcome" && (
+            <WelcomeScreen
+              onStart={() => navigate("chat")}
+              onChat={handleChat}
+              savedProfile={savedProfile}
+            />
+          )}
+          {screen === "chat" && (
+            <ChatScreen
+              onComplete={s => { setScores(s); navigate("results"); }}
+              onHome={() => navigate("welcome")}
+            />
+          )}
+          {screen === "results" && scores && (
+            <ResultsScreen
+              scores={scores}
+              onContinue={r => { setRanked(r); setReturningToChat(false); navigate("companion"); }}
+              onHome={() => navigate("welcome")}
+            />
+          )}
+          {screen === "companion" && ranked && (
+            <CompanionScreen ranked={ranked} onHome={() => navigate("welcome")} returning={returningToChat} />
+          )}
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
