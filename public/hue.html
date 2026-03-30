@@ -652,6 +652,26 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
     }
 
     // ─── Results screen ───────────────────────────────────────────────────────
+    // Placeholder observations — replace with final copy once written
+    const OBSERVATIONS = {
+      spark: {
+        headline: "You tend toward Spark first.",
+        body: "You reach for momentum before others have finished deciding. When something needs to happen, you're already moving — cutting through hesitation, going first, breaking the deadlock. That instinct isn't impatience. It's Spark energy doing exactly what it's designed to do.",
+      },
+      glow: {
+        headline: "You tend toward Glow first.",
+        body: "You move through the world with a warmth others feel before you've said a word. People don't just like being around you — they open up to you. That's not personality. That's Glow energy at full reach, and it shapes every room you walk into.",
+      },
+      root: {
+        headline: "You tend toward Root first.",
+        body: "You're the steadying presence in a room before anyone notices they needed one. Others feel grounded around you — calmer, clearer, more considered. Root energy works quietly and continuously, and people rely on it more than they say.",
+      },
+      flow: {
+        headline: "You tend toward Flow first.",
+        body: "You see the whole picture before others have finished looking at the parts. Systems, patterns, what's missing — your mind moves toward clarity the way water finds its level. That's Flow energy, and it's rarer than most people realise.",
+      },
+    };
+
     function ResultsScreen({ scores, onContinue, onHome }) {
       const isDesktop = useIsDesktop();
       const total = Object.values(scores).reduce((a, b) => a + b, 0);
@@ -662,14 +682,17 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       useEffect(() => { saveProfile(scores, ranked); }, []);
 
       const rankLabels = ["Natural reach", "Ready reach", "Considered reach", "Deliberate reach"];
+      const primary = ranked[0];
+      const obs = OBSERVATIONS[primary.id];
+      const heroTextColor = primary.id === "glow" ? C.ink : "#fff";
+      const heroSubColor = primary.id === "glow" ? "rgba(26,20,16,0.6)" : "rgba(255,255,255,0.7)";
 
       const EnergyCard = ({ e, i }) => (
         <div style={{
           background: "#fff",
           borderRadius: 20,
           padding: isDesktop ? "24px 24px" : "18px 20px",
-          border: `1.5px solid ${i === 0 ? e.color : C.sand}`,
-          boxShadow: i === 0 ? `0 4px 24px ${e.color}28` : "none",
+          border: `1.5px solid ${C.sand}`,
           animation: `fadeUp 0.35s ease ${i * 0.1}s both`,
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -696,69 +719,102 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       );
 
       return (
-        <div style={{
-          minHeight: "100vh",
-          background: isDesktop ? "transparent" : C.cream,
-          padding: isDesktop ? "0" : "48px 20px 48px",
-        }}>
+        <div style={{ minHeight: "100vh", background: isDesktop ? "transparent" : C.cream }}>
           <div style={{
             maxWidth: isDesktop ? 860 : "100%",
             margin: "0 auto",
-            padding: isDesktop ? "48px 40px 60px" : "0",
             background: isDesktop ? C.cream : "transparent",
             borderRadius: isDesktop ? 32 : 0,
             marginTop: isDesktop ? 32 : 0,
             marginBottom: isDesktop ? 32 : 0,
+            overflow: "hidden",
           }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+
+            {/* Nav */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: isDesktop ? "32px 40px 0" : "24px 20px 0",
+            }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <SpinMark size={42} paused />
-                <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 700, color: C.ink }}>Hue</span>
+                <SpinMark size={38} paused />
+                <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink }}>Hue</span>
               </div>
               <BackButton onBack={onHome} />
             </div>
 
-            <h2 style={{
-              fontFamily: "'Fraunces', serif",
-              fontSize: isDesktop ? 44 : 34, fontWeight: 900,
-              color: C.ink, letterSpacing: "-0.02em",
-              lineHeight: 1.1, marginBottom: 10,
-            }}>Your colour{isDesktop ? " " : <br/>}energies</h2>
-            <p style={{
-              fontSize: 14, color: C.stone, lineHeight: 1.65,
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              marginBottom: 32, maxWidth: 360,
+            {/* Observation hero */}
+            <div style={{
+              background: primary.color,
+              margin: isDesktop ? "28px 40px 0" : "20px 0 0",
+              borderRadius: isDesktop ? 24 : 0,
+              padding: isDesktop ? "52px 56px" : "40px 24px",
+              animation: "fadeUp 0.4s ease both",
             }}>
-              Based on our conversation. These aren't limits — they're the patterns you naturally reach for first.
-            </p>
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 11, fontWeight: 600,
+                letterSpacing: "0.12em", textTransform: "uppercase",
+                color: heroSubColor, margin: "0 0 20px",
+              }}>Your colour energy profile</p>
+              <h2 style={{
+                fontFamily: "'Fraunces', serif",
+                fontSize: isDesktop ? 48 : 36,
+                fontWeight: 900, lineHeight: 1.05,
+                letterSpacing: "-0.02em",
+                color: heroTextColor,
+                margin: "0 0 24px",
+              }}>{obs.headline}</h2>
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: isDesktop ? 17 : 15,
+                lineHeight: 1.7,
+                color: heroTextColor,
+                opacity: 0.9,
+                margin: 0,
+                maxWidth: 540,
+              }}>{obs.body}</p>
+            </div>
 
-            {isDesktop ? (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
-              </div>
-            )}
+            {/* Energy cards */}
+            <div style={{ padding: isDesktop ? "32px 40px 0" : "24px 20px 0" }}>
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 12, fontWeight: 600,
+                letterSpacing: "0.08em", textTransform: "uppercase",
+                color: C.stone, margin: "0 0 16px",
+              }}>Your full colour picture</p>
 
-          <button
-            onClick={() => onContinue(ranked)}
-            style={{
-              width: isDesktop ? "auto" : "100%",
-              display: isDesktop ? "block" : "block",
-              margin: isDesktop ? "32px auto 0" : "28px 0 0",
-              padding: isDesktop ? "16px 56px" : "16px",
-              background: C.ink, color: C.cream,
-              border: "none", borderRadius: 99,
-              padding: "16px",
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 700, fontSize: 16,
-              cursor: "pointer",
-            }}
-          >
-            Talk with Hue about your results
-          </button>
+              {isDesktop ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
+                </div>
+              )}
+            </div>
+
+            {/* CTA */}
+            <div style={{ padding: isDesktop ? "32px 40px 48px" : "24px 20px 48px" }}>
+              <button
+                onClick={() => onContinue(ranked)}
+                style={{
+                  width: isDesktop ? "auto" : "100%",
+                  display: "block",
+                  margin: isDesktop ? "0 auto" : "0",
+                  padding: isDesktop ? "16px 56px" : "16px",
+                  background: C.ink, color: C.cream,
+                  border: "none", borderRadius: 99,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 700, fontSize: 16,
+                  cursor: "pointer",
+                }}
+              >
+                Talk with Hue about your results
+              </button>
+            </div>
+
           </div>
         </div>
       );
