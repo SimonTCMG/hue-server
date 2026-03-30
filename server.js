@@ -14,6 +14,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(join(__dirname, "public")));
 
+app.get("/", (req, res) => {
+  res.sendFile(join(__dirname, "public", "hue.html"));
+});
+
 app.post("/api/chat", async (req, res) => {
   const { system, messages } = req.body;
 
