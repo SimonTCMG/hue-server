@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="31" fill="#1A1410"/>
+  <!-- Four energy dots: Spark TL, Glow TR, Root BR, Flow BL -->
+  <circle cx="18.4" cy="18.4" r="10" fill="#1755B8"/>
+  <circle cx="45.6" cy="18.4" r="10" fill="#D92010"/>
+  <circle cx="45.6" cy="45.6" r="10" fill="#F5D000"/>
+  <circle cx="18.4" cy="45.6" r="10" fill="#1A8C4E"/>
+  <!-- H mark -->
+  <rect x="22.4" y="23" width="3.5" height="18" rx="1" fill="#FDFAF4"/>
+  <rect x="38.1" y="23" width="3.5" height="18" rx="1" fill="#FDFAF4"/>
+  <rect x="22.4" y="30.2" width="19.2" height="3.5" rx="1" fill="#FDFAF4"/>
+</svg>
