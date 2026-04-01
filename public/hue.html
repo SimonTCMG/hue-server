@@ -132,7 +132,7 @@ Where N are integers summing to ~28, genuinely reflecting the conversation.`;
 You conducted this assessment yourself through natural conversation — you asked the questions and listened carefully to how this person responded. The profile below reflects patterns you genuinely noticed. When asked how you reached these conclusions, speak to what you observed in the conversation: recurring themes, the way they framed things, what they lit up about. Don't refer to an algorithm or external calculation — you did this, and you can speak to it.
 
 This person's colour energy profile (ranked):
-${ranked.map((e, i) => `${i + 1}. ${e.name} (${e.pct}%) — ${["Natural reach", "Ready reach", "Considered reach", "Deliberate reach"][i]}`).join("\n")}
+${ranked.map((e, i) => `${i + 1}. ${e.name} (${e.pct}%) — ${["Instinctive", "Fluent", "Intentional", "Developing"][i]}`).join("\n")}
 
 All four energies are equally valuable and fully accessible — this is reach order only. Never say any colour "can't" do something. Frame everything as tendency and preference. You can say "try raising your [colour] energy here" — all four are tools available to this person.
 
@@ -169,7 +169,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
 
     // ─── API ──────────────────────────────────────────────────────────────────
     async function callClaude(messages, system) {
-      const res = await fetch("http://localhost:3001/api/chat", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ system, messages }),
@@ -688,7 +688,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
 
       useEffect(() => { saveProfile(scores, ranked); }, []);
 
-      const rankLabels = ["Natural reach", "Ready reach", "Considered reach", "Deliberate reach"];
+      const rankLabels = ["Instinctive", "Fluent", "Intentional", "Developing"];
       const primary = ranked[0];
       const obs = OBSERVATIONS[primary.id];
       const heroTextColor = primary.id === "glow" ? C.ink : "#fff";
@@ -1050,12 +1050,159 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       );
     }
 
+    // ─── Registration screen ──────────────────────────────────────────────────
+    function RegisterScreen({ inviteToken, onRegistered }) {
+      const isDesktop = useIsDesktop();
+      const [name,    setName]    = useState("");
+      const [email,   setEmail]   = useState("");
+      const [loading, setLoading] = useState(false);
+      const [error,   setError]   = useState(null);
+
+      const submit = async () => {
+        if (!name.trim() || !email.trim()) {
+          setError("Please enter your name and email.");
+          return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+          const res  = await fetch("/api/register", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ name: name.trim(), email: email.trim(), inviteToken }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setError(data.error || "Something went wrong. Please try again.");
+            return;
+          }
+          // Remove invite token from URL without a page reload
+          window.history.replaceState({}, "", "/");
+          onRegistered(data.user);
+        } catch {
+          setError("Something went wrong. Please try again.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const inputStyle = {
+        background: "#fff", border: `1.5px solid ${C.sand}`,
+        borderRadius: 12, padding: "14px 18px",
+        fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
+        color: C.ink, outline: "none", width: "100%",
+        boxSizing: "border-box",
+      };
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: isDesktop ? "transparent" : C.cream,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: isDesktop ? "64px 32px" : "48px 24px",
+          textAlign: "center",
+        }}>
+          <SpinMark size={isDesktop ? 100 : 72} speed={8} />
+          <h1 style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: isDesktop ? 48 : 36, fontWeight: 900,
+            color: C.ink, letterSpacing: "-0.03em",
+            lineHeight: 1, marginTop: isDesktop ? 28 : 20,
+          }}>You're invited.</h1>
+          <p style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: isDesktop ? 17 : 15, color: C.stone,
+            lineHeight: 1.65, maxWidth: isDesktop ? 380 : 300,
+            marginTop: 14,
+          }}>
+            You've been invited to explore Hue. Add your name and email to begin.
+          </p>
+
+          <div style={{
+            marginTop: 36, width: "100%", maxWidth: 380,
+            display: "flex", flexDirection: "column", gap: 12,
+          }}>
+            <input
+              type="text"
+              placeholder="First name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              style={inputStyle}
+              onFocus={e => e.target.style.borderColor = C.ink}
+              onBlur={e  => e.target.style.borderColor = C.sand}
+            />
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              style={inputStyle}
+              onFocus={e => e.target.style.borderColor = C.ink}
+              onBlur={e  => e.target.style.borderColor = C.sand}
+            />
+            {error && (
+              <p style={{
+                fontSize: 13, color: C.spark, textAlign: "left",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}>{error}</p>
+            )}
+            <button
+              onClick={submit}
+              disabled={loading || !name.trim() || !email.trim()}
+              style={{
+                background: name.trim() && email.trim() && !loading ? C.ink : C.sand,
+                color: name.trim() && email.trim() && !loading ? C.cream : C.stone,
+                border: "none", borderRadius: 99,
+                padding: "16px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 700, fontSize: 16,
+                cursor: name.trim() && email.trim() && !loading ? "pointer" : "default",
+                transition: "background 0.15s",
+              }}
+            >
+              {loading ? "Saving…" : "Begin"}
+            </button>
+          </div>
+
+          <p style={{
+            fontSize: 12, color: C.stone, marginTop: 20,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            maxWidth: 320, lineHeight: 1.5,
+          }}>
+            Your profile is yours. We won't share it with anyone.
+          </p>
+        </div>
+      );
+    }
+
     // ─── App ──────────────────────────────────────────────────────────────────
     function App() {
       const [screen, setScreen] = useState("welcome");
       const [scores, setScores] = useState(null);
       const [ranked, setRanked] = useState(null);
       const [savedProfile] = useState(() => loadProfile());
+
+      // Beta session — null until /api/me resolves
+      const [betaUser,    setBetaUser]    = useState(null);
+      const [betaChecked, setBetaChecked] = useState(false);
+
+      // Check for existing session and/or invite token on mount
+      useEffect(() => {
+        (async () => {
+          try {
+            const res  = await fetch("/api/me");
+            const data = await res.json();
+            if (data.user) setBetaUser(data.user);
+          } catch {}
+          finally { setBetaChecked(true); }
+        })();
+      }, []);
+
+      // Invite token from URL (supports both /?invite=X and /register?invite=X)
+      const inviteToken = new URLSearchParams(window.location.search).get("invite");
+      const isRegisterPath = window.location.pathname === "/register";
 
       // Hook browser back button into app navigation
       useEffect(() => {
@@ -1097,34 +1244,70 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
         }
       };
 
+      // Show registration screen if on /register path or invite token present,
+      // and user is not already registered. Wait for /api/me to resolve first.
+      const showRegister = betaChecked && !betaUser && (isRegisterPath || inviteToken);
+
+      // SIMON: This is where free-tier restriction would be enforced in future.
+      // When the free tier is limited to dominant energy only, non-beta users
+      // would get a restricted assessment. For now the public app is unchanged.
+      const isBeta = !!betaUser;
+
+      const handleAssessmentComplete = async (s) => {
+        setScores(s);
+        navigate("results");
+        if (isBeta) {
+          const total     = Object.values(s).reduce((a, b) => a + b, 0);
+          const rankedIds = [...Object.entries(s)]
+            .sort(([, a], [, b]) => b - a)
+            .map(([id]) => id);
+          const labelNames = ["Instinctive", "Fluent", "Intentional", "Developing"];
+          const labels     = Object.fromEntries(rankedIds.map((id, i) => [id, labelNames[i]]));
+          fetch("/api/complete", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ scores: s, labels, dominantEnergy: rankedIds[0] }),
+          }).catch(() => {}); // Fire and forget — don't block the UI
+        }
+      };
+
       return (
         <>
           <style>{`
             input::placeholder { color: ${C.stone}; }
             input:focus { border-color: ${C.ink} !important; outline: none; }
           `}</style>
-          {screen === "welcome" && (
-            <WelcomeScreen
-              onStart={() => navigate("chat")}
-              onChat={handleChat}
-              savedProfile={savedProfile}
+          {showRegister ? (
+            <RegisterScreen
+              inviteToken={inviteToken}
+              onRegistered={user => { setBetaUser(user); navigate("welcome"); }}
             />
-          )}
-          {screen === "chat" && (
-            <ChatScreen
-              onComplete={s => { setScores(s); navigate("results"); }}
-              onHome={() => navigate("welcome")}
-            />
-          )}
-          {screen === "results" && scores && (
-            <ResultsScreen
-              scores={scores}
-              onContinue={r => { setRanked(r); setReturningToChat(false); navigate("companion"); }}
-              onHome={() => navigate("welcome")}
-            />
-          )}
-          {screen === "companion" && ranked && (
-            <CompanionScreen ranked={ranked} onHome={() => navigate("welcome")} returning={returningToChat} />
+          ) : (
+            <>
+              {screen === "welcome" && (
+                <WelcomeScreen
+                  onStart={() => navigate("chat")}
+                  onChat={handleChat}
+                  savedProfile={savedProfile}
+                />
+              )}
+              {screen === "chat" && (
+                <ChatScreen
+                  onComplete={handleAssessmentComplete}
+                  onHome={() => navigate("welcome")}
+                />
+              )}
+              {screen === "results" && scores && (
+                <ResultsScreen
+                  scores={scores}
+                  onContinue={r => { setRanked(r); setReturningToChat(false); navigate("companion"); }}
+                  onHome={() => navigate("welcome")}
+                />
+              )}
+              {screen === "companion" && ranked && (
+                <CompanionScreen ranked={ranked} onHome={() => navigate("welcome")} returning={returningToChat} />
+              )}
+            </>
           )}
         </>
       );
