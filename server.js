@@ -20,7 +20,8 @@ import {
   getUsersForDailyEmail,
 } from "./db.js";
 
-import { upsertSubscriber, sendTransactional } from "./mailerlite.js";
+import { upsertSubscriber } from "./mailerlite.js";
+import { sendEmail } from "./mailersend.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -307,7 +308,7 @@ async function sendDailyEmails() {
         .replace(/\{\{CTA_URL\}\}/g,       "https://myhue.co")
         .replace(/\{\{UNSUBSCRIBE_URL\}\}/g, `https://myhue.co/unsubscribe?id=${user.id}`);
 
-      const sent = await sendTransactional({
+      const sent = await sendEmail({
         to:      user.email,
         toName:  firstName,
         subject: `${content.contentType} — ${dayName}`,

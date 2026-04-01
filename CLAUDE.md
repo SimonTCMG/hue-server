@@ -17,26 +17,36 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 ## CURRENT BUILD STATUS
 
 ### Working and live
-- Full assessment conversation flow (AI-conducted, 6–8 exchanges)
-- Four energy scores generated from conversation
-- Results screen: observation hero + four energy cards with reach labels (Instinctive / Fluent / Intentional / Developing)
+- Full assessment conversation flow (AI-conducted, 8–10 exchanges)
+- Four energy scores generated from conversation — all four shown for all users
+- Results screen: observation hero (mirror + in-practice bullets) + four energy cards with reach labels (Instinctive / Fluent / Intentional / Developing) + reach-position text in non-primary cards + flex insight and surprise sections below
+- All 16 primary observations implemented (4 energies × 4 reach positions)
 - Companion chat: profile-aware, responds to questions about results
 - Returning user flow: shows last result, offers retake after 90 days
 - Static SVG favicon
-- Deployed on Railway, auto-deploys on GitHub push
+- Deployed on Railway with persistent Volume at `/app/data`
+- Beta invite link: `https://myhue.co/register?invite=BETA2026`
 
-### Beta infrastructure (built, needs Railway deployment steps before launch)
-- User registration at `/register?invite=TOKEN` — name + email, invite-token gated
+### Beta infrastructure — live
+- User registration at `/register?invite=BETA2026` — name + personal email, invite-token gated
+- Registration copy nudges personal email (profile portability principle)
 - Session cookies — persistent identity across visits (1-year cookie, httpOnly)
-- SQLite user store (`hue.db`) — name, email, scores, reach labels, dominant energy
-- MailerLite subscriber sync — adds beta testers to "Hue Beta Testers" group with energy fields
-- Assessment completion saves to server (`POST /api/complete`)
-- Daily email cron — 8:00 AM UK time, Claude-generated personalised content, uses `hue-email-template.html`
-- **BEFORE deploying:** see Railway deployment steps below
+- SQLite user store at `/app/data/hue.db` — name, email, scores, reach labels, dominant energy
+- MailerLite subscriber sync — adds beta testers to "Hue Beta Testers" group with 10 custom energy fields
+- Assessment completion saves to server (`POST /api/complete`) and updates MailerLite
+- Daily email cron — 8:00 AM UK time, Claude-generated personalised content
+- Email sending via MailerSend (Hobby plan, $5.60/month) — `mailersend.js`
+- **Needs:** `MAILERSEND_API_KEY` added to Railway env vars (get from app.mailersend.com → Integrations → API Tokens)
 
-### Built but needs real content
-- Observation copy: placeholder text in app — real observations drafted in `hue-observations-v1.md`, not yet implemented
-- Consent conversation: drafted in `hue-consent-conversation-v1.md`, not yet built into app
+### Email infrastructure
+- **MailerLite** (Growing Business, €8.10/month) — subscriber management, LACE automations, TCMG marketing
+- **MailerSend** (Hobby, $5.60/month) — Hue daily personalised transactional email only
+- Domain `myhue.co` verified in MailerSend via Cloudflare auto-DNS
+- From address: `hello@myhue.co`
+- Daily email template: `hue-email-template.html` — variables: `{{FIRST_NAME}}`, `{{PRIMARY_COLOR}}`, `{{ENERGY_NAME}}`, `{{CONTENT_TYPE}}`, `{{CONTENT_TEXT}}`, `{{CTA_URL}}`, `{{UNSUBSCRIBE_URL}}`
+
+### Built but not yet in app
+- Consent conversation: drafted in `hue-consent-conversation-v1.md`, not yet built into onboarding flow
 
 ### Not yet built
 - Second API call for bespoke conversation-generated observation
@@ -96,7 +106,8 @@ During beta, org linking is implicit — all beta testers share one invite token
 | `public/hue.html` | Entire frontend — single HTML file, React via CDN |
 | `server.js` | Node/Express backend — Anthropic proxy, registration routes, daily email cron |
 | `db.js` | SQLite user store — schema + query helpers |
-| `mailerlite.js` | MailerLite REST API helpers — subscriber upsert, transactional send |
+| `mailerlite.js` | MailerLite REST API helpers — subscriber upsert and group management only |
+| `mailersend.js` | MailerSend transactional email — daily personalised send via API |
 | `hue-email-template.html` | Daily email HTML template — variables: `{{FIRST_NAME}}` etc. |
 | `.env` | Local secrets — see `.env.example` for all required variables |
 | `.env.example` | Documents all required environment variables |

@@ -659,23 +659,74 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
     }
 
     // ─── Results screen ───────────────────────────────────────────────────────
-    // Placeholder observations — replace with final copy once written
     const OBSERVATIONS = {
       spark: {
         headline: "You tend toward Spark first.",
-        body: "You reach for momentum before others have finished deciding. When something needs to happen, you're already moving — cutting through hesitation, going first, breaking the deadlock. That instinct is a strength. The world moves faster when someone is willing to go first.",
+        mirror: "There's a version of urgency that other people call impatience, and you call Tuesday. You move at the speed of what's possible, not the speed of what's comfortable — and the gap between those two things is where most of your frustration lives. You don't push because you're unkind. You push because you can already see where this could go, and waiting feels like a choice to leave that potential untapped.",
+        inPractice: [
+          "Making a decision in the room when others want to take it away and think about it",
+          "Finishing someone's sentence — not to dominate, but because you already know where it's going and you want to get there",
+          "Feeling most alive when there's a problem that hasn't been solved yet, and least alive in meetings where nothing gets decided",
+        ],
+        flexEnergy: "Root",
+        flex: "The people who matter most to you notice. Spark energy moves fast; Root energy stays. When you slow down long enough to actually follow through on the smaller things — the check-in you said you'd do, the detail you'd usually delegate — people feel something different from you. Reliability from someone who usually moves at your pace lands as a statement.",
+        surprise: "Some of your most effective moments come from stepping back and letting someone else drive — watching, reading the situation, waiting for the moment where your energy would genuinely accelerate things rather than crowd them.",
+        reach: {
+          1: "You know how to move fast when it's needed. The difference between you and someone for whom this is their first instinct is that you choose it — you reach for Spark energy when the situation calls for it rather than leading with it automatically. That deliberateness makes it more precise. When you activate it, people notice.",
+          2: "Spark energy is available to you, but it takes intention. You've probably found yourself in situations where the room needed someone to push things forward, and you stepped in — not because it was natural, but because it was necessary. That kind of deliberate activation is a different skill than impulsiveness, and often a more useful one.",
+          3: "This is your flex frontier. Reaching for Spark energy — the push, the urgency, the willingness to make a call before everything is certain — probably doesn't come easily. But it's accessible. The most useful version of it for you might not look like someone else's natural Spark. It might look quieter. A clearer position taken earlier. A decision made before you feel completely ready.",
+        },
       },
       glow: {
         headline: "You tend toward Glow first.",
-        body: "You move through the world with a warmth others feel before you've said a word. People don't just like being around you — they open up to you. That quality shapes every room you walk into — and people feel it long after you've left.",
+        mirror: "You've always been able to read a room faster than most people realise. Not the words — the temperature. Who's holding back, who needs drawing out, who just went quieter than they were five minutes ago. Nobody taught you this. It runs constantly in the background, shaping more of your decisions than you probably give it credit for.",
+        inPractice: [
+          "Remembering small things people mentioned in passing — what was worrying them last month, how a particular situation ended — and checking in without being asked",
+          "Feeling the energy in a room shift before anyone has said what's wrong, and finding yourself already adjusting",
+          "Being the person people come to first when something's wrong, because they know you'll actually hear it — not just wait for your turn to speak",
+        ],
+        flexEnergy: "Flow",
+        flex: "The ideas you generate are often strong. What changes when you reach for Flow is that you can show people the architecture behind them — not just the enthusiasm, but the logic. This combination is more persuasive than either on its own. Warmth without structure can feel like optimism. Warmth with structure feels like a plan.",
+        surprise: "When you decide something matters enough to hold a line on, the people who've only seen your warmth sometimes don't know what to do with it. Your capacity to care deeply and say no firmly, at the same time, is more developed than most people around you expect.",
+        reach: {
+          1: "You bring warmth when the situation calls for it — and you read the situation well enough to know when that is. For you, Glow energy shows up as attentiveness: you notice people, adjust, bring some part of yourself that makes the environment feel safer. It doesn't cost you as much as it might cost others. It just requires a moment of intention.",
+          2: "Warmth and connection aren't your first instinct in most situations, but they're not foreign to you either. There are specific contexts — usually with people you know well, or in moments of genuine difficulty — where your Glow energy is clearly present. The question worth sitting with is whether those moments are as visible to others as they are to you.",
+          3: "This is the energy that probably feels most unfamiliar. The warmth, the expressiveness, the reading of emotional temperature — these things may not come naturally. But they're learnable, and they're worth practising, because they change how your other energies land. Analysis delivered with warmth travels further than analysis delivered without it. The practical return on that is real.",
+        },
       },
       root: {
         headline: "You tend toward Root first.",
-        body: "You're the steadying presence in a room before anyone notices they needed one. Others feel grounded around you — calmer, clearer, more considered. Root energy works quietly and continuously, and people rely on it more than they say.",
+        mirror: "You know things that other people in the room don't know yet, and you're comfortable waiting for the right moment to say them. The waiting is intentional — you've understood, often without naming it, that an idea released too early gets less traction than the same idea released at the right moment. Most people mistake your stillness for uncertainty. It's usually the opposite.",
+        inPractice: [
+          "Sending a message hours after a meeting because something didn't sit right — and usually being correct about it",
+          "Having a short list of commitments you've never broken, even when it would have been easier to let them slide",
+          "Still working through a conversation internally long after everyone else has moved on, because you're not finished with it yet",
+        ],
+        flexEnergy: "Spark",
+        flex: "The difference between being heard and being listened to is often timing. When you bring your thinking earlier — less finished, less certain, but present — it changes your role in the conversation. People who tend to reach for Root energy often have the clearest view in the room. The question is how many decisions get made before they share it.",
+        surprise: "In the right environment — with people you trust, on a topic that matters to you — the depth and pace of your thinking is striking. The conditions matter enormously. When they're right, there's very little holding back. People who've only seen you in unfamiliar environments haven't seen the full picture.",
+        reach: {
+          1: "You have a steadiness that other people feel without being able to name it. It shows up in how you listen, how you follow through, how you don't create unnecessary drama around things that don't warrant it. As a second energy, Root gives your more dominant instincts something to land on — a consistency that makes you more trustworthy than your pace might suggest.",
+          2: "You reach for steadiness when you're at your best. In moments of pressure or complexity, there's a version of you that slows down, thinks carefully, and does the thing that needs doing without fuss. That quality is more available than it might feel in faster-moving moments. It tends to emerge when the stakes are genuinely high.",
+          3: "Patience, follow-through, and steadiness are probably not your first instinct. The energy required to stay with something — especially something that's moving slowly — is real, and it costs you more than it costs people for whom this is natural. That's worth knowing, not as a limitation but as a fact about where to direct your attention. The most useful version of Root energy for you might be very small: finishing one thing before starting the next.",
+        },
       },
       flow: {
         headline: "You tend toward Flow first.",
-        body: "You see the whole picture before others have finished looking at the parts. Systems, patterns, what's missing — your mind moves toward clarity the way water finds its level. That kind of clarity is rarer than most people realise — and it's one of the most quietly valuable things a person can bring.",
+        mirror: "You have a question forming almost before the other person has finished speaking. Not to challenge — to understand exactly where the gap is. You move through ambiguity by mapping it: what do we know, what are we assuming, what would have to be true for this to work? Where other people see uncertainty, you see a set of questions that haven't been asked yet. The mapping is how you make progress — and it catches things that enthusiasm alone misses.",
+        inPractice: [
+          "Being the person who asks the question everyone was avoiding — not to slow things down, but because the answer actually changes what comes next",
+          "Feeling most useful when there's complexity to navigate, and least useful when the conversation stays at the surface",
+          "Returning to a problem you thought you'd solved, because something about the conclusion still doesn't quite fit",
+        ],
+        flexEnergy: "Glow",
+        flex: "The quality of your thinking is rarely the issue. What sometimes doesn't land is how it feels to be on the receiving end of it. When you reach for Glow first — when you lead with curiosity about the person rather than the problem — the same insight travels further. People receive analysis better from someone who's made them feel seen first. The sequence matters more than most people realise.",
+        surprise: "The precision that Flow energy brings to thinking applies just as much to relationships and conversations — when you turn it there deliberately. People who've only seen you in analytical mode sometimes don't know what to do when you give them your full, unhurried attention. It tends to land as something close to care.",
+        reach: {
+          1: "You reach for clarity when things get complicated. It's not your first move, but it becomes available quickly — the instinct to map what's known, name what's being assumed, find the question underneath the question. As a second energy, Flow tends to make your more dominant instincts more rigorous. You act or connect, but you also think. That combination is harder to find than it looks.",
+          2: "Structure and systems aren't naturally where you go first, but you get there. In situations that require it — complex decisions, conflicting information, plans that need to actually hold together — there's a version of you that shifts into a more analytical mode. It takes a beat. But when it arrives, it's useful in a way that your faster instincts aren't.",
+          3: "Stepping back to map a situation before acting on it is probably not where you go naturally. The questions — what do we actually know, what are we assuming, what's the shape of this problem — may feel like they slow things down rather than improve them. Worth knowing: reaching for Flow energy doesn't have to mean replacing your instincts. It can mean pausing long enough to test one assumption before you move. That's a small reach with a disproportionate return.",
+        },
       },
     };
 
@@ -725,6 +776,16 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             }} />
           </div>
           <div style={{ fontSize: 11, color: C.stone, marginTop: 7, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{e.desc}</div>
+          {i > 0 && (
+            <p style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: 13, lineHeight: 1.65,
+              color: C.ink, opacity: 0.75,
+              margin: "12px 0 0",
+              paddingTop: 12,
+              borderTop: `1px solid ${C.sand}`,
+            }}>{OBSERVATIONS[e.id].reach[i]}</p>
+          )}
         </div>
       );
 
@@ -780,9 +841,26 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                 lineHeight: 1.7,
                 color: heroTextColor,
                 opacity: 0.9,
-                margin: 0,
+                margin: "0 0 24px",
                 maxWidth: 540,
-              }}>{obs.body}</p>
+              }}>{obs.mirror}</p>
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 11, fontWeight: 600,
+                letterSpacing: "0.1em", textTransform: "uppercase",
+                color: heroSubColor, margin: "0 0 10px",
+              }}>In practice, this tends to look like:</p>
+              <ul style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+                {obs.inPractice.map((item, idx) => (
+                  <li key={idx} style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: isDesktop ? 15 : 14,
+                    lineHeight: 1.65,
+                    color: heroTextColor,
+                    opacity: 0.85,
+                  }}>{item}</li>
+                ))}
+              </ul>
             </div>
 
             {/* Energy cards */}
@@ -803,6 +881,44 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                   {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
                 </div>
               )}
+            </div>
+
+            {/* Flex & Surprise */}
+            <div style={{ padding: isDesktop ? "32px 40px 0" : "24px 20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{
+                background: "#fff", borderRadius: 20,
+                padding: isDesktop ? "28px 28px" : "20px 20px",
+                border: `1.5px solid ${C.sand}`,
+              }}>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 11, fontWeight: 600,
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  color: primary.color, margin: "0 0 10px",
+                }}>When you reach for {obs.flexEnergy} energy</p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
+                  color: C.ink, margin: 0,
+                }}>{obs.flex}</p>
+              </div>
+              <div style={{
+                background: "#fff", borderRadius: 20,
+                padding: isDesktop ? "28px 28px" : "20px 20px",
+                border: `1.5px solid ${C.sand}`,
+              }}>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 11, fontWeight: 600,
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  color: primary.color, margin: "0 0 10px",
+                }}>You might surprise people</p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
+                  color: C.ink, margin: 0,
+                }}>{obs.surprise}</p>
+              </div>
             </div>
 
             {/* CTA */}
