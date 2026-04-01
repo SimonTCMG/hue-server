@@ -19,10 +19,20 @@
 import Database from "better-sqlite3";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { v4 as uuidv4 } from "uuid";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.DB_PATH || join(__dirname, "hue.db");
 const db = new Database(DB_PATH);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS conversation_summaries (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    summary    TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )
+`);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -69,6 +79,18 @@ export function updateLastEmailSent(id, ts) {
 
 export function getUsersForDailyEmail() {
   return db.prepare("SELECT * FROM users WHERE assessment_completed_at IS NOT NULL").all();
+}
+
+export function saveConversationSummary(userId, summary) {
+  return db.prepare(
+    "INSERT INTO conversation_summaries (id, user_id, summary, created_at) VALUES (?, ?, ?, ?)"
+  ).run(uuidv4(), userId, summary, Date.now());
+}
+
+export function getConversationSummaries(userId, limit = 5) {
+  return db.prepare(
+    "SELECT summary, created_at FROM conversation_summaries WHERE user_id = ? ORDER BY created_at DESC LIMIT ?"
+  ).all(userId, limit);
 }
 
 export default db;

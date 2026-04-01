@@ -18,6 +18,8 @@ import {
   updateAssessment,
   updateLastEmailSent,
   getUsersForDailyEmail,
+  saveConversationSummary,
+  getConversationSummaries,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -150,6 +152,59 @@ app.post("/api/complete", async (req, res) => {
   }).catch(console.error);
 
   return res.json({ ok: true });
+});
+
+// ─── Conversation memory ────────────────────────────────────────────────────
+
+// GET /api/summaries — returns recent conversation summaries for current user
+app.get("/api/summaries", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.json({ summaries: [] });
+  const summaries = getConversationSummaries(user.id, 5);
+  return res.json({ summaries });
+});
+
+// POST /api/summarise — generates and saves a summary of a companion conversation
+app.post("/api/summarise", async (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not registered." });
+
+  const { messages } = req.body;
+  if (!Array.isArray(messages) || messages.length < 2) {
+    return res.json({ ok: true }); // Nothing worth summarising
+  }
+
+  const transcript = messages
+    .map(m => `${m.role === "user" ? "Person" : "Hue"}: ${m.content}`)
+    .join("\n\n");
+
+  const system = `You are Hue. Summarise the key themes, questions, tensions, or shifts in thinking from this companion conversation in 2–3 sentences. Focus on what would be worth reflecting back in a future session — recurring concerns, things this person is actively working through, any realisations or resistance that surfaced. Write in third person. Be specific, not generic. Plain prose only.`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 200,
+        system,
+        messages: [{ role: "user", content: `Summarise this conversation:\n\n${transcript}` }],
+      }),
+    });
+
+    if (!response.ok) return res.json({ ok: false });
+    const data = await response.json();
+    const summary = data.content?.find(b => b.type === "text")?.text?.trim();
+    if (summary) saveConversationSummary(user.id, summary);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Summarise error:", err);
+    return res.json({ ok: false });
+  }
 });
 
 // ─── Anthropic proxy ────────────────────────────────────────────────────────

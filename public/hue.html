@@ -126,7 +126,10 @@ After 8-10 exchanges, output EXACTLY this JSON on its own line:
 {"done":true,"scores":{"spark":N,"glow":N,"root":N,"flow":N}}
 Where N are integers summing to ~28, genuinely reflecting the conversation.`;
 
-    function buildCompanionPrompt(ranked) {
+    function buildCompanionPrompt(ranked, summaries = []) {
+      const memoryBlock = summaries.length > 0
+        ? `\n\nWhat you remember from previous conversations with this person:\n${summaries.map(s => `- ${s.summary}`).join("\n")}\n\nUse this memory naturally — reference it when relevant, not as a preamble. If opening a new session, draw on one specific thing from memory to make your opening feel like a continuation, not a restart.`
+        : "";
       return `You are Hue — a warm, honest, and genuinely useful personal companion. You are not a report reader or a chatbot. You are a thinking partner who happens to know this person's colour energy profile well. Your warmth is constant and non-negotiable — it doesn't change based on who you're talking to. You can be more concise and direct with someone who has strong Spark energy, but you never become clinical or cold. You are always on their side, even when you're challenging them. Think: a brilliant friend who tells you the truth, but does it because they care.
 
 You conducted this assessment yourself through natural conversation — you asked the questions and listened carefully to how this person responded. The profile below reflects patterns you genuinely noticed. When asked how you reached these conclusions, speak to what you observed in the conversation: recurring themes, the way they framed things, what they lit up about. Don't refer to an algorithm or external calculation — you did this, and you can speak to it.
@@ -164,7 +167,7 @@ When a returning user greets you (e.g. "Hi Hue, I'm back"), welcome them warmly 
 
 IF ASKED "how does this work?" or about the origins of the model, answer in your own words along these lines: People have always known that human nature comes in roughly four flavours — Aristotle saw it in the elements, Hippocrates mapped it to temperament, Jung built a psychology around it, and dozens of frameworks since have rediscovered the same pattern. What most got wrong was treating the four as fixed types — things you were, rather than energies you have. Hue starts from a different place: you don't have a colour, you have colours. All four are real in you. What differs is reach order — which comes naturally first, which takes more intention. The conversation we had wasn't a quiz. I was listening for recurring themes: what you lit up about, how you framed decisions, where you hesitated. That's how the profile came together. And this is just the beginning — the more we talk, the more useful it becomes.
 
-No markdown formatting — plain prose only. No asterisks, no bullet points, no headers. Keep responses concise: 2-4 short paragraphs when explaining, one question when coaching.`;
+No markdown formatting — plain prose only. No asterisks, no bullet points, no headers. Keep responses concise: 2-4 short paragraphs when explaining, one question when coaching.${memoryBlock}`;
     }
 
     // ─── API ──────────────────────────────────────────────────────────────────
@@ -177,6 +180,15 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "API error");
       return d.text;
+    }
+
+    // Fire-and-forget — saves a conversation summary in the background
+    function summariseConversation(messages) {
+      fetch("/api/summarise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      }).catch(() => {}); // silent fail — non-blocking
     }
 
     function parseScores(text) {
@@ -514,7 +526,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
               <p style={{
                 fontSize: 12, color: C.stone, marginTop: 14,
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-              }}>About 5 minutes · No right answers</p>
+              }}>About 5 minutes · No right or wrong answers</p>
               <p style={{
                 fontSize: 12, color: C.stone, marginTop: 6,
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -543,6 +555,111 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             {children}
           </div>
         </div>
+      );
+    }
+
+    // ─── Consent screen ───────────────────────────────────────────────────────
+    function ConsentScreen({ onComplete }) {
+      const isDesktop = useIsDesktop();
+      const [messages, setMessages] = useState([]);
+      const [step, setStep]         = useState(0);
+      const [typing, setTyping]     = useState(false);
+      const bottomRef = useRef(null);
+
+      const EXCHANGES = [
+        {
+          hue:   "Before we start, I want you to know what you're walking into. This isn't a quiz. I'm going to ask you about real situations — moments from your actual life — and from how you talk about them, I'll build a picture of the energies you tend to reach for most naturally. It takes around 10–15 minutes. Sound good?",
+          reply: "Sounds good.",
+        },
+        {
+          hue:   "Your profile is yours. I won't share it with anyone, and no one else can see it without you choosing to show them. I do keep brief notes on our conversations — just enough so I remember where we left off next time, and don't ask you to start from scratch. Those notes are only ever used to give our conversations more depth. Ready to go?",
+          reply: "Ready to go.",
+        },
+        {
+          hue:   "One last thing: I'll ask about specific situations, not hypothetical ones. What actually happened, not what you think the right answer might be. There's no right or wrong answer here — just yours. The more honest the conversation, the more useful your profile will be. Okay — let's begin.",
+          reply: null,
+        },
+      ];
+
+      // Show typing indicator then first message on mount
+      useEffect(() => {
+        setTyping(true);
+        const t = setTimeout(() => {
+          setTyping(false);
+          setMessages([{ from: "hue", text: EXCHANGES[0].hue }]);
+          setStep(1);
+        }, 900);
+        return () => clearTimeout(t);
+      }, []);
+
+      // Auto-advance after Exchange 3 appears
+      useEffect(() => {
+        if (step !== 3) return;
+        const t = setTimeout(() => {
+          localStorage.setItem("hue_consent", "1");
+          onComplete();
+        }, 1800);
+        return () => clearTimeout(t);
+      }, [step]);
+
+      useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, [messages, typing]);
+
+      const handleReply = (replyText) => {
+        const nextStep = step + 1;
+        setMessages(m => [...m, { from: "user", text: replyText }]);
+        setTyping(true);
+        setTimeout(() => {
+          setTyping(false);
+          setMessages(m => [...m, { from: "hue", text: EXCHANGES[nextStep - 1].hue }]);
+          setStep(nextStep);
+        }, 900);
+      };
+
+      const showChip = (step === 1 || step === 2) && !typing && messages.length > 0 && messages[messages.length - 1].from === "hue";
+      const chipLabel = step === 1 ? EXCHANGES[0].reply : EXCHANGES[1].reply;
+
+      return (
+        <ChatFrame isDesktop={isDesktop}>
+          <div style={{ background: "transparent", display: "flex", flexDirection: "column", flex: 1 }}>
+            <div style={{
+              padding: "18px 20px 14px",
+              display: "flex", alignItems: "center", gap: 12,
+              borderBottom: `1px solid ${C.sand}`,
+              background: C.cream,
+              position: "sticky", top: 0, zIndex: 10,
+              borderRadius: isDesktop ? "32px 32px 0 0" : 0,
+            }}>
+              <SpinMark size={38} paused />
+              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink }}>Hue</div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
+              {messages.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
+              {typing && <TypingIndicator />}
+              <div ref={bottomRef} style={{ height: 8 }} />
+            </div>
+
+            {showChip && (
+              <div style={{ padding: "8px 16px 20px", display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => handleReply(chipLabel)}
+                  style={{
+                    background: C.ink, color: C.cream,
+                    border: "none", borderRadius: 99,
+                    padding: "12px 24px",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: 15, fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {chipLabel}
+                </button>
+              </div>
+            )}
+          </div>
+        </ChatFrame>
       );
     }
 
@@ -947,13 +1064,25 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
     }
 
     // ─── Suggested questions ──────────────────────────────────────────────────
-    const RESULTS_SUGGESTIONS = [
-      "How does this work?",
-      "What does my profile say about how I work with others?",
-      "Where am I most likely to get in my own way?",
-      "Which energy should I try to use more deliberately?",
-      "What should I pay attention to this week?",
-    ];
+    function getResultsSuggestions(ranked) {
+      if (!ranked || ranked.length < 4) return [
+        "How does this work?",
+        "What does my profile say about how I work with others?",
+        "Where am I most likely to get in my own way?",
+        "Which energy should I try to use more deliberately?",
+        "What should I pay attention to this week?",
+      ];
+      const primary   = ranked[0];
+      const second    = ranked[1];
+      const developing = ranked[3];
+      return [
+        `Tell me more about my ${primary.name} energy.`,
+        `What does it mean that ${developing.name} is my Developing energy?`,
+        `How do ${primary.name} and ${second.name} show up together?`,
+        "Where am I most likely to get in my own way?",
+        "What should I pay attention to this week?",
+      ];
+    }
 
     const RETURNING_SUGGESTIONS = [
       "I've got something I'm working through — can we talk?",
@@ -1037,23 +1166,37 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       const [input, setInput]     = useState("");
       const [typing, setTyping]   = useState(false);
       const [hasSentMessage, setHasSentMessage] = useState(false);
+      const [summaries, setSummaries] = useState(null); // null = loading
       const bottomRef = useRef(null);
       const inputRef  = useRef(null);
-      const system = buildCompanionPrompt(ranked);
       const visitCount = useRef(getChatVisitCount());
-      const allSuggestions = returning ? RETURNING_SUGGESTIONS : RESULTS_SUGGESTIONS;
+      const allSuggestions = returning ? RETURNING_SUGGESTIONS : getResultsSuggestions(ranked);
       const suggestions = suggestionsToShow(allSuggestions, visitCount.current);
+
+      // Rebuild system prompt whenever summaries load
+      const system = buildCompanionPrompt(ranked, summaries || []);
 
       useEffect(() => { incrementChatVisitCount(); }, []);
 
+      // Load conversation summaries from server on mount
       useEffect(() => {
-        if (returning) {
-          // Returning from home — ask Claude for a personalised welcome back
+        fetch("/api/summaries")
+          .then(r => r.json())
+          .then(d => setSummaries(d.summaries || []))
+          .catch(() => setSummaries([]));
+      }, []);
+
+      // Fire opener once summaries are resolved
+      useEffect(() => {
+        if (summaries === null) return; // still loading
+
+        if (returning || summaries.length > 0) {
+          // Reflective opener — Claude generates a response informed by memory
           (async () => {
             setTyping(true);
             try {
               const seed = [{ role: "user", content: "Hi Hue, I'm back." }];
-              const reply = await callClaude(seed, system);
+              const reply = await callClaude(seed, buildCompanionPrompt(ranked, summaries));
               setHistory([
                 { role: "user",      content: seed[0].content },
                 { role: "assistant", content: reply },
@@ -1066,11 +1209,11 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             }
           })();
         } else {
-          // Coming from results — hardcoded opener, no API call needed
+          // First visit, no history — simple hardcoded opener, no API call needed
           const primary = ranked[0];
           setDisplay([{ from: "hue", text: `Your ${primary.name} profile is right here. What would you like more insight on?` }]);
         }
-      }, []);
+      }, [summaries]);
 
       useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1087,8 +1230,12 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
         setTyping(true);
         try {
           const reply = await callClaude(newHistory, system);
-          setHistory(h => [...h, { role: "assistant", content: reply }]);
+          const fullHistory = [...newHistory, { role: "assistant", content: reply }];
+          setHistory(fullHistory);
           setDisplay(d => [...d, { from: "hue", text: reply }]);
+          // Checkpoint: summarise every 5 user messages
+          const userMsgCount = newHistory.filter(m => m.role === "user").length;
+          if (userMsgCount % 5 === 0) summariseConversation(fullHistory);
         } catch {
           setDisplay(d => [...d, { from: "hue", text: "Something went wrong. Try again." }]);
         } finally {
@@ -1119,7 +1266,10 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                   ))}
                 </div>
               </div>
-              <button onClick={onHome} style={{
+              <button onClick={() => {
+                if (history.length >= 2) summariseConversation(history);
+                onHome();
+              }} style={{
                 background: "none", border: `1px solid ${C.sand}`, borderRadius: 99,
                 padding: "6px 14px", fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: 12, fontWeight: 600, color: C.stone, cursor: "pointer",
@@ -1402,10 +1552,16 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             <>
               {screen === "welcome" && (
                 <WelcomeScreen
-                  onStart={() => navigate("chat")}
+                  onStart={() => {
+                    if (localStorage.getItem("hue_consent")) navigate("chat");
+                    else navigate("consent");
+                  }}
                   onChat={handleChat}
                   savedProfile={savedProfile}
                 />
+              )}
+              {screen === "consent" && (
+                <ConsentScreen onComplete={() => navigate("chat")} />
               )}
               {screen === "chat" && (
                 <ChatScreen
