@@ -49,6 +49,46 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 
 ---
 
+## ⚠️ POST-BETA DATABASE REQUIREMENT — DO NOT SKIP
+
+**Organisation and team linking must be built before any paid team accounts go live.**
+
+### The principle
+Users register with a personal email. Their profile is theirs — portable, not owned by their employer. Organisation membership is a separate relationship, carried by the invite link — not by the email address.
+
+### What needs to be built
+Two new database tables:
+
+**`organisations`**
+- `id` (uuid)
+- `name` (e.g. "The Change Maker Group")
+- `invite_code` (unique, e.g. `TCMG-X7K2`) — embedded in invite URL
+- `plan` (e.g. `beta`, `team`, `enterprise`)
+- `seat_count`
+- `created_at`
+
+**`org_memberships`**
+- `user_id` → foreign key to `users`
+- `org_id` → foreign key to `organisations`
+- `role` (e.g. `member`, `admin`)
+- `joined_at`
+- `active` (boolean — set to false when someone leaves, profile stays intact)
+
+### How registration changes
+The invite URL carries the org code: `myhue.co/register?org=TCMG-X7K2`
+On registration, the server creates the user record (personal email) and an `org_memberships` row linking them to that org. If they leave the organisation, the membership row is deactivated — their user record and profile are untouched.
+
+### Why this matters
+- Org admin can see their team's profiles (with consent) via the team dashboard
+- Daily emails continue to the individual's personal address regardless of employment status
+- Billing is tied to the org, not the individual
+- Individual can join a new org with the same profile
+
+### Beta status
+During beta, org linking is implicit — all beta testers share one invite token (`BETA2026`) and are implicitly linked to TCMG. The `organisations` and `org_memberships` tables do not exist yet. Build them before the first paid team account.
+
+---
+
 ## FILE LOCATIONS
 
 | File | Purpose |

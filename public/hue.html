@@ -1116,7 +1116,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             lineHeight: 1.65, maxWidth: isDesktop ? 380 : 300,
             marginTop: 14,
           }}>
-            You've been invited to explore Hue. Add your name and email to begin.
+            You've been invited to explore Hue. Use a personal email — your profile belongs to you, not your employer. It travels with you wherever you go.
           </p>
 
           <div style={{
@@ -1134,7 +1134,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             />
             <input
               type="email"
-              placeholder="Email address"
+              placeholder="Personal email address"
               value={email}
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === "Enter" && submit()}
@@ -1171,7 +1171,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             fontFamily: "'Plus Jakarta Sans', sans-serif",
             maxWidth: 320, lineHeight: 1.5,
           }}>
-            Your profile is yours. We won't share it with anyone.
+            Your profile is yours to keep — if you ever move on, it comes with you.
           </p>
         </div>
       );
