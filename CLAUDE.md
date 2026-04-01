@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 1 April 2026 (beta infrastructure added).*
+*Master brief for all Claude sessions. Last updated: 1 April 2026 (session 3: conversation memory + consent flow built).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -21,7 +21,9 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Four energy scores generated from conversation — all four shown for all users
 - Results screen: observation hero (mirror + in-practice bullets) + four energy cards with reach labels (Instinctive / Fluent / Intentional / Developing) + reach-position text in non-primary cards + flex insight and surprise sections below
 - All 16 primary observations implemented (4 energies × 4 reach positions)
-- Companion chat: profile-aware, responds to questions about results
+- **Consent conversation** — three-exchange intro before first assessment (Welcome → Consent → Assessment); skipped for returning users via `localStorage("hue_consent")`
+- **Companion chat** — profile-aware; energy-specific suggested questions (dynamic, based on ranked profile); reflective opener when memory exists
+- **Conversation memory** — session summaries saved to SQLite, injected into companion system prompt; Hue opens each return session with a memory-informed reflection
 - Returning user flow: shows last result, offers retake after 90 days
 - Static SVG favicon
 - Deployed on Railway with persistent Volume at `/app/data`
@@ -46,10 +48,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - From address: `hello@myhue.co`
 - Daily email template: `hue-email-template.html` — variables: `{{FIRST_NAME}}`, `{{PRIMARY_COLOR}}`, `{{ENERGY_NAME}}`, `{{CONTENT_TYPE}}`, `{{CONTENT_TEXT}}`, `{{CTA_URL}}`, `{{UNSUBSCRIBE_URL}}`
 
-### Built but not yet in app
-- Consent conversation: drafted in `hue-consent-conversation-v1.md`, not yet built into onboarding flow
-
-### Conversation memory — BUILT
+### Conversation memory — detail
 Hue stores conversation summaries and uses them to open each new session with a reflection (Option A design).
 
 **How it works:**
@@ -296,12 +295,13 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 ## CURRENT PRIORITIES
 
-1. Implement real observations into app (copy is ready in `hue-observations-v1.md`)
-2. Build consent conversation into onboarding flow (copy ready in `hue-consent-conversation-v1.md`)
-3. Write next batch of observations (pairings + misread + profile shape)
-4. Build bespoke conversation-generated observation (second API call)
-5. Build share my profile link (facilitator entry point)
+1. Confirm 8am daily email arrived (check simon@simesco.co.uk — first send 2 April 2026)
+2. Invite beta team via `https://myhue.co/register?invite=BETA2026`
+3. Write next observation batch — two-energy pairings (12), misread (8), profile shape (6)
+4. Build bespoke conversation-generated observation (second API call after assessment)
+5. Build share my profile link (facilitator entry point — spec in `hue-share-profile-spec-v1.md`)
 6. Write hue-language-guide-v1.md (single vocabulary reference)
+7. Post-beta: build organisations + org_memberships tables before first paid team account
 
 ---
 
