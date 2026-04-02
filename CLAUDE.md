@@ -273,19 +273,23 @@ When two or more energies are similarly scored, rank order is less meaningful th
 
 ## OBSERVATION LIBRARY STATUS
 
-**42 observations written** in `hue-observations-v1.md`:
+**71 observations written** in `hue-observations-v1.md`:
 - All four energies × four reach positions — 16 (live in app)
 - Two-energy pairings (1st + 2nd energy combinations) — 12 (drafted, awaiting Simon review)
 - Misread observations — 8 (drafted, awaiting Simon review)
 - Profile shape observations — 6 (drafted, awaiting Simon review)
+- Under pressure — 4 (drafted, awaiting Simon review)
+- In leadership — 4 (drafted, awaiting Simon review)
+- In conflict — 4 (drafted, awaiting Simon review)
+- In relationships — 4 (drafted, awaiting Simon review)
+- Flex crossings — 8 (drafted, awaiting Simon review)
+- Near-equal combinations — 5 (drafted, awaiting Simon review — conditional on scores)
+
+**Misread observations — dual-use potential (Simon's note):** These should serve two purposes: validating the person's own experience of being misread, AND helping people understand the likely intentions of those around them (team context). Consider a "understanding others" framing in the team dashboard or facilitator materials.
 
 **Bespoke observation — BUILT:** `POST /api/bespoke-observation` generates one unrepeatable observation from the assessment conversation. Displayed as "Only you" card on results screen.
 
-**Remaining to write:**
-- Flex crossings dominant→4th energy (4) — powerful, write before first client demo
-- Under pressure (4) — immediately relatable
-- In leadership (4) — relevant for B2B demo
-- Near-equal combinations (5) — conditional on scores
+**All 71 observations in scope are written. Remaining work is Simon review and deployment.**
 
 ---
 
@@ -301,8 +305,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 1. Confirm 8am daily email arrived (check simon@simesco.co.uk — first send 2 April 2026)
 2. Invite beta team via `https://myhue.co/register?invite=BETA2026`
-3. **Simon review:** read 26 new observation drafts in `hue-observations-v1.md` — approve/amend before deploying to app
-4. Write next observation batch — flex crossings (4), under pressure (4), in leadership (4)
+3. **Simon review:** read all 55 drafted observations in `hue-observations-v1.md` (observations 17–65, 66–71) — approve/amend before deploying to app
 5. Build share my profile link (facilitator entry point — spec in `hue-share-profile-spec-v1.md`)
 6. Post-beta: build organisations + org_memberships tables before first paid team account
 

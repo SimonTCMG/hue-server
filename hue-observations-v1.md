@@ -361,6 +361,268 @@ What's actually happening: the questions aren't stalling — they're load-bearin
 
 ---
 
+## Each Energy Under Pressure — 4
+
+---
+
+### 37. Spark under pressure
+
+Under pressure, the speed that usually makes Spark energy useful can become the thing that creates problems. The instinct to push, decide, move — it accelerates. The gap between what's happening and what could be happening feels larger than usual, and the urgency that drives you becomes harder to calibrate.
+
+In practice this tends to look like: pushing too hard, too early; making decisions before the information is ready; cutting across people in a way that isolates rather than mobilises. Not because the direction is wrong — often it isn't — but because the pace has stopped matching the room.
+
+The people who know you best can usually tell when the pressure is real and when you're outrunning it. They're useful if you let them in.
+
+---
+
+### 38. Glow under pressure
+
+Under pressure, Glow energy tends to turn inward — toward the people in the room, often at the expense of the problem. The instinct is to read the temperature, manage the emotional dimension, keep people from fracturing. That's a genuine contribution. It can also become the thing that gets in the way of the difficult conversation the situation actually needs.
+
+In practice: you might smooth over the tension that needed to be named. You might protect someone's confidence when the more useful thing would be to tell them what they're not seeing. You hold the room together — sometimes past the point where the room needed to fall apart a little first.
+
+---
+
+### 39. Root under pressure
+
+Under pressure, the deliberateness that Root energy produces can become a kind of paralysis. The instinct is to wait for more certainty, consider more carefully, not move until the decision is sound. When the pressure is external and fast-moving, that pace creates a gap — between when the room wants to move and when you're ready, between what's expected and what you can deliver in the available time.
+
+What this often produces: a fully-formed position that arrives after the room has already decided. That's uncomfortable. And sometimes the view that arrives slightly too late is more valuable than it looks — because everyone else's hasty decision isn't working.
+
+---
+
+### 40. Flow under pressure
+
+Under pressure, the analytical instinct sharpens — but the target of it can shift. Instead of mapping the actual problem, Flow energy under pressure sometimes starts mapping the meta-problem: what's wrong with the way people are approaching this, what assumptions are being made, what question nobody's asking yet. The analysis is still running. It's just running on the wrong thing.
+
+In practice: you might find yourself identifying everything that's structurally wrong with the room's approach while the room needs someone to make a call. The clarity is real. The timing is off.
+
+---
+
+## Each Energy in Leadership — 4
+
+---
+
+### 41. Spark leading
+
+Spark energy in a leadership position produces momentum. People know where they're going, they know you believe it's possible, and they know you'll push hard to get there. The gap that Spark leadership tends to create is in the people who need more time — to think, to ask, to voice concern. They get left behind, or they stop voicing things because the pace signals that the window for input has already closed.
+
+The most effective version of Spark leadership has something deliberate underneath it — a targeted slowdown at specific moments, not as a natural instinct but as a practice. You already know how to accelerate. The skill that makes the most difference is knowing when to stop and wait.
+
+---
+
+### 42. Glow leading
+
+Glow energy in leadership produces a sense of safety. People feel heard, they feel seen, they feel willing to bring real problems to the surface. This is more valuable than it sounds — most leadership environments are places where people perform being fine rather than saying what's actually happening. Creating the conditions for honesty is a leadership skill that not everyone has.
+
+The gap in Glow leadership tends to show up when a hard decision needs to be made and implemented — when someone needs to be told something they won't like, or when a direction needs to be chosen that will disappoint some people. The instinct to keep everyone comfortable can delay the conversation that would actually serve them better.
+
+---
+
+### 43. Root leading
+
+Root energy in leadership produces steadiness — a quality that becomes most visible in difficult circumstances. People know what to expect from you. When things go wrong, you don't amplify the pressure. You assess, you commit, you follow through. In environments that have experienced a lot of change and chaos, that constancy is meaningful.
+
+The thing that Root leadership can underweight is urgency. The same pace that feels measured in normal conditions can feel slow to a team that needs to move. The most effective Root leaders hold their natural steadiness while naming urgency as a deliberate choice — not because they're panicking, but because the situation requires it.
+
+---
+
+### 44. Flow leading
+
+Flow energy in leadership produces clarity. Complex situations get mapped, assumptions get named, the question nobody was asking gets asked. People who work for Flow leaders tend to feel genuinely understood — that their leader sees what's actually happening, not a simplified version of it.
+
+The gap tends to show up in the emotional dimension. The precision that makes Flow leadership analytically strong doesn't always carry warmth alongside it — and people need to feel that their leader cares about them, not just about the accuracy of the thinking. Getting the sequence right matters: the understanding has to come before the clarity, or the clarity lands cold.
+
+---
+
+## Each Energy in Conflict — 4
+
+---
+
+### 45. Spark in conflict
+
+Spark energy in conflict tends to name it fast and resolve it fast — or try to. The instinct is directness: if something isn't working, say so, address it, move past it. This is often the right instinct. The risk is that the speed itself creates a second problem on top of the first — the other person hasn't had enough time to feel heard before you're pushing toward resolution, and the push reads as dismissal.
+
+What helps: a pause between naming the issue and moving to what happens next. Not a long one. Just long enough for the other person to register that you've actually understood their position, not only identified the problem.
+
+---
+
+### 46. Glow in conflict
+
+Glow energy finds conflict costly. The instinct is toward resolution — to restore the temperature in the room, repair what's fractured, return to the version of things where people are okay. This means conflict with someone reaching for Glow energy often ends quickly, but sometimes before the actual issue has been fully addressed.
+
+The accommodation is genuine — and it's worth separating from weakness. But the question worth asking after any conflict resolution is: was the thing that needed to change actually named? Or did the warmth do the work that a harder conversation was supposed to do?
+
+---
+
+### 47. Root in conflict
+
+Root energy in conflict tends to process internally and surface externally only when something has been fully thought through. By the time someone who reaches for Root energy raises a conflict, they've usually been sitting with it for some time — and the other person is often surprised by either its existence or its depth.
+
+The gap this creates: the other person hasn't had time to process what's been accumulating. What feels like a measured conversation from your side can feel like a sudden escalation from theirs. The most useful move is often naming the issue earlier, less completely — before it's been fully resolved internally — even though that feels uncomfortable.
+
+---
+
+### 48. Flow in conflict
+
+Flow energy in conflict wants to understand the structure of the problem: what actually happened, what was assumed, what the actual disagreement is underneath the surface one. This is useful. It becomes less useful when the other person needs to be heard emotionally before they're ready to be understood analytically.
+
+In practice: you might accurately diagnose what went wrong while the other person is still in the part where they need to feel that what they felt was real and valid. Getting there too fast — with too much clarity — can land as though you're explaining their experience to them rather than responding to it.
+
+---
+
+## Each Energy in Close Relationships — 4
+
+---
+
+### 49. Spark in relationships
+
+The people who are close to someone who reaches for Spark energy tend to feel moved — there's intensity, engagement, a sense of possibility. The thing they sometimes also feel, and don't always say, is that the pace doesn't always leave space for them. That decisions happen before they've had a chance to weigh in. That the relationship moves at your speed, which is often faster than theirs.
+
+The version of this that works best tends to involve something that doesn't come naturally: deliberate waiting. Not just physically being present — but slowing down enough that the other person's pace can land as well as yours.
+
+---
+
+### 50. Glow in relationships
+
+Glow energy in close relationships produces a particular kind of depth. The attention is real — the noticing, the remembering, the attunement to how someone is doing before they've said. People in close relationships with someone who reaches for Glow often describe feeling genuinely known.
+
+The thing that can be hard to see from the inside: this capacity to attend to others can run so far that your own needs become invisible — to you as much as to them. The people who care about you may not know what you actually need, because you've been so consistently focused on what they need that you've never quite said.
+
+---
+
+### 51. Root in relationships
+
+Root energy in close relationships produces a loyalty that compounds over time. You show up — not just when it's convenient or easy, but consistently, predictably, across the small moments that accumulate into something people call trust. People in long relationships with someone who reaches for Root energy often can't point to a single dramatic gesture. They point to everything, over a long time.
+
+The thing that can close this off: difficulty bringing forward what's hard. The same care that creates the loyalty can make it harder to name something that might disrupt it. Sometimes the most caring thing is the thing that creates friction — and Root energy doesn't always find that easy to reach for.
+
+---
+
+### 52. Flow in relationships
+
+Flow energy in close relationships produces a kind of understanding that people describe as being genuinely known — not just accepted, but understood. The attention to what's actually happening, the structure of a problem, what someone is really saying, the question underneath the question — creates a form of insight that is its own kind of care.
+
+What sometimes doesn't come naturally alongside it: expressing that care in terms the other person can feel rather than only understand. Analysis is one form of attention. Sometimes the person in front of you needs something that doesn't involve being understood — it involves being held.
+
+---
+
+## Flex Crossing Moments — 8
+
+*Each describes the experience of deliberately reaching for a non-dominant energy — what it takes, what it produces, and what makes it worth doing.*
+
+---
+
+### 53. Spark reaching for Glow — bringing people along
+
+Moving fast is natural. Deliberately slowing to bring someone with you — noticing who's behind, going back, explaining rather than just arriving somewhere and expecting people to catch up — is the reach.
+
+When Spark energy reaches for Glow, what changes is that the destination stops being the only thing that matters. The people travelling with you start to count. What this produces in practice: not a slower pace, but a more checking one. A moment to look up, see where everyone is, and adjust.
+
+---
+
+### 54. Spark reaching for Flow — stopping to think
+
+The instinct is to move. The reach is to stop and ask what you're missing. Flow energy as a deliberate choice for someone who leads with Spark looks like a pause between the impulse and the action — long enough to ask whether the fastest route is also the right route.
+
+What helps: picking one specific question to ask before you act, rather than trying to map the whole situation. That's the version of Flow that works with Spark rather than against it.
+
+---
+
+### 55. Glow reaching for Root — holding the line
+
+Warmth comes naturally. Staying with a position when someone is pushing against it, or disappointed, or visibly uncomfortable — that's the reach. Root energy as a deliberate choice for someone who leads with Glow looks like: deciding in advance that a particular line matters, and then holding it even when the social pressure is running in the other direction.
+
+The useful preparation: naming the line before the moment arrives, rather than trying to find it when you're already in the conversation.
+
+---
+
+### 56. Glow reaching for Spark — pushing for action
+
+Bringing people along is natural. Deciding that the moment for moving is now — even if not everyone is ready — is the reach. Spark energy as a deliberate choice for Glow looks like: naming a direction and committing to it, rather than extending the consultation. At some point the next step isn't more input. It's a decision.
+
+What makes this harder: the knowledge that someone will be disappointed. The reach requires separating their discomfort from whether the decision is right.
+
+---
+
+### 57. Root reaching for Glow — expressing before it's ready
+
+Waiting until something is fully formed is natural. Bringing it forward while it's still incomplete — still being thought through, still carrying uncertainty — is the reach. Glow energy as a deliberate choice for Root looks like: sharing before you're certain. Letting the other person see the thinking in progress rather than only the conclusion.
+
+This is uncomfortable. It's also what makes conversations feel like conversations rather than presentations.
+
+---
+
+### 58. Root reaching for Spark — deciding before it's certain
+
+Waiting for the right moment is natural. Moving before full certainty arrives — making the call, committing to a direction with some unknowns still in place — is the reach. Spark energy as a deliberate choice for Root looks like: choosing a point at which the decision becomes good enough rather than waiting for it to become obvious.
+
+The practice is calibration: what's the actual cost of moving now versus waiting until I'm sure? Often, the cost of waiting is higher than it feels.
+
+---
+
+### 59. Flow reaching for Glow — feeling before analysing
+
+Mapping the situation is natural. Responding to the person before responding to the problem is the reach. Glow energy as a deliberate choice for Flow looks like: leading with "how are you?" and meaning it — before the analysis, before the diagnosis, before the question that cuts to the structural heart of it.
+
+The sequence matters more than most people who reach for Flow energy realise. The same insight lands differently depending on what comes before it.
+
+---
+
+### 60. Flow reaching for Spark — moving before it's mapped
+
+Understanding a situation thoroughly is natural. Committing to a direction while something is still unmapped — before the analysis is complete, before the final question is answered — is the reach. Spark energy as a deliberate choice for Flow looks like: choosing a threshold at which "enough" is enough, and then acting.
+
+The question that helps: if I had one more piece of information, would it actually change what I do? Often, the honest answer is no.
+
+---
+
+## Near-Equal Energy Combinations — 5
+
+*Triggered only when scores are within close range. These describe what a near-equal pairing produces — the specific texture of having two or more energies at similar height.*
+
+---
+
+### 61. Spark and Flow in near-equal balance
+
+When Spark and Flow come in close together, what you have is momentum and rigour at the same time. The Spark instinct gets things moving. The Flow instinct is already checking whether they're moving in the right direction.
+
+What this produces: a profile that's hard to argue with. You move fast and you've usually thought it through. The tension, when it appears, is internal — one energy says act, the other says wait for one more answer. Under pressure, that negotiation can be visible to the people around you as a brief pause before the move. It usually resolves quickly. When it doesn't, that's worth paying attention to.
+
+---
+
+### 62. Glow and Root in near-equal balance
+
+When Glow and Root come in close together, what you have is attentiveness and follow-through in equal measure. You notice people and you stay — not just in the dramatic moments, but in the ordinary ones that accumulate into something other people eventually describe as extraordinary.
+
+What this combination produces is a depth of relationship that requires no particular effort from you, and that takes a significant amount of time for others to build from scratch. It's one of the profiles that people most consistently describe as making them feel genuinely safe — in the way that makes real conversation possible.
+
+---
+
+### 63. Spark and Root in near-equal balance
+
+Spark and Root in near-equal balance is one of the more unusual pairings, because the two energies have a different relationship with time. Spark lives in possibility. Root lives in what's been built over time. The combination produces something that can be disorienting from the inside: you move fast and you take your commitments seriously, which means that when the pace produces something that doesn't hold, you feel it more than others might.
+
+What this tends to look like in practice: you start things decisively and you don't walk away from them easily. When that combination is working, it produces things that both move and last.
+
+---
+
+### 64. Glow and Flow in near-equal balance
+
+When Glow and Flow come in close together, the attunement to people and the attunement to structure are both running simultaneously. You can hold someone's emotional experience and the logic of their situation at the same time — which is a rarer combination than it looks.
+
+What this produces: you're often the person who understands both why someone feels the way they feel and what the situation actually requires — without needing to choose between the two. The work is in the sequencing, not the access: knowing which one the other person needs to encounter first.
+
+---
+
+### 65. All four energies within close range — natural flex skill
+
+When all four energies come in within close range of each other, the hierarchy is less meaningful than the availability. You reach fluidly. The transitions feel less like stretches and more like steps — the move from action to analysis, from warmth to structure, doesn't require significant effort.
+
+What this profile asks is a different question than most. Not "can I reach this energy?" but "which energy should I be leading with right now?" Because you have enough of each that the choice isn't automatic — and without deliberate attention, it tends to settle on what the room expects rather than what the moment requires. The range is real. The skill is in choosing.
+
+---
+
 ## Profile Shape Observations — 6
 
 *Observations about the overall shape of the profile — not about a specific energy. Unique to Hue. These are the ones that should feel most surprising: they describe something structural about how someone is put together, not just what energies they prefer.*
@@ -373,7 +635,7 @@ Something worth noticing about this profile: it's less common than it might seem
 
 The energies haven't settled into a strong hierarchy — or they have, at different times, in different rooms, with different people. That kind of contextual flexibility looks like uncertainty in a snapshot. Over time, it looks like something else.
 
-If this profile landed with you as surprising, that's worth sitting with. Not as a problem to solve. As a question to hold.
+If this profile landed with you as surprising, that's worth sitting with. Not as a problem to solve. Worth staying curious about as you get to know your profile better.
 
 ---
 
@@ -389,7 +651,7 @@ The thing worth knowing: range is not the same as preference. Even within a high
 
 When there's a significant distance between your highest and lowest energy, what that tends to reflect is depth over range. The energies you reach for most naturally have been used often enough to feel automatic. The ones you reach for least are genuinely further away — not inaccessible, but requiring intention in a way your dominant energies don't.
 
-This isn't a limitation. It's a fact about how you tend to contribute — and about where you'll naturally want people around you who reach for what you don't. The specialist profile often produces the clearest individual voice in a team, precisely because there's less ambiguity about what you bring.
+The wide gap is simply a fact about how you tend to contribute — and about where you'll naturally want people around you who reach for what you don't. The specialist profile often produces the clearest individual voice in a team, precisely because there's less ambiguity about what you bring.
 
 ---
 

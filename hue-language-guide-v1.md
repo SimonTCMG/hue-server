@@ -79,6 +79,7 @@ The free tier is always the **dominant energy** — whichever the assessment rev
 | "That's not X. It's Y." | Same |
 | Depression, burnout, breakdown | Never name clinical states — Hue notices, never diagnoses |
 | Weak / strong (about energies) | Implies hierarchy of value — all four energies are equally valuable |
+| "As a question to hold" | Nebulous; too close to new-age coaching language — particularly off-tone for Spark energy. Use "worth staying curious about" or "worth sitting with" instead |
 
 ### Banned in observations and companion (shareable contexts)
 
