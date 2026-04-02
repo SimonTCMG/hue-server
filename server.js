@@ -22,6 +22,11 @@ import {
   getConversationSummaries,
   saveOneSentence,
   getAnniversarySentence,
+  resetUserAssessment,
+  createShareToken,
+  getShareToken,
+  revokeShareToken,
+  getUserActiveShares,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -44,6 +49,9 @@ app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "public", "hue.html"));
 });
 app.get("/register", (req, res) => {
+  res.sendFile(join(__dirname, "public", "hue.html"));
+});
+app.get("/shared/:token", (req, res) => {
   res.sendFile(join(__dirname, "public", "hue.html"));
 });
 
@@ -153,6 +161,14 @@ app.post("/api/complete", async (req, res) => {
     labels,
   }).catch(console.error);
 
+  return res.json({ ok: true });
+});
+
+// POST /api/reset-assessment — clears assessment data for current user (keeps account)
+app.post("/api/reset-assessment", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not registered." });
+  resetUserAssessment(user.id);
   return res.json({ ok: true });
 });
 
@@ -342,6 +358,88 @@ Rules:
   } catch (err) {
     console.error("Bespoke observation error:", err);
     return res.json({ observation: null });
+  }
+});
+
+// ─── Colleague sharing ──────────────────────────────────────────────────────
+
+// POST /api/share — create a share token for the current user
+app.post("/api/share", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not registered." });
+
+  const { mode } = req.body;
+  if (mode !== "link" && mode !== "session") {
+    return res.status(400).json({ error: "mode must be 'link' or 'session'" });
+  }
+
+  const durationMs = mode === "link"
+    ? 30 * 24 * 60 * 60 * 1000   // 30 days
+    : 8  * 60 * 60 * 1000;        // 8 hours
+
+  const expiresAt = Date.now() + durationMs;
+
+  try {
+    const token = createShareToken(user.id, mode, expiresAt);
+    const base = process.env.BASE_URL || `https://myhue.co`;
+    const url = `${base}/shared/${token}`;
+    return res.json({ token, url, expiresAt, mode });
+  } catch (err) {
+    console.error("Share token error:", err);
+    return res.status(500).json({ error: "Could not create share link." });
+  }
+});
+
+// GET /api/shared/:token — return profile data for a valid share token
+app.get("/api/shared/:token", (req, res) => {
+  const row = getShareToken(req.params.token);
+
+  if (!row) return res.status(404).json({ error: "expired" });
+  if (row.revoked) return res.status(410).json({ error: "revoked" });
+  if (row.expires_at < Date.now()) return res.status(410).json({ error: "expired" });
+
+  const user = getUser(row.user_id);
+  if (!user || !user.energy_scores) return res.status(404).json({ error: "expired" });
+
+  const scores = JSON.parse(user.energy_scores);
+  const labels = user.reach_labels ? JSON.parse(user.reach_labels) : {};
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+
+  const ENERGY_ORDER = ["spark", "glow", "root", "flow"];
+  const ranked = ENERGY_ORDER
+    .map(id => ({ id, score: scores[id] || 0 }))
+    .sort((a, b) => b.score - a.score)
+    .map((e, i) => ({
+      id: e.id,
+      score: e.score,
+      pct: Math.round((e.score / total) * 100),
+      label: labels[e.id] || ["Instinctive","Fluent","Intentional","Developing"][i],
+      rank: i,
+    }));
+
+  return res.json({
+    profile: {
+      name: user.name,
+      dominantEnergy: user.dominant_energy || ranked[0].id,
+      scores,
+      labels,
+      ranked,
+    }
+  });
+});
+
+// DELETE /api/share/:token — revoke a share token (current user only)
+app.delete("/api/share/:token", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not registered." });
+
+  try {
+    const result = revokeShareToken(req.params.token, user.id);
+    if (result.changes === 0) return res.status(404).json({ error: "Token not found or not yours." });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Revoke token error:", err);
+    return res.status(500).json({ error: "Could not revoke link." });
   }
 });
 

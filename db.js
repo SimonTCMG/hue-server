@@ -91,6 +91,50 @@ export function getUsersForDailyEmail() {
   return db.prepare("SELECT * FROM users WHERE assessment_completed_at IS NOT NULL").all();
 }
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS shared_profiles (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    mode       TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    revoked    INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL
+  )
+`);
+
+export function createShareToken(userId, mode, expiresAt) {
+  const id = uuidv4();
+  db.prepare(
+    "INSERT INTO shared_profiles (id, user_id, mode, expires_at, revoked, created_at) VALUES (?, ?, ?, ?, 0, ?)"
+  ).run(id, userId, mode, expiresAt, Date.now());
+  return id;
+}
+
+export function getShareToken(token) {
+  return db.prepare("SELECT * FROM shared_profiles WHERE id = ?").get(token) || null;
+}
+
+export function revokeShareToken(token, userId) {
+  return db.prepare(
+    "UPDATE shared_profiles SET revoked = 1 WHERE id = ? AND user_id = ?"
+  ).run(token, userId);
+}
+
+export function getUserActiveShares(userId) {
+  const now = Date.now();
+  return db.prepare(
+    "SELECT * FROM shared_profiles WHERE user_id = ? AND revoked = 0 AND expires_at > ?"
+  ).all(userId, now);
+}
+
+export function resetUserAssessment(userId) {
+  db.prepare(
+    `UPDATE users SET assessment_completed_at = NULL, energy_scores = NULL, reach_labels = NULL, dominant_energy = NULL WHERE id = ?`
+  ).run(userId);
+  db.prepare("DELETE FROM conversation_summaries WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM one_sentences WHERE user_id = ?").run(userId);
+}
+
 export function saveOneSentence(userId, sentence, energy) {
   return db.prepare(
     "INSERT INTO one_sentences (id, user_id, sentence, energy, created_at) VALUES (?, ?, ?, ?, ?)"
