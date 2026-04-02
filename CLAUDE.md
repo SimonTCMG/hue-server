@@ -1,6 +1,18 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 1 April 2026 (session 4: observations batch, bespoke observation, language guide).*
+*Master brief for all Claude sessions. Last updated: 2 April 2026 (session 5: strategy session — identity lines, psychology foundations, commercialisation, Priority 1 app build).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
+
+---
+
+## STANDING INSTRUCTIONS — READ FIRST
+
+**Commercial strategy and decided pricing:** see `hue-commercialisation-v1.md`. All decisions in the Key Decisions Log are resolved unless explicitly reopened by Simon.
+
+**Psychological and theoretical foundations:** see `hue-psychology-foundations-v1.md`. Every assessment conversation, observation, and language decision should be traceable to this framework.
+
+**Identity lines:** "Four energies. Infinite versions of you." (product — welcome screen, result card, individual marketing) / "Understand how you show up. Reach for who you could be." (purpose — facilitator/org materials, about page, onboarding) / "The science is serious. The experience is human." (academic — methodology page, credentialing contexts only). The word 'reach' is Hue's own verb — use it consistently. Never substitute 'develop', 'grow', or 'access'.
+
+**The word 'arc' must never appear in user-facing copy.** The free tier is always the individual's dominant energy — never assumed to be Spark.
 
 ---
 
@@ -137,6 +149,7 @@ During beta, org linking is implicit — all beta testers share one invite token
 | `hue-consent-conversation-v1.md` | Three-exchange consent flow — live in app |
 | `hue-language-guide-v1.md` | Single vocabulary reference — all copy decisions |
 | `hue-share-profile-spec-v1.md` | Spec for facilitator share link feature |
+| `hue-psychology-foundations-v1.md` | Psychological & theoretical foundations — live design constraint, not background reading |
 
 **GitHub:** github.com/SimonTCMG/hue-server (private)
 **Railway project:** humorous-sparkle / production
@@ -306,6 +319,11 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 1. Confirm 8am daily email arrived (check simon@simesco.co.uk — first send 2 April 2026)
 2. Invite beta team via `https://myhue.co/register?invite=BETA2026`
 3. **Simon review:** read all 55 drafted observations in `hue-observations-v1.md` (observations 17–65, 66–71) — approve/amend before deploying to app
+4. **Priority 2 build:** "The one sentence" — second API call post-assessment, full-screen typographic card (Fraunces, dominant energy colour), downloadable as image, saved to profile with timestamp
+5. **Priority 3 build:** Colleague sharing — share button on profile result screen, session mode for facilitated workshops
+6. **Priority 4 build:** Retest / energy check-in separation — reassessment annual, check-in weekly, three taps max
+7. **Priority 5 build:** Stress response in companion — grip detection, energy-specific auxiliary prompts
+8. **Priority 6 build:** Data model updates — personal email field, 30-day grace period on org licence lapse, longitudinal data model
 5. Build share my profile link (facilitator entry point — spec in `hue-share-profile-spec-v1.md`)
 6. Post-beta: build organisations + org_memberships tables before first paid team account
 
