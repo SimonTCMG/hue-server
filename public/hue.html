@@ -130,9 +130,12 @@ After 8-10 exchanges, output EXACTLY this JSON on its own line:
 {"done":true,"scores":{"spark":N,"glow":N,"root":N,"flow":N}}
 Where N are integers summing to ~28, genuinely reflecting the conversation.`;
 
-    function buildCompanionPrompt(ranked, summaries = []) {
+    function buildCompanionPrompt(ranked, summaries = [], anniversary = null) {
       const memoryBlock = summaries.length > 0
         ? `\n\nWhat you remember from previous conversations with this person:\n${summaries.map(s => `- ${s.summary}`).join("\n")}\n\nUse this memory naturally — reference it when relevant, not as a preamble. If opening a new session, draw on one specific thing from memory to make your opening feel like a continuation, not a restart.`
+        : "";
+      const anniversaryBlock = anniversary
+        ? `\n\nANNIVERSARY: Today marks approximately one year since this person completed their first energy exploration with you. When you open, acknowledge this warmly and share the sentence you wrote for them then: "${anniversary.sentence}" — then ask simply whether it still sounds like them. Make this your opening. Do not wait for them to bring it up.`
         : "";
       return `You are Hue — a warm, honest, and genuinely useful personal companion. You are not a report reader or a chatbot. You are a thinking partner who happens to know this person's colour energy profile well. Your warmth is constant and non-negotiable — it doesn't change based on who you're talking to. You can be more concise and direct with someone who has strong Spark energy, but you never become clinical or cold. You are always on their side, even when you're challenging them. Think: a brilliant friend who tells you the truth, but does it because they care.
 
@@ -171,7 +174,7 @@ When a returning user greets you (e.g. "Hi Hue, I'm back"), welcome them warmly 
 
 IF ASKED "how does this work?" or about the origins of the model, answer in your own words along these lines: People have always known that human nature comes in roughly four flavours — Aristotle saw it in the elements, Hippocrates mapped it to temperament, Jung built a psychology around it, and dozens of frameworks since have rediscovered the same pattern. What most got wrong was treating the four as fixed types — things you were, rather than energies you have. Hue starts from a different place: you don't have a colour, you have colours. All four are real in you. What differs is reach order — which comes naturally first, which takes more intention. The conversation we had wasn't a quiz. I was listening for recurring themes: what you lit up about, how you framed decisions, where you hesitated. That's how the profile came together. And this is just the beginning — the more we talk, the more useful it becomes.
 
-No markdown formatting — plain prose only. No asterisks, no bullet points, no headers. Keep responses concise: 2-4 short paragraphs when explaining, one question when coaching.${memoryBlock}`;
+No markdown formatting — plain prose only. No asterisks, no bullet points, no headers. Keep responses concise: 2-4 short paragraphs when explaining, one question when coaching.${memoryBlock}${anniversaryBlock}`;
     }
 
     // ─── API ──────────────────────────────────────────────────────────────────
@@ -864,6 +867,185 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       },
     };
 
+    // ─── One sentence screen ───────────────────────────────────────────────────
+    function OneSentenceScreen({ sentence, primary, onContinue }) {
+      const isDesktop = useIsDesktop();
+      const textColor = primary.id === "glow" ? C.ink : "#fff";
+      const subColor  = primary.id === "glow" ? "rgba(26,20,16,0.45)" : "rgba(255,255,255,0.45)";
+      const [copied, setCopied] = useState(false);
+      const cardRef = useRef(null);
+
+      const handleShare = async (e) => {
+        e.stopPropagation();
+        if (!sentence) return;
+        const text = `"${sentence}" — myhue.co`;
+        if (navigator.share) {
+          try { await navigator.share({ text }); } catch (_) {}
+        } else {
+          await navigator.clipboard.writeText(text).catch(() => {});
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      };
+
+      const handleDownload = async (e) => {
+        e.stopPropagation();
+        if (!sentence) return;
+        await document.fonts.ready;
+        const size = 1080;
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+
+        // Background
+        ctx.fillStyle = primary.color;
+        ctx.fillRect(0, 0, size, size);
+
+        // Word-wrap helper
+        const wrapLines = (ctx, text, maxWidth) => {
+          const words = text.split(" ");
+          const lines = [];
+          let line = "";
+          for (const word of words) {
+            const test = line ? line + " " + word : word;
+            if (ctx.measureText(test).width > maxWidth && line) {
+              lines.push(line);
+              line = word;
+            } else {
+              line = test;
+            }
+          }
+          if (line) lines.push(line);
+          return lines;
+        };
+
+        // Sentence
+        ctx.fillStyle = textColor;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const fontSize = 68;
+        ctx.font = `italic 700 ${fontSize}px Fraunces, Georgia, serif`;
+        const lines = wrapLines(ctx, `"${sentence}"`, size - 200);
+        const lineH = fontSize * 1.3;
+        const totalH = lines.length * lineH;
+        const startY = size / 2 - totalH / 2 - 40;
+        lines.forEach((l, i) => ctx.fillText(l, size / 2, startY + i * lineH + lineH / 2));
+
+        // Footer
+        ctx.font = "500 26px 'Plus Jakarta Sans', sans-serif";
+        ctx.globalAlpha = 0.4;
+        ctx.fillText("myhue.co", size / 2, size - 80);
+        ctx.globalAlpha = 1;
+
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "my-hue.png"; a.click();
+          URL.revokeObjectURL(url);
+        });
+      };
+
+      return (
+        <div
+          onClick={onContinue}
+          style={{
+            minHeight: "100vh",
+            background: primary.color,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: isDesktop ? "80px 64px" : "60px 32px",
+            cursor: "pointer",
+            position: "relative",
+          }}
+        >
+          {/* Wordmark */}
+          <div style={{ position: "absolute", top: 28, left: 28, display: "flex", alignItems: "center", gap: 10 }}>
+            <SpinMark size={32} paused />
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: textColor, opacity: 0.7 }}>Hue</span>
+          </div>
+
+          {/* The sentence — or loading state */}
+          <div ref={cardRef} style={{ textAlign: "center", maxWidth: isDesktop ? 680 : 340 }}>
+            {sentence === null ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: textColor, opacity: 0.5, animation: "bounce 1.3s ease-in-out infinite" }} />
+                <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: textColor, opacity: 0.5, margin: 0, fontStyle: "italic" }}>
+                  Writing your sentence…
+                </p>
+              </div>
+            ) : (
+              <p style={{
+                fontFamily: "'Fraunces', serif",
+                fontSize: isDesktop ? 52 : 34,
+                fontWeight: 700,
+                fontStyle: "italic",
+                color: textColor,
+                lineHeight: 1.2,
+                letterSpacing: "-0.02em",
+                margin: 0,
+                animation: "fadeUp 0.5s ease both",
+              }}>
+                "{sentence}"
+              </p>
+            )}
+          </div>
+
+          {/* Share / Download — only shown when sentence is ready */}
+          {sentence && (
+            <div
+              style={{ display: "flex", gap: 12, marginTop: isDesktop ? 56 : 40 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={handleShare}
+                style={{
+                  background: "transparent",
+                  border: `1.5px solid ${textColor}`,
+                  borderRadius: 99,
+                  padding: "12px 28px",
+                  color: textColor,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 600, fontSize: 14,
+                  cursor: "pointer", opacity: 0.85,
+                }}
+              >
+                {copied ? "Copied" : "Share"}
+              </button>
+              <button
+                onClick={handleDownload}
+                style={{
+                  background: "transparent",
+                  border: `1.5px solid ${textColor}`,
+                  borderRadius: 99,
+                  padding: "12px 28px",
+                  color: textColor,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 600, fontSize: 14,
+                  cursor: "pointer", opacity: 0.85,
+                }}
+              >
+                Save as image
+              </button>
+            </div>
+          )}
+
+          {/* Continue affordance */}
+          <p style={{
+            position: "absolute",
+            bottom: 36,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 13, color: textColor,
+            opacity: 0.35, margin: 0,
+            letterSpacing: "0.02em",
+          }}>
+            Tap anywhere to continue
+          </p>
+        </div>
+      );
+    }
+
     function ResultsScreen({ scores, bespokeObs, onContinue, onHome }) {
       const isDesktop = useIsDesktop();
       const total = Object.values(scores).reduce((a, b) => a + b, 0);
@@ -1237,22 +1419,26 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       const [typing, setTyping]   = useState(false);
       const [hasSentMessage, setHasSentMessage] = useState(false);
       const [summaries, setSummaries] = useState(null); // null = loading
+      const [anniversary, setAnniversary] = useState(null);
       const bottomRef = useRef(null);
       const inputRef  = useRef(null);
       const visitCount = useRef(getChatVisitCount());
       const allSuggestions = returning ? RETURNING_SUGGESTIONS : getResultsSuggestions(ranked);
       const suggestions = suggestionsToShow(allSuggestions, visitCount.current);
 
-      // Rebuild system prompt whenever summaries load
-      const system = buildCompanionPrompt(ranked, summaries || []);
+      // Rebuild system prompt whenever summaries or anniversary loads
+      const system = buildCompanionPrompt(ranked, summaries || [], anniversary);
 
       useEffect(() => { incrementChatVisitCount(); }, []);
 
-      // Load conversation summaries from server on mount
+      // Load conversation summaries + anniversary from server on mount
       useEffect(() => {
         fetch("/api/summaries")
           .then(r => r.json())
-          .then(d => setSummaries(d.summaries || []))
+          .then(d => {
+            setSummaries(d.summaries || []);
+            setAnniversary(d.anniversary || null);
+          })
           .catch(() => setSummaries([]));
       }, []);
 
@@ -1260,13 +1446,13 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       useEffect(() => {
         if (summaries === null) return; // still loading
 
-        if (returning || summaries.length > 0) {
-          // Reflective opener — Claude generates a response informed by memory
+        if (returning || summaries.length > 0 || anniversary) {
+          // Reflective opener — Claude generates a response informed by memory (and anniversary if present)
           (async () => {
             setTyping(true);
             try {
               const seed = [{ role: "user", content: "Hi Hue, I'm back." }];
-              const reply = await callClaude(seed, buildCompanionPrompt(ranked, summaries));
+              const reply = await callClaude(seed, buildCompanionPrompt(ranked, summaries, anniversary));
               setHistory([
                 { role: "user",      content: seed[0].content },
                 { role: "assistant", content: reply },
@@ -1547,6 +1733,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
           const s = e.state?.screen || "welcome";
           // Only navigate back to results if scores are still in memory
           if (s === "results" && !scores) setScreen("welcome");
+          else if (s === "sentence" && !ranked) setScreen("welcome");
           else if (s === "companion" && !ranked) setScreen("welcome");
           else setScreen(s);
         };
@@ -1567,7 +1754,8 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       };
 
       const [returningToChat, setReturningToChat] = useState(false);
-      const [bespokeObs, setBespokeObs] = useState(undefined); // undefined = not expected; null = loading; string = ready
+      const [bespokeObs,  setBespokeObs]  = useState(undefined); // undefined = not expected; null = loading; string = ready
+      const [oneSentence, setOneSentence] = useState(undefined); // same pattern
 
       // onChat(true) → view results first; onChat() → go straight to companion
       const handleChat = (viewResults = false) => {
@@ -1592,19 +1780,28 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
 
       const handleAssessmentComplete = async (s, conversationHistory) => {
         setScores(s);
-        setBespokeObs(null); // null = loading
+        setBespokeObs(null);   // null = loading
+        setOneSentence(null);  // null = loading
         navigate("results");
 
-        // Generate bespoke observation from conversation (fire and forget)
         if (conversationHistory?.length > 0) {
+          const payload = { messages: conversationHistory, scores: s };
+          // Bespoke observation (fire and forget)
           fetch("/api/bespoke-observation", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ messages: conversationHistory, scores: s }),
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
           })
             .then(r => r.json())
             .then(d => setBespokeObs(d.observation || undefined))
             .catch(() => setBespokeObs(undefined));
+          // One sentence (fire and forget — parallel)
+          fetch("/api/one-sentence", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then(r => r.json())
+            .then(d => setOneSentence(d.sentence || undefined))
+            .catch(() => setOneSentence(undefined));
         }
 
         if (isBeta) {
@@ -1658,8 +1855,20 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                 <ResultsScreen
                   scores={scores}
                   bespokeObs={bespokeObs}
-                  onContinue={r => { setRanked(r); setReturningToChat(false); navigate("companion"); }}
+                  onContinue={r => {
+                    setRanked(r);
+                    setReturningToChat(false);
+                    // Skip sentence screen for returning users viewing old results (oneSentence never loaded)
+                    navigate(oneSentence === undefined ? "companion" : "sentence");
+                  }}
                   onHome={() => navigate("welcome")}
+                />
+              )}
+              {screen === "sentence" && ranked && (
+                <OneSentenceScreen
+                  sentence={oneSentence}
+                  primary={ranked[0]}
+                  onContinue={() => navigate("companion")}
                 />
               )}
               {screen === "companion" && ranked && (

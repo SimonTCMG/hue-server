@@ -26,6 +26,16 @@ const DB_PATH = process.env.DB_PATH || join(__dirname, "hue.db");
 const db = new Database(DB_PATH);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS one_sentences (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    sentence   TEXT NOT NULL,
+    energy     TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS conversation_summaries (
     id         TEXT PRIMARY KEY,
     user_id    TEXT NOT NULL,
@@ -79,6 +89,27 @@ export function updateLastEmailSent(id, ts) {
 
 export function getUsersForDailyEmail() {
   return db.prepare("SELECT * FROM users WHERE assessment_completed_at IS NOT NULL").all();
+}
+
+export function saveOneSentence(userId, sentence, energy) {
+  return db.prepare(
+    "INSERT INTO one_sentences (id, user_id, sentence, energy, created_at) VALUES (?, ?, ?, ?, ?)"
+  ).run(uuidv4(), userId, sentence, energy, Date.now());
+}
+
+export function getAnniversarySentence(userId) {
+  const row = db.prepare(
+    "SELECT sentence, energy, created_at FROM one_sentences WHERE user_id = ? ORDER BY created_at ASC LIMIT 1"
+  ).get(userId);
+  if (!row) return null;
+  const oneYear = 365 * 24 * 60 * 60 * 1000;
+  const window  = 7   * 24 * 60 * 60 * 1000;
+  const anniversary = row.created_at + oneYear;
+  const now = Date.now();
+  if (now >= anniversary - window && now <= anniversary + window) {
+    return { sentence: row.sentence, energy: row.energy, created_at: row.created_at };
+  }
+  return null;
 }
 
 export function saveConversationSummary(userId, summary) {

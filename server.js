@@ -20,6 +20,8 @@ import {
   getUsersForDailyEmail,
   saveConversationSummary,
   getConversationSummaries,
+  saveOneSentence,
+  getAnniversarySentence,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -156,12 +158,13 @@ app.post("/api/complete", async (req, res) => {
 
 // ─── Conversation memory ────────────────────────────────────────────────────
 
-// GET /api/summaries — returns recent conversation summaries for current user
+// GET /api/summaries — returns recent conversation summaries + anniversary sentence for current user
 app.get("/api/summaries", (req, res) => {
   const user = getUserFromCookie(req);
-  if (!user) return res.json({ summaries: [] });
+  if (!user) return res.json({ summaries: [], anniversary: null });
   const summaries = getConversationSummaries(user.id, 5);
-  return res.json({ summaries });
+  const anniversary = getAnniversarySentence(user.id);
+  return res.json({ summaries, anniversary });
 });
 
 // POST /api/summarise — generates and saves a summary of a companion conversation
@@ -204,6 +207,79 @@ app.post("/api/summarise", async (req, res) => {
   } catch (err) {
     console.error("Summarise error:", err);
     return res.json({ ok: false });
+  }
+});
+
+// ─── One sentence ────────────────────────────────────────────────────────────
+
+// POST /api/one-sentence — generates one identity-distillation sentence from assessment conversation
+app.post("/api/one-sentence", async (req, res) => {
+  const { messages, scores } = req.body;
+  if (!Array.isArray(messages) || messages.length < 4 || !scores) {
+    return res.json({ sentence: null });
+  }
+
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+  const ranked = Object.entries(scores)
+    .sort(([, a], [, b]) => b - a)
+    .map(([id, score]) => ({
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      pct: Math.round((score / total) * 100),
+    }));
+  const dominantEnergy = ranked[0].name.toLowerCase();
+
+  // Use only the user's own words — more specific, more personal
+  const userWords = messages
+    .filter(m => m.role === "user")
+    .map(m => m.content)
+    .join("\n");
+
+  const system = `You are Hue. Based on this assessment conversation, write one sentence — one only — that distils who this person is at their energetic core.
+
+This is the sentence they will screenshot and share. It must be:
+- One sentence. Not two. Not a sentence with a semicolon or em dash hiding a second thought.
+- Poetic but grounded in something they actually said — a specific situation, phrase, or pattern from their words, not a generic description of their energy
+- Second person (you, your)
+- Something that would feel uncanny to read back — specific enough that they think "how did it know that?"
+- Designed to be read aloud and felt, not just understood
+
+This is not a summary. Not a profile description. A recognition of something true about this specific person.
+
+Do not include quotation marks. Do not explain. Return only the sentence.`;
+
+  const prompt = `Their colour energy profile (ranked):\n${ranked.map((e, i) => `${i + 1}. ${e.name}: ${e.pct}%`).join("\n")}\n\nWhat they said (their words only):\n${userWords}\n\nWrite the one sentence.`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 100,
+        system,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!response.ok) return res.json({ sentence: null });
+    const data = await response.json();
+    const sentence = data.content?.find(b => b.type === "text")?.text?.trim();
+    if (!sentence) return res.json({ sentence: null });
+
+    // Save to DB if user is logged in — non-blocking
+    const user = getUserFromCookie(req);
+    if (user) {
+      try { saveOneSentence(user.id, sentence, dominantEnergy); } catch (e) { /* ignore */ }
+    }
+
+    return res.json({ sentence });
+  } catch (err) {
+    console.error("One sentence error:", err);
+    return res.json({ sentence: null });
   }
 });
 
