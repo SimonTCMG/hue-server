@@ -207,6 +207,68 @@ app.post("/api/summarise", async (req, res) => {
   }
 });
 
+// ─── Bespoke observation ─────────────────────────────────────────────────────
+
+// POST /api/bespoke-observation — generates one unrepeatable observation from the assessment conversation
+app.post("/api/bespoke-observation", async (req, res) => {
+  const { messages, scores } = req.body;
+  if (!Array.isArray(messages) || messages.length < 4 || !scores) {
+    return res.json({ observation: null });
+  }
+
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+  const ranked = Object.entries(scores)
+    .sort(([, a], [, b]) => b - a)
+    .map(([id, score]) => ({
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      pct: Math.round((score / total) * 100),
+    }));
+
+  const transcript = messages
+    .map(m => `${m.role === "user" ? "Person" : "Hue"}: ${m.content}`)
+    .join("\n\n");
+
+  const system = `You are Hue. Based on this assessment conversation and colour energy scores, write one observation about this specific person that could only be written about them — drawn from something concrete in what they said: a specific moment, situation, phrase, or pattern that emerged in the conversation.
+
+This is the "only you" moment in their profile. It should feel weirdly specific — not a description of their energy in general, but something that references what they actually said.
+
+Rules:
+- 2–3 sentences only
+- Second person (you, your)
+- Warm and precise — not clinical
+- Do not name an energy directly
+- Do not use "This isn't X, it's Y" or "That's not X, it's Y"
+- Draw from a specific detail in the conversation — not a generic observation that could apply to anyone with this profile
+- Plain prose only`;
+
+  const prompt = `Their colour energy profile (ranked):\n${ranked.map((e, i) => `${i + 1}. ${e.name}: ${e.pct}%`).join("\n")}\n\nThe assessment conversation:\n${transcript}\n\nWrite the observation.`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 200,
+        system,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!response.ok) return res.json({ observation: null });
+    const data = await response.json();
+    const observation = data.content?.find(b => b.type === "text")?.text?.trim();
+    return res.json({ observation: observation || null });
+  } catch (err) {
+    console.error("Bespoke observation error:", err);
+    return res.json({ observation: null });
+  }
+});
+
 // ─── Anthropic proxy ────────────────────────────────────────────────────────
 
 app.post("/api/chat", async (req, res) => {

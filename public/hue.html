@@ -716,7 +716,8 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
           if (scores) {
             const displayText = reply.replace(/\{"done":true.*?\}/, "").trim();
             if (displayText) setDisplay(d => [...d, { from: "hue", text: displayText }]);
-            setTimeout(() => onComplete(scores), displayText ? 1400 : 400);
+            const fullHistory = [...newHistory, { role: "assistant", content: reply }];
+            setTimeout(() => onComplete(scores, fullHistory), displayText ? 1400 : 400);
           } else {
             setHistory(h => [...h, { role: "assistant", content: reply }]);
             setDisplay(d => [...d, { from: "hue", text: reply }]);
@@ -849,7 +850,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       },
     };
 
-    function ResultsScreen({ scores, onContinue, onHome }) {
+    function ResultsScreen({ scores, bespokeObs, onContinue, onHome }) {
       const isDesktop = useIsDesktop();
       const total = Object.values(scores).reduce((a, b) => a + b, 0);
       const ranked = ENERGIES
@@ -1039,6 +1040,49 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                 }}>{obs.surprise}</p>
               </div>
             </div>
+
+            {/* Bespoke observation */}
+            {bespokeObs !== undefined && (
+              <div style={{ padding: isDesktop ? "14px 40px 0" : "14px 20px 0" }}>
+                {bespokeObs === null ? (
+                  <div style={{
+                    background: "#fff", borderRadius: 20,
+                    padding: isDesktop ? "28px 28px" : "20px 20px",
+                    border: `1.5px solid ${C.sand}`,
+                    display: "flex", alignItems: "center", gap: 12,
+                  }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%", background: primary.color,
+                      animation: "bounce 1.3s ease-in-out infinite",
+                      flexShrink: 0,
+                    }} />
+                    <p style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      fontSize: 14, color: C.stone, margin: 0, fontStyle: "italic",
+                    }}>Writing something just for you…</p>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: "#fff", borderRadius: 20,
+                    padding: isDesktop ? "28px 28px" : "20px 20px",
+                    border: `1.5px solid ${primary.color}`,
+                    animation: "fadeUp 0.4s ease both",
+                  }}>
+                    <p style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      fontSize: 11, fontWeight: 600,
+                      letterSpacing: "0.08em", textTransform: "uppercase",
+                      color: primary.color, margin: "0 0 10px",
+                    }}>Only you</p>
+                    <p style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
+                      color: C.ink, margin: 0,
+                    }}>{bespokeObs}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* CTA */}
             <div style={{ padding: isDesktop ? "32px 40px 48px" : "24px 20px 48px" }}>
@@ -1499,6 +1543,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       };
 
       const [returningToChat, setReturningToChat] = useState(false);
+      const [bespokeObs, setBespokeObs] = useState(undefined); // undefined = not expected; null = loading; string = ready
 
       // onChat(true) → view results first; onChat() → go straight to companion
       const handleChat = (viewResults = false) => {
@@ -1521,9 +1566,23 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       // would get a restricted assessment. For now the public app is unchanged.
       const isBeta = !!betaUser;
 
-      const handleAssessmentComplete = async (s) => {
+      const handleAssessmentComplete = async (s, conversationHistory) => {
         setScores(s);
+        setBespokeObs(null); // null = loading
         navigate("results");
+
+        // Generate bespoke observation from conversation (fire and forget)
+        if (conversationHistory?.length > 0) {
+          fetch("/api/bespoke-observation", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ messages: conversationHistory, scores: s }),
+          })
+            .then(r => r.json())
+            .then(d => setBespokeObs(d.observation || undefined))
+            .catch(() => setBespokeObs(undefined));
+        }
+
         if (isBeta) {
           const total     = Object.values(s).reduce((a, b) => a + b, 0);
           const rankedIds = [...Object.entries(s)]
@@ -1535,7 +1594,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
             method:  "POST",
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify({ scores: s, labels, dominantEnergy: rankedIds[0] }),
-          }).catch(() => {}); // Fire and forget — don't block the UI
+          }).catch(() => {});
         }
       };
 
@@ -1574,6 +1633,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
               {screen === "results" && scores && (
                 <ResultsScreen
                   scores={scores}
+                  bespokeObs={bespokeObs}
                   onContinue={r => { setRanked(r); setReturningToChat(false); navigate("companion"); }}
                   onHome={() => navigate("welcome")}
                 />

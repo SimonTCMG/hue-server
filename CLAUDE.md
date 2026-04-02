@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 1 April 2026 (session 3: conversation memory + consent flow built).*
+*Master brief for all Claude sessions. Last updated: 1 April 2026 (session 4: observations batch, bespoke observation, language guide).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -23,6 +23,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - All 16 primary observations implemented (4 energies × 4 reach positions)
 - **Consent conversation** — three-exchange intro before first assessment (Welcome → Consent → Assessment); skipped for returning users via `localStorage("hue_consent")`
 - **Companion chat** — profile-aware; energy-specific suggested questions (dynamic, based on ranked profile); reflective opener when memory exists
+- **Bespoke observation** — second Claude API call post-assessment generates one unrepeatable observation drawn from what the person actually said; displayed as "Only you" card on results screen (bordered in primary energy colour); loading state shown while generating
 - **Conversation memory** — session summaries saved to SQLite, injected into companion system prompt; Hue opens each return session with a memory-informed reflection
 - Returning user flow: shows last result, offers retake after 90 days
 - Static SVG favicon
@@ -133,7 +134,8 @@ During beta, org linking is implicit — all beta testers share one invite token
 | `hue-commercialisation-v1.md` | Commercial model, pricing, channels — all decided |
 | `hue-observations-v1.md` | 16 written observations + 71-observation scope plan |
 | `hue-team-client-doc-v1.md` | One-page sales document for team buyers |
-| `hue-consent-conversation-v1.md` | Three-exchange consent flow (not yet in app) |
+| `hue-consent-conversation-v1.md` | Three-exchange consent flow — live in app |
+| `hue-language-guide-v1.md` | Single vocabulary reference — all copy decisions |
 | `hue-share-profile-spec-v1.md` | Spec for facilitator share link feature |
 
 **GitHub:** github.com/SimonTCMG/hue-server (private)
@@ -271,17 +273,19 @@ When two or more energies are similarly scored, rank order is less meaningful th
 
 ## OBSERVATION LIBRARY STATUS
 
-16 observations written and saved in `hue-observations-v1.md`:
-- All four energies × four reach positions (Instinctive / Fluent / Intentional / Developing)
+**42 observations written** in `hue-observations-v1.md`:
+- All four energies × four reach positions — 16 (live in app)
+- Two-energy pairings (1st + 2nd energy combinations) — 12 (drafted, awaiting Simon review)
+- Misread observations — 8 (drafted, awaiting Simon review)
+- Profile shape observations — 6 (drafted, awaiting Simon review)
 
-71 observation headings scoped in full in the same file. Priority next batch (to write before first client demo):
-- Two-energy pairings (12) — highest differentiation value
-- Misread observations (8) — highly shareable
-- Profile shape observations (6) — unique to Hue
-- Flex crossing observations (4) — dominant→4th energy
-- Under pressure (4)
+**Bespoke observation — BUILT:** `POST /api/bespoke-observation` generates one unrepeatable observation from the assessment conversation. Displayed as "Only you" card on results screen.
 
-**Bespoke observation (not yet built):** A second API call after assessment generates one observation drawn from the specific conversation — the "only you" moment. Draft prompt is in `hue-observations-v1.md`.
+**Remaining to write:**
+- Flex crossings dominant→4th energy (4) — powerful, write before first client demo
+- Under pressure (4) — immediately relatable
+- In leadership (4) — relevant for B2B demo
+- Near-equal combinations (5) — conditional on scores
 
 ---
 
@@ -297,11 +301,10 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 1. Confirm 8am daily email arrived (check simon@simesco.co.uk — first send 2 April 2026)
 2. Invite beta team via `https://myhue.co/register?invite=BETA2026`
-3. Write next observation batch — two-energy pairings (12), misread (8), profile shape (6)
-4. Build bespoke conversation-generated observation (second API call after assessment)
+3. **Simon review:** read 26 new observation drafts in `hue-observations-v1.md` — approve/amend before deploying to app
+4. Write next observation batch — flex crossings (4), under pressure (4), in leadership (4)
 5. Build share my profile link (facilitator entry point — spec in `hue-share-profile-spec-v1.md`)
-6. Write hue-language-guide-v1.md (single vocabulary reference)
-7. Post-beta: build organisations + org_memberships tables before first paid team account
+6. Post-beta: build organisations + org_memberships tables before first paid team account
 
 ---
 
