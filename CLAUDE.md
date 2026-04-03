@@ -1,22 +1,6 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 3 April 2026 (session 6: one sentence card, colleague sharing, reset endpoint, CLAUDE.md update).*
+*Master brief for all Claude sessions. Last updated: 3 April 2026 (session 7: login flow, cross-device sync, consent Continue button, companion auto-focus, Only You four-colour border).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
-
----
-
-## ⚠️ MOST URGENT — myhue.co IS BROKEN (as of 3 April 2026)
-
-Simon's access to myhue.co is currently broken. The site shows a blank page. This occurred after an attempted assessment reset (localStorage cleared + JS syntax error in hue.html introduced during session 6 build).
-
-**What's broken:** `public/hue.html` contains at least two JS syntax errors introduced during session 6:
-1. Duplicate `SharedProfileScreen` function declaration (around line 2059) — Babel throws "Identifier 'SharedProfileScreen' has already been declared"
-2. A second "Unexpected string" Babel parse error elsewhere in the file (exact line not yet identified — search around newly added `OneSentenceScreen`, `ShareModal`, and `SharedProfileScreen` components)
-
-Both errors prevent Babel from transpiling the file, so the entire React app fails to mount — blank page.
-
-**Fix:** Find and remove the duplicate `SharedProfileScreen` declaration and locate the stray string literal causing error 2. Then `git add public/hue.html && git commit -m "Fix Babel syntax errors" && git push` — Railway auto-deploys in ~60 seconds.
-
-**Fix this before any other build work.** Do not attempt to reset assessment data or test new features until the site loads correctly.
 
 ---
 
@@ -54,6 +38,11 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - **Bespoke observation** — second Claude API call post-assessment generates one unrepeatable observation drawn from what the person actually said; displayed as "Only you" card on results screen (bordered in primary energy colour); loading state shown while generating
 - **One sentence card** — third Claude API call post-assessment generates one poetic identity sentence; displayed full-screen (Fraunces italic, dominant energy colour background) between results and companion; shareable via Web Share API / clipboard; downloadable as 1080×1080 PNG; stored in `one_sentences` table with timestamp; surfaced again on one-year anniversary via companion opener
 - **Colleague sharing** — share button on results screen; two modes: 30-day link and 8-hour session; UUID share tokens stored in `shared_profiles` table; `SharedProfileScreen` component renders shared profile view (energy hero, rank cards, reach labels, CTA to myhue.co); revocable by user
+- **Only You card** — four-colour gradient border (Spark/Glow/Root/Flow, 135deg); label in primary energy colour; "Only you" label + bespoke observation text; conceptually always accurate regardless of score distribution
+- **Login flow** — `POST /api/login` (email lookup, sets session cookie); `LoginScreen` component; "Already have a profile? Sign in" link on welcome screen when no local profile; `handleLogin` in App hydrates `savedProfile` from server data on sign-in
+- **Cross-device profile sync** — registered users recognised by session cookie on any device; `savedProfile` hydrated from server so returning user screen shows correctly without reassessment
+- **Consent screen** — "Continue" button (was "I'm ready") appears 2 seconds after the third message ("One last thing…") to ensure it is read before proceeding
+- **Companion auto-focus** — input focuses automatically after each Hue reply in both ChatScreen and CompanionScreen
 - **Conversation memory** — session summaries saved to SQLite, injected into companion system prompt; Hue opens each return session with a memory-informed reflection
 - Returning user flow: shows last result, offers retake after 90 days
 - Static SVG favicon
@@ -338,19 +327,30 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 ## CURRENT PRIORITIES
 
-1. **⚠️ URGENT — Fix myhue.co blank page** — two Babel syntax errors in `public/hue.html` (duplicate `SharedProfileScreen` ~line 2059 + unlocated "Unexpected string" error in session 6 additions). Full detail in the red block at top of this file.
-2. Confirm 8am daily email arrived (check simon@simesco.co.uk — first send 2 April 2026)
-3. Invite beta team via `https://myhue.co/register?invite=BETA2026`
-4. **Simon review:** read all 55 drafted observations in `hue-observations-v1.md` (observations 17–71) — approve/amend before deploying to app
-5. **Priority 4 build:** Retest / energy check-in separation — reassessment annual, check-in weekly/daily, three taps max, never shared, no quarterly framing, add accountability layer
-6. **Priority 5 build:** Stress response in companion — grip detection, energy-specific auxiliary prompts, grip flag to reassessment trigger
-7. **Priority 6 build:** Data model — personal email field at account creation, 30-day grace period on org licence lapse, longitudinal data model documentation
-8. Build share my profile link (facilitator entry point — spec in `hue-share-profile-spec-v1.md`)
-9. Post-beta: build organisations + org_memberships tables before first paid team account
+1. **Companion opener copy** — "Your [energy] profile is right here" should reference the reach label: e.g. "Your Spark energy — your Instinctive reach — is right here." Needs updating in the hardcoded opener and the Claude-generated reflective opener system prompt.
+2. **Home button** — currently navigates to `screen === "welcome"` which reads savedProfile from localStorage. On a fresh device this works after sign-in; on desktop after a full localStorage.clear() it briefly shows fresh-start screen until refresh. Root fix: always hydrate savedProfile from betaUser server data on app load, not just on login.
+3. **Free tier registration** — unregistered free users will accumulate multiple profiles across devices. Fix: require lightweight registration (name + email, no payment) immediately after assessment. This also captures the email for upgrade nurture.
+4. **Free user email sequence** — separate MailerLite automation for free users: periodic nudges showing what they're missing (non-dominant energies), upgrade prompt at 90-day retake window, teaser insight from unexplored energy. Goal: make the full picture feel just out of reach, not inaccessible.
+5. Confirm 8am daily email arrived (check simon@simesco.co.uk — first send 2 April 2026)
+6. Invite beta team via `https://myhue.co/register?invite=BETA2026`
+7. **Simon review:** read all 55 drafted observations in `hue-observations-v1.md` (observations 17–71) — approve/amend before deploying to app
+8. **Priority 4 build:** Retest / energy check-in separation — reassessment annual, check-in weekly/daily, three taps max, never shared, no quarterly framing, add accountability layer
+9. **Priority 5 build:** Stress response in companion — grip detection, energy-specific auxiliary prompts, grip flag to reassessment trigger
+10. **Priority 6 build:** Data model — personal email field at account creation, 30-day grace period on org licence lapse, longitudinal data model documentation
+11. Build share my profile link (facilitator entry point — spec in `hue-share-profile-spec-v1.md`)
+12. Post-beta: build organisations + org_memberships tables before first paid team account
 
-### Completed this session (session 6)
-- ✓ Priority 2: One sentence full-screen card
-- ✓ Priority 3: Colleague sharing (30-day links + 8-hour session mode)
+### Completed session 7 (3 April 2026)
+- ✓ Fixed blank page — Babel syntax errors from session 6 resolved
+- ✓ Login flow — `POST /api/login`, `LoginScreen`, "Already have a profile? Sign in"
+- ✓ Cross-device sync — session cookie + server-side hydration of savedProfile
+- ✓ Consent Continue button — 2-second delay, replaces "I'm ready"
+- ✓ Companion auto-focus — input focuses after every Hue reply
+- ✓ Only You card — four-colour gradient border deployed
+
+### Completed session 6 (3 April 2026)
+- ✓ One sentence full-screen card
+- ✓ Colleague sharing (30-day links + 8-hour session mode)
 - ✓ Reset endpoint (`POST /api/reset-assessment`)
 
 ---
