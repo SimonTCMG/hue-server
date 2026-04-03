@@ -1021,8 +1021,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       // 2. Power of lower energies — always
       result.push({ type: "powerOfLower", text: EXTENDED_OBS.profileShape.powerOfLower });
 
-      // 3. Near-equal pairing — if top two within 5 percentage points
-      if (Math.abs(pcts[0] - pcts[1]) <= 5) {
+      // 3. Near-equal pairing — if top two within 10 percentage points
+      if (Math.abs(pcts[0] - pcts[1]) <= 10) {
         const key1 = primary + "_" + second;
         const key2 = second + "_" + primary;
         const nearEqText = EXTENDED_OBS.nearEqual[key1] || EXTENDED_OBS.nearEqual[key2] || null;
@@ -1030,9 +1030,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       }
 
       // 4. Profile shape — at most one, in priority order
-      const allHighEqual = pcts.every(p => p > 20) && (pcts[0] - pcts[3]) <= 10;
-      const allLow       = pcts.every(p => p < 20);
-      const allHigh      = pcts.every(p => p > 30);
+      const allHighEqual = pcts.every(p => p > 30) && (pcts[0] - pcts[3]) <= 10;
+      const allLow       = pcts.every(p => p < 15);
+      const allHigh      = pcts.every(p => p > 35);
       const wideGap      = pcts[0] - pcts[3] > 30;
       const nearZero     = pcts[3] < 10;
 
