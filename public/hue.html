@@ -1998,7 +1998,19 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
           try {
             const res  = await fetch("/api/me");
             const data = await res.json();
-            if (data.user) setBetaUser(data.user);
+            if (data.user) {
+              setBetaUser(data.user);
+              // If server has a completed assessment but this device has no localStorage profile,
+              // hydrate savedProfile from server so returning user view shows on any device
+              if (data.user.assessmentCompleted && data.user.scores && data.user.labels && !loadProfile()) {
+                const labelOrder = { "Instinctive": 0, "Fluent": 1, "Intentional": 2, "Developing": 3 };
+                const rankedIds = Object.entries(data.user.labels)
+                  .sort(([, a], [, b]) => labelOrder[a] - labelOrder[b])
+                  .map(([id]) => id);
+                saveProfile(data.user.scores, rankedIds.map(id => ({ id })));
+                setSavedProfile(loadProfile());
+              }
+            }
           } catch {}
           finally { setBetaChecked(true); }
         })();
