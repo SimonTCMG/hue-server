@@ -611,15 +611,10 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
         return () => clearTimeout(t);
       }, []);
 
-      // Auto-advance after Exchange 3 appears
-      useEffect(() => {
-        if (step !== 3) return;
-        const t = setTimeout(() => {
-          localStorage.setItem("hue_consent", "1");
-          onComplete();
-        }, 1800);
-        return () => clearTimeout(t);
-      }, [step]);
+      const handleBegin = () => {
+        localStorage.setItem("hue_consent", "1");
+        onComplete();
+      };
 
       useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -637,6 +632,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       };
 
       const showChip = (step === 1 || step === 2) && !typing && messages.length > 0 && messages[messages.length - 1].from === "hue";
+      const showBegin = step === 3 && !typing && messages.length > 0 && messages[messages.length - 1].from === "hue";
       const chipLabel = step === 1 ? EXCHANGES[0].reply : EXCHANGES[1].reply;
 
       return (
@@ -677,6 +673,23 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                 </button>
               </div>
             )}
+            {showBegin && (
+              <div style={{ padding: "8px 16px 20px", display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  onClick={handleBegin}
+                  style={{
+                    background: C.ink, color: C.cream,
+                    border: "none", borderRadius: 99,
+                    padding: "12px 24px",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: 15, fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  I'm ready
+                </button>
+              </div>
+            )}
           </div>
         </ChatFrame>
       );
@@ -691,6 +704,11 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       const [typing, setTyping]     = useState(false);
       const [error, setError]       = useState(null);
       const bottomRef = useRef(null);
+      const inputRef  = useRef(null);
+
+      useEffect(() => {
+        if (!typing && display.length > 0) inputRef.current?.focus();
+      }, [typing]);
 
       useEffect(() => {
         (async () => {
@@ -789,7 +807,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
               <div ref={bottomRef} style={{ height: 8 }} />
             </div>
 
-            <InputBar value={input} onChange={setInput} onSend={send} disabled={typing || display.length === 0} />
+            <InputBar value={input} onChange={setInput} onSend={send} disabled={typing || display.length === 0} inputRef={inputRef} />
           </div>
         </ChatFrame>
       );
@@ -1433,9 +1451,10 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                   </div>
                 ) : (
                   <div style={{
-                    background: "#fff", borderRadius: 20,
+                    background: "linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #D92010, #F5D000, #1A8C4E, #1755B8) border-box",
+                    borderRadius: 20,
                     padding: isDesktop ? "28px 28px" : "20px 20px",
-                    border: `1.5px solid ${primary.color}`,
+                    border: "1.5px solid transparent",
                     animation: "fadeUp 0.4s ease both",
                   }}>
                     <p style={{
