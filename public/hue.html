@@ -390,7 +390,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
     }
 
     // ─── Welcome screen ───────────────────────────────────────────────────────
-    function WelcomeScreen({ onStart, onChat, savedProfile }) {
+    function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn }) {
       const isDesktop = useIsDesktop();
       const primaryEnergy = savedProfile
         ? ENERGIES.find(e => e.id === savedProfile.rankedIds[0])
@@ -551,6 +551,13 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontStyle: "italic",
               }}>Most profiles tell you who you are today. Hue stays curious about who you're becoming.</p>
+              <button onClick={onSignIn} style={{
+                marginTop: 20, background: "none", border: "none",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 13, color: C.stone,
+                cursor: "pointer", textDecoration: "underline",
+                textUnderlineOffset: 3,
+              }}>Already have a profile? Sign in</button>
             </>
           )}
         </div>
@@ -1747,6 +1754,102 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       );
     }
 
+    // ─── Login screen ─────────────────────────────────────────────────────────
+    function LoginScreen({ onLogin, onBack }) {
+      const isDesktop = useIsDesktop();
+      const [email,   setEmail]   = useState("");
+      const [loading, setLoading] = useState(false);
+      const [error,   setError]   = useState(null);
+
+      const inputStyle = {
+        background: "#fff", border: `1.5px solid ${C.sand}`,
+        borderRadius: 12, padding: "14px 18px",
+        fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
+        color: C.ink, outline: "none", width: "100%",
+        boxSizing: "border-box",
+      };
+
+      const submit = async () => {
+        if (!email.trim()) { setError("Please enter your email."); return; }
+        setLoading(true);
+        setError(null);
+        try {
+          const res  = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email.trim() }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setError(data.error || "Something went wrong."); return; }
+          onLogin(data.user);
+        } catch {
+          setError("Something went wrong. Please try again.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: isDesktop ? "transparent" : C.cream,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: isDesktop ? "64px 32px" : "48px 24px",
+          textAlign: "center",
+        }}>
+          <SpinMark size={isDesktop ? 100 : 72} speed={8} />
+          <h1 style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: isDesktop ? 48 : 36, fontWeight: 900,
+            color: C.ink, letterSpacing: "-0.03em",
+            lineHeight: 1, marginTop: isDesktop ? 28 : 20,
+          }}>Welcome back.</h1>
+          <p style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: isDesktop ? 16 : 14, color: C.stone,
+            lineHeight: 1.65, maxWidth: 320,
+            margin: "12px 0 32px",
+          }}>Enter the email you registered with and we'll pick up where you left off.</p>
+
+          <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
+            <input
+              type="email"
+              placeholder="Your email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              autoFocus
+              style={inputStyle}
+            />
+            {error && (
+              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "#D92010", margin: 0 }}>{error}</p>
+            )}
+            <button
+              onClick={submit}
+              disabled={loading}
+              style={{
+                background: loading ? C.sand : C.ink, color: C.cream,
+                border: "none", borderRadius: 99,
+                padding: "15px 32px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 15, fontWeight: 700,
+                cursor: loading ? "default" : "pointer",
+              }}
+            >{loading ? "Signing in…" : "Sign in"}</button>
+          </div>
+
+          <button onClick={onBack} style={{
+            marginTop: 24, background: "none", border: "none",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 13, color: C.stone,
+            cursor: "pointer", textDecoration: "underline",
+            textUnderlineOffset: 3,
+          }}>Back</button>
+        </div>
+      );
+    }
+
     // ─── Back button ──────────────────────────────────────────────────────────
     function BackButton({ onBack, label = "Home" }) {
       return (
@@ -2045,6 +2148,19 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
         setScreen(newScreen);
       };
 
+      const handleLogin = (user) => {
+        setBetaUser(user);
+        if (user.assessmentCompleted && user.scores && user.labels) {
+          const labelOrder = { "Instinctive": 0, "Fluent": 1, "Intentional": 2, "Developing": 3 };
+          const rankedIds = Object.entries(user.labels)
+            .sort(([, a], [, b]) => labelOrder[a] - labelOrder[b])
+            .map(([id]) => id);
+          saveProfile(user.scores, rankedIds.map(id => ({ id })));
+          setSavedProfile(loadProfile());
+        }
+        navigate("welcome");
+      };
+
       const restoreSaved = () => {
         const restoredRanked = profileToRanked(savedProfile);
         setScores(savedProfile.scores);
@@ -2141,6 +2257,13 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                   }}
                   onChat={handleChat}
                   savedProfile={savedProfile}
+                  onSignIn={() => navigate("sign-in")}
+                />
+              )}
+              {screen === "sign-in" && (
+                <LoginScreen
+                  onLogin={handleLogin}
+                  onBack={() => navigate("welcome")}
                 />
               )}
               {screen === "consent" && (

@@ -130,6 +130,16 @@ app.post("/api/register", async (req, res) => {
   return res.json({ user: { id, name: name.trim(), email: normalised, betaAccess: true, assessmentCompleted: false } });
 });
 
+// POST /api/login — sign in existing user by email (sets session cookie)
+app.post("/api/login", (req, res) => {
+  const { email } = req.body;
+  if (!email?.trim()) return res.status(400).json({ error: "Please enter your email." });
+  const user = getUserByEmail(email.toLowerCase().trim());
+  if (!user) return res.status(404).json({ error: "No account found with that email." });
+  setUserCookie(res, user.id);
+  return res.json({ user: formatUserResponse(user) });
+});
+
 // POST /api/complete — save completed assessment results
 app.post("/api/complete", async (req, res) => {
   const user = getUserFromCookie(req);
