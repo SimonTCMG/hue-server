@@ -638,9 +638,19 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
         }, 900);
       };
 
+      const [showContinue, setShowContinue] = useState(false);
       const showChip = (step === 1 || step === 2) && !typing && messages.length > 0 && messages[messages.length - 1].from === "hue";
       const showBegin = step === 3 && !typing && messages.length > 0 && messages[messages.length - 1].from === "hue";
       const chipLabel = step === 1 ? EXCHANGES[0].reply : EXCHANGES[1].reply;
+
+      useEffect(() => {
+        if (showBegin) {
+          const t = setTimeout(() => setShowContinue(true), 2000);
+          return () => clearTimeout(t);
+        } else {
+          setShowContinue(false);
+        }
+      }, [showBegin]);
 
       return (
         <ChatFrame isDesktop={isDesktop}>
@@ -680,7 +690,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                 </button>
               </div>
             )}
-            {showBegin && (
+            {showBegin && showContinue && (
               <div style={{ padding: "8px 16px 20px", display: "flex", justifyContent: "flex-end" }}>
                 <button
                   onClick={handleBegin}
@@ -693,7 +703,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
                     cursor: "pointer",
                   }}
                 >
-                  I'm ready
+                  Continue
                 </button>
               </div>
             )}
@@ -1674,6 +1684,10 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       }, [display, typing]);
+
+      useEffect(() => {
+        if (!typing && display.length > 0) inputRef.current?.focus();
+      }, [typing]);
 
       const send = async () => {
         const text = input.trim();
