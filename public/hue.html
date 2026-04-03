@@ -1660,7 +1660,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
         } else {
           // First visit, no history — simple hardcoded opener, no API call needed
           const primary = ranked[0];
-          setDisplay([{ from: "hue", text: `Your ${primary.name} profile is right here. What would you like more insight on?` }]);
+          setDisplay([{ from: "hue", text: `Your full colour profile is here. You tend to reach for ${primary.name} first — your Instinctive energy. What would you like to explore?` }]);
         }
       }, [summaries]);
 
@@ -1986,7 +1986,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       const [screen, setScreen] = useState("welcome");
       const [scores, setScores] = useState(null);
       const [ranked, setRanked] = useState(null);
-      const [savedProfile] = useState(() => loadProfile());
+      const [savedProfile, setSavedProfile] = useState(() => loadProfile());
 
       // Beta session — null until /api/me resolves
       const [betaUser,    setBetaUser]    = useState(null);
@@ -2028,6 +2028,7 @@ No markdown formatting — plain prose only. No asterisks, no bullet points, no 
       }, [scores, ranked]);
 
       const navigate = (newScreen) => {
+        if (newScreen === "welcome") setSavedProfile(loadProfile());
         window.history.pushState({ screen: newScreen }, "");
         setScreen(newScreen);
       };
