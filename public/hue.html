@@ -2186,128 +2186,142 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── Registration screen ──────────────────────────────────────────────────
-    function RegisterScreen({ inviteToken, onRegistered }) {
+    function RegisterScreen({ onRegistered, onSignIn }) {
       const isDesktop = useIsDesktop();
+      const [step,    setStep]    = useState("details"); // "details" | "plan"
       const [name,    setName]    = useState("");
       const [email,   setEmail]   = useState("");
       const [loading, setLoading] = useState(false);
       const [error,   setError]   = useState(null);
-
-      const submit = async () => {
-        if (!name.trim() || !email.trim()) {
-          setError("Please enter your name and email.");
-          return;
-        }
-        setLoading(true);
-        setError(null);
-        try {
-          const res  = await fetch("/api/register", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ name: name.trim(), email: email.trim(), inviteToken }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            setError(data.error || "Something went wrong. Please try again.");
-            return;
-          }
-          // Remove invite token from URL without a page reload
-          window.history.replaceState({}, "", "/");
-          onRegistered(data.user);
-        } catch {
-          setError("Something went wrong. Please try again.");
-        } finally {
-          setLoading(false);
-        }
-      };
+      const [user,    setUser]    = useState(null);
 
       const inputStyle = {
         background: "#fff", border: `1.5px solid ${C.sand}`,
         borderRadius: 12, padding: "14px 18px",
         fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
-        color: C.ink, outline: "none", width: "100%",
-        boxSizing: "border-box",
+        color: C.ink, outline: "none", width: "100%", boxSizing: "border-box",
       };
 
-      return (
-        <div style={{
-          minHeight: "100vh",
-          background: isDesktop ? "transparent" : C.cream,
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          padding: isDesktop ? "64px 32px" : "48px 24px",
-          textAlign: "center",
-        }}>
-          <SpinMark size={isDesktop ? 100 : 72} speed={8} />
-          <h1 style={{
-            fontFamily: "'Fraunces', serif",
-            fontSize: isDesktop ? 48 : 36, fontWeight: 900,
-            color: C.ink, letterSpacing: "-0.03em",
-            lineHeight: 1, marginTop: isDesktop ? 28 : 20,
-          }}>You're invited.</h1>
-          <p style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: isDesktop ? 17 : 15, color: C.stone,
-            lineHeight: 1.65, maxWidth: isDesktop ? 380 : 300,
-            marginTop: 14,
-          }}>
-            You've been invited to explore Hue. Use a personal email — your profile belongs to you, not your employer. It travels with you wherever you go.
-          </p>
+      const submitDetails = async () => {
+        if (!name.trim() || !email.trim()) { setError("Please enter your name and email."); return; }
+        setLoading(true); setError(null);
+        try {
+          const res  = await fetch("/api/register", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setError(data.error || "Something went wrong. Please try again."); return; }
+          window.history.replaceState({}, "", "/");
+          setUser(data.user);
+          setStep("plan");
+        } catch { setError("Something went wrong. Please try again."); }
+        finally { setLoading(false); }
+      };
 
-          <div style={{
-            marginTop: 36, width: "100%", maxWidth: 380,
-            display: "flex", flexDirection: "column", gap: 12,
-          }}>
-            <input
-              type="text"
-              placeholder="First name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              style={inputStyle}
+      const choosePlan = async (plan) => {
+        setLoading(true); setError(null);
+        try {
+          const res  = await fetch("/api/create-checkout", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan }),
+          });
+          const data = await res.json();
+          if (res.ok && data.url) {
+            window.location.href = data.url;
+          } else {
+            // Stripe not configured (dev/beta) — go straight into app
+            onRegistered(user);
+          }
+        } catch { onRegistered(user); }
+        finally { setLoading(false); }
+      };
+
+      const wrap = {
+        minHeight: "100vh", background: C.cream,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: isDesktop ? "64px 32px" : "48px 24px", textAlign: "center",
+      };
+
+      if (step === "plan") {
+        return (
+          <div style={wrap}>
+            <SpinMark size={isDesktop ? 80 : 64} speed={8} />
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 40 : 32, fontWeight: 900, color: C.ink, letterSpacing: "-0.03em", lineHeight: 1.1, marginTop: 24 }}>
+              14 days to explore.
+            </h1>
+            <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: isDesktop ? 16 : 14, color: C.stone, lineHeight: 1.65, maxWidth: 360, marginTop: 12 }}>
+              Full access to all four energy conversations and your companion. No charge until your trial ends. Cancel any time.
+            </p>
+            <div style={{ marginTop: 32, width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => choosePlan("monthly")} disabled={loading} style={{
+                background: C.ink, color: C.cream, border: "none", borderRadius: 16,
+                padding: "20px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 700, fontSize: 15, cursor: "pointer", textAlign: "left",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <span>Monthly</span>
+                <span style={{ fontWeight: 400, opacity: 0.8 }}>£9.99 / month</span>
+              </button>
+              <button onClick={() => choosePlan("annual")} disabled={loading} style={{
+                background: "#fff", color: C.ink, border: `1.5px solid ${C.sand}`, borderRadius: 16,
+                padding: "20px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 700, fontSize: 15, cursor: "pointer", textAlign: "left",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <span>Annual <span style={{ fontWeight: 400, color: C.tend, fontSize: 12 }}>Save 34%</span></span>
+                <span style={{ fontWeight: 400, color: C.stone }}>£79 / year</span>
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: C.stone, marginTop: 16, fontFamily: "'Plus Jakarta Sans', sans-serif", maxWidth: 320, lineHeight: 1.5 }}>
+              Card required now. You won't be charged until day 14. Cancel before then and you pay nothing.
+            </p>
+            {error && <p style={{ fontSize: 13, color: C.spark, marginTop: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{error}</p>}
+          </div>
+        );
+      }
+
+      return (
+        <div style={wrap}>
+          <SpinMark size={isDesktop ? 100 : 72} speed={8} />
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 48 : 36, fontWeight: 900, color: C.ink, letterSpacing: "-0.03em", lineHeight: 1, marginTop: isDesktop ? 28 : 20 }}>
+            Know yourself<br/>in colour.
+          </h1>
+          <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: isDesktop ? 17 : 15, color: C.stone, lineHeight: 1.65, maxWidth: isDesktop ? 380 : 300, marginTop: 14 }}>
+            14 days to explore your colour energy profile. Use a personal email — your profile belongs to you, not your employer.
+          </p>
+          <div style={{ marginTop: 36, width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 12 }}>
+            <input type="text" placeholder="First name" value={name}
+              onChange={e => setName(e.target.value)} style={inputStyle}
               onFocus={e => e.target.style.borderColor = C.ink}
               onBlur={e  => e.target.style.borderColor = C.sand}
             />
-            <input
-              type="email"
-              placeholder="Personal email address"
-              value={email}
+            <input type="email" placeholder="Personal email address" value={email}
               onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && submit()}
+              onKeyDown={e => e.key === "Enter" && submitDetails()}
               style={inputStyle}
               onFocus={e => e.target.style.borderColor = C.ink}
               onBlur={e  => e.target.style.borderColor = C.sand}
             />
-            {error && (
-              <p style={{
-                fontSize: 13, color: C.spark, textAlign: "left",
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-              }}>{error}</p>
-            )}
-            <button
-              onClick={submit}
-              disabled={loading || !name.trim() || !email.trim()}
-              style={{
-                background: name.trim() && email.trim() && !loading ? C.ink : C.sand,
-                color: name.trim() && email.trim() && !loading ? C.cream : C.stone,
-                border: "none", borderRadius: 99,
-                padding: "16px",
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: 700, fontSize: 16,
-                cursor: name.trim() && email.trim() && !loading ? "pointer" : "default",
-                transition: "background 0.15s",
-              }}
-            >
-              {loading ? "Saving…" : "Begin"}
+            {error && <p style={{ fontSize: 13, color: C.spark, textAlign: "left", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{error}</p>}
+            <button onClick={submitDetails} disabled={loading || !name.trim() || !email.trim()} style={{
+              background: name.trim() && email.trim() && !loading ? C.ink : C.sand,
+              color: name.trim() && email.trim() && !loading ? C.cream : C.stone,
+              border: "none", borderRadius: 99, padding: "16px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16,
+              cursor: name.trim() && email.trim() && !loading ? "pointer" : "default",
+              transition: "background 0.15s",
+            }}>
+              {loading ? "One moment…" : "Start your 14 days"}
             </button>
           </div>
-
-          <p style={{
-            fontSize: 12, color: C.stone, marginTop: 20,
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            maxWidth: 320, lineHeight: 1.5,
-          }}>
+          <p style={{ fontSize: 12, color: C.stone, marginTop: 20, fontFamily: "'Plus Jakarta Sans', sans-serif", maxWidth: 320, lineHeight: 1.5 }}>
             Your profile is yours to keep — if you ever move on, it comes with you.
           </p>
+          <button onClick={onSignIn} style={{ background: "none", border: "none", color: C.stone, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", marginTop: 16, cursor: "pointer", textDecoration: "underline" }}>
+            Already have a profile? Sign in
+          </button>
         </div>
       );
     }
@@ -2436,13 +2450,21 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         })();
       }, []);
 
-      // Invite token from URL (supports both /?invite=X and /register?invite=X)
-      const inviteToken = new URLSearchParams(window.location.search).get("invite");
-      const isRegisterPath = window.location.pathname === "/register";
-
       // Shared profile path — /shared/:token
       const sharedPathMatch = window.location.pathname.match(/^\/shared\/([^/]+)$/);
       const sharedToken = sharedPathMatch ? sharedPathMatch[1] : null;
+
+      // Checkout return params
+      const urlParams = new URLSearchParams(window.location.search);
+      const checkoutResult = urlParams.get("checkout"); // "success" | "cancelled"
+      const showSubscribe   = urlParams.get("subscribe") === "1";
+
+      // Clean checkout params from URL without reload
+      useEffect(() => {
+        if (checkoutResult || showSubscribe) {
+          window.history.replaceState({}, "", "/");
+        }
+      }, []);
 
       // Hook browser back button into app navigation
       useEffect(() => {
@@ -2501,9 +2523,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         }
       };
 
-      // Show registration screen if on /register path or invite token present,
-      // and user is not already registered. Wait for /api/me to resolve first.
-      const showRegister = betaChecked && !betaUser && (isRegisterPath || inviteToken);
+      // All non-logged-in users see the registration screen. Wait for /api/me first.
+      const showRegister = betaChecked && !betaUser;
 
       // SIMON: This is where free-tier restriction would be enforced in future.
       // When the free tier is limited to dominant energy only, non-beta users
@@ -2562,10 +2583,12 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           ) : betaChecked && betaUser?.userState === "individual-trial-expired" ? (
             <TrialExpiredScreen userName={betaUser.name} />
           ) : showRegister ? (
-            <RegisterScreen
-              inviteToken={inviteToken}
-              onRegistered={user => { setBetaUser(user); navigate("welcome"); }}
-            />
+            screen === "sign-in"
+              ? <LoginScreen onLogin={handleLogin} onBack={() => setScreen("register")} />
+              : <RegisterScreen
+                  onRegistered={user => { setBetaUser(user); navigate("welcome"); }}
+                  onSignIn={() => setScreen("sign-in")}
+                />
           ) : (
             <>
               {screen === "welcome" && (
@@ -2577,12 +2600,6 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   onChat={handleChat}
                   savedProfile={savedProfile}
                   onSignIn={() => navigate("sign-in")}
-                />
-              )}
-              {screen === "sign-in" && (
-                <LoginScreen
-                  onLogin={handleLogin}
-                  onBack={() => navigate("welcome")}
                 />
               )}
               {screen === "consent" && (

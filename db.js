@@ -112,7 +112,17 @@ export function updateLastEmailSent(id, ts) {
 }
 
 export function getUsersForDailyEmail() {
-  return db.prepare("SELECT * FROM users WHERE assessment_completed_at IS NOT NULL").all();
+  // Send daily emails to subscribers, org members, and legacy beta users (null state)
+  return db.prepare(
+    "SELECT * FROM users WHERE assessment_completed_at IS NOT NULL AND (user_state IN ('individual-subscriber', 'org-member-active') OR user_state IS NULL)"
+  ).all();
+}
+
+export function getUsersForTrialEmails() {
+  // All trial-active users, including beta (null state) — filter by state in caller
+  return db.prepare(
+    "SELECT * FROM users WHERE trial_started_at IS NOT NULL"
+  ).all();
 }
 
 db.exec(`
@@ -190,6 +200,29 @@ export function getConversationSummaries(userId, limit = 5) {
   return db.prepare(
     "SELECT summary, created_at FROM conversation_summaries WHERE user_id = ? ORDER BY created_at DESC LIMIT ?"
   ).all(userId, limit);
+}
+
+// ─── Trial email tracking ─────────────────────────────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS trial_emails (
+    user_id    TEXT NOT NULL,
+    day_number INTEGER NOT NULL,
+    sent_at    INTEGER NOT NULL,
+    PRIMARY KEY (user_id, day_number)
+  )
+`);
+
+export function hasTrialEmailBeenSent(userId, dayNumber) {
+  return !!db.prepare(
+    "SELECT 1 FROM trial_emails WHERE user_id = ? AND day_number = ?"
+  ).get(userId, dayNumber);
+}
+
+export function recordTrialEmailSent(userId, dayNumber) {
+  db.prepare(
+    "INSERT OR IGNORE INTO trial_emails (user_id, day_number, sent_at) VALUES (?, ?, ?)"
+  ).run(userId, dayNumber, Date.now());
 }
 
 export default db;

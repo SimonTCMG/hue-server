@@ -19,6 +19,7 @@ import db, {
   updateAssessment,
   updateLastEmailSent,
   getUsersForDailyEmail,
+  getUsersForTrialEmails,
   saveConversationSummary,
   getConversationSummaries,
   saveOneSentence,
@@ -30,6 +31,8 @@ import db, {
   getUserActiveShares,
   updateUserState,
   updateStripeCustomer,
+  hasTrialEmailBeenSent,
+  recordTrialEmailSent,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -52,6 +55,50 @@ const TRIAL_MS   = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
+
+// ─── Maintenance mode ────────────────────────────────────────────────────────
+// Set MAINTENANCE_MODE=true in Railway environment variables to close the site.
+// Remove or set to false to reopen. Takes effect on next request (no redeploy needed
+// if Railway supports dynamic env — otherwise a redeploy will pick it up).
+const MAINTENANCE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hue — Coming Soon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@900&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:#FDFAF5;color:#1A1410;
+         display:flex;align-items:center;justify-content:center;min-height:100vh;padding:32px;text-align:center}
+    .logo{font-family:'Fraunces',serif;font-size:40px;font-weight:900;letter-spacing:-0.03em;margin-bottom:32px}
+    .logo .u{color:#D92010}
+    h1{font-family:'Fraunces',serif;font-size:clamp(28px,5vw,40px);font-weight:900;
+       letter-spacing:-0.02em;line-height:1.1;margin-bottom:16px}
+    p{font-size:16px;line-height:1.7;color:#6B6357;max-width:400px;margin:0 auto}
+  </style>
+</head>
+<body>
+  <div>
+    <div class="logo">h<span class="u">u</span>e</div>
+    <h1>Something new<br>is taking shape.</h1>
+    <p>We're putting the finishing touches on Hue. Check back very soon.</p>
+  </div>
+</body>
+</html>`;
+
+app.use((req, res, next) => {
+  if (process.env.MAINTENANCE_MODE !== "true") return next();
+  // Always let the Stripe webhook through so subscriptions still process
+  if (req.path === "/api/stripe-webhook") return next();
+  if (req.path.startsWith("/api/")) {
+    return res.status(503).json({ error: "maintenance" });
+  }
+  res.set("Cache-Control", "no-store");
+  return res.send(MAINTENANCE_HTML);
+});
+
 app.use(express.static(join(__dirname, "public")));
 
 // Serve hue.html with no-cache headers so browsers always fetch the latest
@@ -123,7 +170,8 @@ app.get("/api/me", (req, res) => {
   return res.json({ user: formatUserResponse(user) });
 });
 
-// POST /api/register — create beta user (requires valid invite token)
+// POST /api/register — create new user account
+// Invite token is optional: if REQUIRE_INVITE=true env var is set, it is enforced.
 app.post("/api/register", async (req, res) => {
   const { name, email, inviteToken } = req.body;
 
@@ -131,7 +179,7 @@ app.post("/api/register", async (req, res) => {
     return res.status(400).json({ error: "Please enter your name and email." });
   }
 
-  if (inviteToken !== INVITE_TOKEN) {
+  if (process.env.REQUIRE_INVITE === "true" && inviteToken !== INVITE_TOKEN) {
     return res.status(403).json({ error: "This invite link isn't valid." });
   }
 
@@ -154,8 +202,17 @@ app.post("/api/register", async (req, res) => {
     return res.status(500).json({ error: "Could not create your account. Please try again." });
   }
 
-  // Add to MailerLite (non-blocking — don't fail registration if this errors)
+  // Add to MailerLite (non-blocking)
   upsertSubscriber({ name: name.trim(), email: normalised, userState: "individual-trial-active" }).catch(console.error);
+
+  // Send day 1 welcome email immediately (non-blocking)
+  const day1 = buildTrialEmail(1, { name: name.trim(), dominant_energy: null, assessment_completed_at: null });
+  if (day1) {
+    const firstName = name.trim().split(" ")[0];
+    sendEmail({ to: normalised, toName: firstName, subject: day1.subject, html: day1.html.replace("{{EMAIL}}", normalised) })
+      .then(sent => { if (sent) recordTrialEmailSent(id, 1); })
+      .catch(() => {});
+  }
 
   setUserCookie(res, id);
   const newUser = getUser(id);
@@ -179,8 +236,12 @@ app.post("/api/create-checkout", async (req, res) => {
   if (!stripe) return res.status(503).json({ error: "Payment not configured." });
   const user = getUserFromCookie(req);
   if (!user) return res.status(401).json({ error: "Not signed in." });
-  const { priceId } = req.body; // STRIPE_PRICE_MONTHLY or STRIPE_PRICE_ANNUAL
-  if (!priceId) return res.status(400).json({ error: "Missing priceId." });
+  const { plan, priceId: explicitPriceId } = req.body;
+  const priceId = explicitPriceId
+    || (plan === "annual"  ? process.env.STRIPE_PRICE_ANNUAL  : null)
+    || (plan === "monthly" ? process.env.STRIPE_PRICE_MONTHLY : null)
+    || process.env.STRIPE_PRICE_MONTHLY;
+  if (!priceId) return res.status(400).json({ error: "No Stripe price configured." });
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -232,15 +293,25 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
 
   switch (event.type) {
     case "checkout.session.completed": {
+      // Card captured — store customer ID. User stays individual-trial-active.
       const session  = event.data.object;
       const userId   = session.metadata?.hue_user_id;
       const customer = session.customer;
       if (userId) {
         updateStripeCustomer(userId, customer);
-        updateUserState(userId, "individual-subscriber");
-        const subUser = getUser(userId);
-        if (subUser) {
-          upsertSubscriber({ name: subUser.name, email: subUser.email, userState: "individual-subscriber" }).catch(() => {});
+        // State stays individual-trial-active — subscriber conversion happens on invoice.paid
+      }
+      break;
+    }
+    case "invoice.paid": {
+      // First real charge after trial — user becomes a subscriber
+      const inv      = event.data.object;
+      const customer = inv.customer;
+      if (inv.billing_reason === "subscription_cycle" || inv.billing_reason === "subscription_update") {
+        const user = await getUserByStripeCustomer(customer);
+        if (user) {
+          updateUserState(user.id, "individual-subscriber");
+          upsertSubscriber({ name: user.name, email: user.email, userState: "individual-subscriber" }).catch(() => {});
         }
       }
       break;
@@ -762,6 +833,216 @@ async function sendDailyEmails() {
 // SIMON: Adjust timezone if your team is not UK-based. UK = Europe/London.
 // Note Europe/London automatically handles BST (UTC+1 in summer) vs GMT (UTC in winter).
 cron.schedule("0 8 * * *", sendDailyEmails, {
+  timezone: "Europe/London",
+});
+
+// ─── Trial email sequence ────────────────────────────────────────────────────
+
+const APP_URL = process.env.APP_URL || "https://myhue.co";
+const TRIAL_EMAIL_DAYS = [1, 3, 5, 7, 10, 12, 13, 14];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function trialEmailHtml({ firstName, body, ctaText, ctaUrl }) {
+  const cta = ctaText
+    ? `<p style="margin:28px 0 0"><a href="${ctaUrl}" style="display:inline-block;background:#1A1410;color:#FDFAF5;border-radius:99px;padding:14px 32px;font-family:Arial,sans-serif;font-weight:700;font-size:15px;text-decoration:none">${ctaText}</a></p>`
+    : "";
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FDFAF5;font-family:Georgia,serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 24px">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px">
+<tr><td style="padding-bottom:32px">
+  <span style="font-family:Georgia,serif;font-size:24px;font-weight:900;letter-spacing:-0.02em;color:#1A1410">h<span style="color:#D92010">u</span>e</span>
+</td></tr>
+<tr><td style="font-size:16px;line-height:1.75;color:#1A1410">${body}${cta}</td></tr>
+<tr><td style="padding-top:40px;font-family:Arial,sans-serif;font-size:12px;color:#9A8F86;line-height:1.6;border-top:1px solid #EAE4DB;margin-top:40px">
+  <p style="margin:0">Hue · <a href="${APP_URL}" style="color:#9A8F86">myhue.co</a></p>
+  <p style="margin:6px 0 0">Your profile belongs to you. <a href="${APP_URL}/unsubscribe?email=${encodeURIComponent("{{EMAIL}}")}" style="color:#9A8F86">Unsubscribe</a></p>
+</td></tr>
+</table></td></tr></table>
+</body></html>`;
+}
+
+function buildTrialEmail(dayNumber, user) {
+  const firstName  = user.name.trim().split(" ")[0];
+  const energy     = user.dominant_energy
+    ? user.dominant_energy.charAt(0).toUpperCase() + user.dominant_energy.slice(1)
+    : null;
+  const energyLine = energy ? `your ${energy} energy` : "your colour energy";
+
+  const appUrl = APP_URL;
+
+  switch (dayNumber) {
+    case 1:
+      return {
+        subject: "You're in. Here's where to start.",
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Welcome to Hue. Over the next 14 days, you'll explore how you naturally show up — not through a quiz, but through conversation.</p>
+<p style="margin:0 0 16px">There's no right way to do this. Start when you're ready, take your time, go at your own pace. Your first conversation is waiting.</p>
+<p style="margin:0 0 16px">One thing worth knowing now: everything you discover here belongs to you — not your employer, not Hue. Your profile travels with you.</p>`,
+          ctaText: "Start your first conversation",
+          ctaUrl: appUrl,
+        }),
+      };
+
+    case 3:
+      return {
+        subject: "What we're starting to understand about you",
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">By now, something is starting to take shape. ${energy
+  ? `You tend to reach for ${energy} energy naturally — it shows up in how you described the situations that matter most to you.`
+  : "The conversations so far are starting to reveal how you show up."}</p>
+<p style="margin:0 0 16px">There are more conversations waiting. Each one adds something different — a fuller picture of you across different contexts, pressures, and relationships.</p>
+<p style="margin:0 0 16px">No rush. Your 14 days are running from when you signed up.</p>`,
+          ctaText: "Continue exploring",
+          ctaUrl: appUrl,
+        }),
+      };
+
+    case 5:
+      return {
+        subject: `The energy that shapes how ${energyLine} shows up`,
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Every energy looks and feels different depending on what sits next to it. ${energy
+  ? `The way your ${energy} energy shows up is shaped by whatever sits alongside it.`
+  : "Your instinctive energy is shaped by everything that sits alongside it."}</p>
+<p style="margin:0 0 16px">The next conversation looks at exactly that. It's worth going in directly — the combinations are where the most specific, most useful observations come from.</p>`,
+          ctaText: "Continue the conversation",
+          ctaUrl: appUrl,
+        }),
+      };
+
+    case 7:
+      return {
+        subject: "Halfway. Here's what's taking shape.",
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">You're halfway through your 14 days.</p>
+${user.assessment_completed_at
+  ? `<p style="margin:0 0 16px">You've built a picture of yourself that most people never have — specific, grounded in how you actually behave, not how you think you should. That's rare.</p>
+<p style="margin:0 0 16px">The companion is here to keep working with what you've found. Come back whenever something's on your mind.</p>`
+  : `<p style="margin:0 0 16px">The conversation is still here, waiting. There's no pressure to rush — but what you'd find in the next hour is worth more than most things on your calendar today.</p>`}`,
+          ctaText: "Open Hue",
+          ctaUrl: appUrl,
+        }),
+      };
+
+    case 10:
+      return {
+        subject: "Four days left — and something worth knowing",
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Your trial ends in four days. On day 14, the app pauses. Your profile doesn't go anywhere — it waits for you.</p>
+<p style="margin:0 0 16px">Subscribing keeps the conversation going. The companion builds a relationship with you over time — what's available at six months isn't available at 14 days. It gets more specific, more useful, the longer it runs.</p>
+<p style="margin:0 0 16px"><strong>£9.99 a month.</strong> Or £79 for the year — that's two months free.</p>
+<p style="margin:0 0 16px">One clear call to action: subscribe now, or wait until day 14. Both are fine.</p>`,
+          ctaText: "Subscribe to continue",
+          ctaUrl: `${appUrl}?subscribe=1`,
+        }),
+      };
+
+    case 12:
+      return {
+        subject: "What changed after three months with Hue",
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Your trial ends in two days.</p>
+<p style="margin:0 0 16px">We asked some of our earliest users what changed after a few months with Hue. One answer stayed with us:</p>
+<blockquote style="border-left:3px solid #D92010;margin:20px 0;padding:0 0 0 20px;font-style:italic;color:#6B6357">
+  "I stopped explaining myself so much. I already knew why I was doing what I was doing — I just needed the words for it."
+</blockquote>
+<p style="margin:0 0 16px">That's what the companion does over time. Not more insight — sharper language for what you already know about yourself.</p>
+<p style="margin:0 0 16px">Your trial ends in two days. Subscribe to keep going.</p>`,
+          ctaText: "Subscribe — £9.99/month",
+          ctaUrl: `${appUrl}?subscribe=1`,
+        }),
+      };
+
+    case 13:
+      return {
+        subject: "Tomorrow your trial ends — your profile is safe",
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Tomorrow your trial ends. The product pauses.</p>
+<p style="margin:0 0 16px">Your Hue profile — everything you've explored, every observation, your full energy picture — is saved. It isn't going anywhere. If you choose to subscribe, you pick up exactly where you left off. If you don't, your profile waits.</p>
+<p style="margin:0 0 16px">Nothing is lost. Nothing expires.</p>
+<p style="margin:0 0 16px">£9.99 a month. £79 a year. One button below.</p>`,
+          ctaText: "Subscribe to continue",
+          ctaUrl: `${appUrl}?subscribe=1`,
+        }),
+      };
+
+    case 14:
+      return {
+        subject: "Your trial has ended",
+        html: trialEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Your 14-day trial has ended. The product is now paused — but your profile is here whenever you're ready.</p>
+<p style="margin:0 0 16px">Everything you explored is saved. Subscribing gives you back the companion, the daily practice, and the full conversation — exactly where you left off.</p>
+<p style="margin:0 0 16px">No pressure. The door stays open.</p>`,
+          ctaText: "Subscribe to continue",
+          ctaUrl: `${appUrl}?subscribe=1`,
+        }),
+      };
+
+    default:
+      return null;
+  }
+}
+
+async function sendTrialEmails() {
+  const users = getUsersForTrialEmails();
+
+  for (const user of users) {
+    // Skip beta users (no user_state) and already-converted/expired users
+    if (!user.user_state || user.user_state === "individual-subscriber" || user.user_state === "org-member-active") continue;
+
+    const trialStart = user.trial_started_at || user.registered_at;
+    if (!trialStart) continue;
+
+    const daysSinceStart = (Date.now() - trialStart) / DAY_MS;
+
+    for (const dayNumber of TRIAL_EMAIL_DAYS) {
+      // Send this email if: we're past that day, haven't sent it yet
+      if (daysSinceStart < dayNumber) continue;
+      if (hasTrialEmailBeenSent(user.id, dayNumber)) continue;
+
+      const email = buildTrialEmail(dayNumber, user);
+      if (!email) continue;
+
+      const firstName = user.name.trim().split(" ")[0];
+      const sent = await sendEmail({
+        to:      user.email,
+        toName:  firstName,
+        subject: email.subject,
+        html:    email.html.replace("{{EMAIL}}", user.email),
+      }).catch(() => false);
+
+      if (sent) {
+        recordTrialEmailSent(user.id, dayNumber);
+        console.log(`Trial email day ${dayNumber} sent to ${user.email}`);
+      } else {
+        console.error(`Trial email day ${dayNumber} FAILED for ${user.email}`);
+      }
+
+      // Small delay between sends to avoid rate limits
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+}
+
+// Trial emails run at 9:00 AM UK time daily (1 hour after daily companion emails)
+cron.schedule("0 9 * * *", sendTrialEmails, {
   timezone: "Europe/London",
 });
 
