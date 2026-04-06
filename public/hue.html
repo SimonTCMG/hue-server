@@ -79,6 +79,18 @@
       );
     }
 
+    // ─── colorize — wraps energy names in EnergyWord within any string ────────
+    // Usage: {colorize(someText)}  returns a React fragment with coloured words.
+    const ENERGY_NAME_RE = /(Spark|Glow|Tend|Flow)/g;
+    function colorize(text) {
+      if (!text) return text;
+      const parts = text.split(ENERGY_NAME_RE);
+      if (parts.length === 1) return text;
+      return parts.map((part, i) =>
+        ENERGY_COLOR_MAP[part] ? <EnergyWord key={i} name={part} /> : part
+      );
+    }
+
     // ─── Responsive hook ──────────────────────────────────────────────────────
     function useIsDesktop() {
       const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 768);
@@ -1489,7 +1501,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               margin: "12px 0 0",
               paddingTop: 12,
               borderTop: `1px solid ${C.sand}`,
-            }}>{OBSERVATIONS[e.id].reach[i]}</p>
+            }}>{colorize(OBSERVATIONS[e.id].reach[i])}</p>
           )}
         </div>
       );
@@ -1549,7 +1561,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 letterSpacing: "-0.02em",
                 color: heroTextColor,
                 margin: "0 0 24px",
-              }}>{obs.headline}</h2>
+              }}>{colorize(obs.headline)}</h2>
               <p style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: isDesktop ? 17 : 15,
@@ -1558,7 +1570,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 opacity: 0.9,
                 margin: "0 0 24px",
                 maxWidth: 540,
-              }}>{obs.mirror}</p>
+              }}>{colorize(obs.mirror)}</p>
               <p style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: 11, fontWeight: 600,
@@ -1573,7 +1585,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                     lineHeight: 1.65,
                     color: heroTextColor,
                     opacity: 0.85,
-                  }}>{item}</li>
+                  }}>{colorize(item)}</li>
                 ))}
               </ul>
             </div>
@@ -1610,12 +1622,12 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   fontSize: 11, fontWeight: 600,
                   letterSpacing: "0.08em", textTransform: "uppercase",
                   color: primary.color, margin: "0 0 10px",
-                }}>When you reach for {obs.flexEnergy} energy</p>
+                }}>When you reach for <EnergyWord name={obs.flexEnergy} /> energy</p>
                 <p style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
                   color: C.ink, margin: 0,
-                }}>{obs.flex}</p>
+                }}>{colorize(obs.flex)}</p>
               </div>
               <div style={{
                 background: "#fff", borderRadius: 20,
@@ -1632,7 +1644,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
                   color: C.ink, margin: 0,
-                }}>{obs.surprise}</p>
+                }}>{colorize(obs.surprise)}</p>
               </div>
             </div>
 
@@ -1674,7 +1686,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                       fontFamily: "'Plus Jakarta Sans', sans-serif",
                       fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
                       color: C.ink, margin: 0,
-                    }}>{bespokeObs}</p>
+                    }}>{colorize(bespokeObs)}</p>
                   </div>
                 )}
               </div>
@@ -1705,7 +1717,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
                     fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
                     color: C.ink, margin: 0, whiteSpace: "pre-line",
-                  }}>{card.text}</p>
+                  }}>{colorize(card.text)}</p>
                 </div>
               </div>
             ))}
@@ -2376,8 +2388,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
             <div style={{ background: primary.color, margin: isDesktop ? "28px 40px 0" : "20px 0 0", borderRadius: isDesktop ? 24 : 0, padding: isDesktop ? "48px 52px" : "36px 24px", animation: "fadeUp 0.4s ease both" }}>
               <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: heroSubColor, margin: "0 0 20px" }}>{profile.name}'s colour energy profile</p>
-              <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 44 : 34, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.02em", color: heroTextColor, margin: "0 0 20px" }}>{obs.headline}</h2>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: isDesktop ? 16 : 14, lineHeight: 1.7, color: heroTextColor, opacity: 0.9, margin: 0, maxWidth: 500 }}>{obs.mirror}</p>
+              <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 44 : 34, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.02em", color: heroTextColor, margin: "0 0 20px" }}>{colorize(obs.headline)}</h2>
+              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: isDesktop ? 16 : 14, lineHeight: 1.7, color: heroTextColor, opacity: 0.9, margin: 0, maxWidth: 500 }}>{colorize(obs.mirror)}</p>
             </div>
 
             <div style={{ padding: isDesktop ? "32px 40px 0" : "24px 20px 0" }}>
