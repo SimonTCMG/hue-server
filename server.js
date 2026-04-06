@@ -54,16 +54,14 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(join(__dirname, "public")));
 
-// Serve hue.html for both / and /register (React app handles routing)
-app.get("/", (req, res) => {
+// Serve hue.html with no-cache headers so browsers always fetch the latest
+function sendApp(req, res) {
+  res.set("Cache-Control", "no-store");
   res.sendFile(join(__dirname, "public", "hue.html"));
-});
-app.get("/register", (req, res) => {
-  res.sendFile(join(__dirname, "public", "hue.html"));
-});
-app.get("/shared/:token", (req, res) => {
-  res.sendFile(join(__dirname, "public", "hue.html"));
-});
+}
+app.get("/", sendApp);
+app.get("/register", sendApp);
+app.get("/shared/:token", sendApp);
 
 // ─── Session helper ────────────────────────────────────────────────────────
 
