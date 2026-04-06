@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 7 April 2026.*
+*Master brief for all Claude sessions. Last updated: 7 April 2026 (session 2).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -29,9 +29,15 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Root → Tend rename complete throughout codebase and database (idempotent migration)
 - `<EnergyWord>` component — energy names rendered in their colour everywhere in UI
 - Assessment system prompt updated with all six scoring dimensions
+- App gate: all non-logged-in visitors see RegisterScreen — assessment cannot be accessed without an account
+- RegisterScreen: two-step flow (details → plan choice → Stripe checkout); employer copy removed; individual-appropriate copy
 - Trial gate: `individual-trial-expired` users see hard-stop TrialExpiredScreen
-- Stripe integration: checkout (14-day trial), billing portal, webhook handler
-- MailerLite sync: subscribers tagged with user_state on registration, assessment complete, and Stripe events
+- Stripe integration: checkout (14-day trial, monthly or annual), billing portal, webhook handler (checkout.session.completed stores customer_id; invoice.paid converts to subscriber; payment_failed/subscription.deleted sets trial-expired)
+- MailerLite sync: subscribers tagged with user_state on registration, assessment complete, and all Stripe events; tend_score/tend_label fields (was root)
+- Trial email sequence: days 1, 3, 5, 7, 10, 12, 13, 14 — automated, personalised to dominant energy, cron at 9am UK; day 1 sent on registration; tracked in trial_emails table
+- Maintenance mode: `MAINTENANCE_MODE=true` env var closes site instantly (holding page served; Stripe webhook always passes through)
+- No-cache headers on HTML routes so deploys are always visible immediately
+- localStorage Root→Tend migration: old profiles with 'root' key migrate silently on load
 - Share my profile link (facilitator use case) — token-based, expiry, revoke
 - Bespoke observation (second API call after assessment)
 - One-sentence summary screen post-assessment
@@ -39,19 +45,29 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 
 ### Built but needs real content
 - Consent conversation: drafted in `hue-consent-conversation-v1.md`, not yet built into app
+- Trial email day 12: placeholder testimonial — needs real testimonial content before launch (see hue-email-strategy-v1.md note on testimonial library)
 
-### Stripe env vars needed in Railway before trial gate is live for real users
-- `STRIPE_SECRET_KEY` — from Stripe dashboard
-- `STRIPE_PUBLISHABLE_KEY` — from Stripe dashboard
-- `STRIPE_WEBHOOK_SECRET` — from Stripe webhook endpoint settings
-- `STRIPE_PRICE_MONTHLY` — price ID for £9.99/month plan
-- `STRIPE_PRICE_ANNUAL` — price ID for £79/year plan
+### Org member registration: NOT YET BUILT
+- Org members need a separate registration screen (no payment, invite/domain-gated, data ownership messaging)
+- Individual RegisterScreen copy deliberately does not include employer/data ownership language — that belongs in the org flow
+
+### Stripe: needs Railway env vars before payment flows work
+Set these in Railway → hue-server → Variables:
+- `STRIPE_SECRET_KEY` — Stripe dashboard → Developers → API keys
+- `STRIPE_PUBLISHABLE_KEY` — same
+- `STRIPE_WEBHOOK_SECRET` — Stripe dashboard → Webhooks → endpoint secret
+- `STRIPE_PRICE_MONTHLY` — Stripe dashboard → Products → monthly price ID (£9.99/month)
+- `STRIPE_PRICE_ANNUAL` — annual price ID (£79/year)
 - `APP_URL` — https://myhue.co
+- `MAINTENANCE_MODE` — set `true` to close site, remove or set `false` to reopen
+
+Until Stripe env vars are set: registration works but skips card step (beta behaviour preserved for existing users).
 
 ### Not yet built
 - Score-gap logic (profile shape observations)
 - Shareable result card
 - Team dashboard
+- Org member registration and access flow
 - Gamification / mini missions layer
 - AI help layer
 - @search for team members
@@ -72,9 +88,10 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 | `hue-consent-conversation-v1.md` | Three-exchange consent flow (not yet in app) |
 | `hue-share-profile-spec-v1.md` | Spec for facilitator share link feature |
 | `hue-psychology-foundations-v1.md` | Theoretical and psychological foundations — design constraint, not background reading |
-| `hue-email-strategy-v1.md` | Trial email sequence, tagging structure, nurture flows — to be written |
-| `hue-language-guide-v1.md` | Single vocabulary reference — to be written |
-| `hue-launch-checklist.md` | Beta launch steps, BPS consistency, validation tasks — to be written |
+| `hue-email-strategy-v1.md` | Trial email sequence, tagging structure, nurture flows — written and implemented |
+| `hue-language-guide-v1.md` | Single vocabulary reference — written |
+| `hue-observations-delivery-v1.md` | Observations delivery spec — all observations approved and built into app |
+| `hue-launch-checklist.md` | Beta launch steps, BPS consistency, validation tasks — not yet written |
 
 **GitHub:** github.com/SimonTCMG/hue-server (private)
 **Railway project:** humorous-sparkle / production
@@ -257,14 +274,18 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 1. ✅ Rename Root → Tend throughout codebase (tokens, variables, stored data fields)
 2. ✅ Implement real observations into app (all approved, delivered from `hue-observations-delivery-v1.md`)
-3. Build consent conversation into onboarding flow (copy ready in `hue-consent-conversation-v1.md`)
-4. ✅ Build trial/payment integration (Stripe — checkout, portal, webhook, trial gate, TrialExpiredScreen)
-5. ✅ Build user accounts and authentication (email login, user states, MailerLite tagging)
-6. Results screen redesign — celebrate all four energies (existing screen is functional; redesign to give positions 2–4 equal celebratory framing)
-7. Set Stripe env vars in Railway (see "Stripe env vars needed" section above)
-8. Write next batch of observations (pairings + misread + profile shape)
-9. Write `hue-launch-checklist.md` (beta steps, BPS consistency, validation tasks)
-10. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
+3. ✅ Build trial/payment integration (Stripe — checkout, portal, webhook, trial gate, TrialExpiredScreen, two-step registration)
+4. ✅ Build user accounts and authentication (email login, user states, MailerLite tagging)
+5. ✅ Trial email sequence — days 1, 3, 5, 7, 10, 12, 13, 14 automated and personalised
+6. ✅ App gate — all visitors must register before accessing assessment
+7. ✅ Maintenance mode — MAINTENANCE_MODE env var closes site instantly
+8. **NOW: Set Stripe env vars in Railway** — see "Stripe: needs Railway env vars" section above. Until this is done, no card is captured at registration.
+9. Build consent conversation into onboarding flow (copy ready in `hue-consent-conversation-v1.md`)
+10. Results screen redesign — celebrate all four energies equally (positions 2–4 need own celebratory framing)
+11. Build org member registration flow (separate screen, no payment, data ownership messaging)
+12. Write next batch of observations (pairings + misread + profile shape)
+13. Write `hue-launch-checklist.md`
+14. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
 
 ---
 
