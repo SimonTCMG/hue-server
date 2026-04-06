@@ -56,7 +56,10 @@ app.use(express.static(join(__dirname, "public")));
 
 // Serve hue.html with no-cache headers so browsers always fetch the latest
 function sendApp(req, res) {
-  res.set("Cache-Control", "no-store");
+  // no-store: browser never caches. Cloudflare respects this and won't cache either.
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Surrogate-Control", "no-store");
   res.sendFile(join(__dirname, "public", "hue.html"));
 }
 app.get("/", sendApp);
