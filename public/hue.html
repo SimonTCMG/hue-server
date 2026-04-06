@@ -108,7 +108,17 @@
     function loadProfile() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
+        if (!raw) return null;
+        const p = JSON.parse(raw);
+        // Migrate Root → Tend in any profile saved before the rename
+        if (p.scores?.root !== undefined) {
+          p.scores.tend = p.scores.root;
+          delete p.scores.root;
+        }
+        if (p.rankedIds) {
+          p.rankedIds = p.rankedIds.map(id => id === "root" ? "tend" : id);
+        }
+        return p;
       } catch { return null; }
     }
 
