@@ -54,8 +54,24 @@ db.exec(`
     energy_scores           TEXT,
     reach_labels            TEXT,
     dominant_energy         TEXT,
-    last_email_sent_at      INTEGER
+    last_email_sent_at      INTEGER,
+    trial_started_at        INTEGER,
+    user_state              TEXT,
+    stripe_customer_id      TEXT
   )
+`);
+
+try { db.exec(`ALTER TABLE users ADD COLUMN stripe_customer_id TEXT`); } catch {}
+
+// Add trial columns to existing deployments that predate the trial model
+try { db.exec(`ALTER TABLE users ADD COLUMN trial_started_at INTEGER`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN user_state TEXT`); } catch {}
+
+// Migrate Root → Tend in existing user records (one-time, idempotent)
+db.exec(`
+  UPDATE users SET dominant_energy = 'tend' WHERE dominant_energy = 'root';
+  UPDATE users SET energy_scores = REPLACE(energy_scores, '"root":', '"tend":') WHERE energy_scores LIKE '%"root":%';
+  UPDATE users SET reach_labels  = REPLACE(reach_labels,  '"root":', '"tend":') WHERE reach_labels  LIKE '%"root":%';
 `);
 
 export function getUser(id) {
@@ -66,10 +82,18 @@ export function getUserByEmail(email) {
   return db.prepare("SELECT * FROM users WHERE email = ?").get(email);
 }
 
-export function createUser({ id, name, email, registered_at }) {
+export function createUser({ id, name, email, registered_at, trial_started_at = null, user_state = null }) {
   return db.prepare(
-    "INSERT INTO users (id, name, email, registered_at) VALUES (@id, @name, @email, @registered_at)"
-  ).run({ id, name, email, registered_at });
+    "INSERT INTO users (id, name, email, registered_at, trial_started_at, user_state) VALUES (@id, @name, @email, @registered_at, @trial_started_at, @user_state)"
+  ).run({ id, name, email, registered_at, trial_started_at, user_state });
+}
+
+export function updateUserState(id, user_state) {
+  return db.prepare("UPDATE users SET user_state = ? WHERE id = ?").run(user_state, id);
+}
+
+export function updateStripeCustomer(id, stripe_customer_id) {
+  return db.prepare("UPDATE users SET stripe_customer_id = ? WHERE id = ?").run(stripe_customer_id, id);
 }
 
 export function updateAssessment(id, { completed_at, energy_scores, reach_labels, dominant_energy }) {

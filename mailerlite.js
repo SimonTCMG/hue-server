@@ -37,7 +37,7 @@ async function mlFetch(path, method = "GET", body = null) {
 // ─── Subscriber management ────────────────────────────────────────────────
 
 // Add or update a subscriber. Scores and labels are optional (set after assessment).
-export async function upsertSubscriber({ name, email, dominantEnergy, scores, labels }) {
+export async function upsertSubscriber({ name, email, dominantEnergy, scores, labels, userState }) {
   if (!process.env.MAILERLITE_API_KEY) {
     console.warn("MAILERLITE_API_KEY not set — skipping subscriber upsert");
     return false;
@@ -54,12 +54,13 @@ export async function upsertSubscriber({ name, email, dominantEnergy, scores, la
       dominant_energy: dominantEnergy || "",
       spark_score: scores?.spark ?? "",
       glow_score:  scores?.glow  ?? "",
-      root_score:  scores?.root  ?? "",
+      tend_score:  scores?.tend  ?? "",
       flow_score:  scores?.flow  ?? "",
       spark_label: labels?.spark ?? "",
       glow_label:  labels?.glow  ?? "",
-      root_label:  labels?.root  ?? "",
+      tend_label:  labels?.tend  ?? "",
       flow_label:  labels?.flow  ?? "",
+      user_state:  userState     || "",
       beta_tester: "true",
     },
     groups: groupId ? [groupId] : [],

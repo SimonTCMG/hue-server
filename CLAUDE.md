@@ -1,18 +1,6 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 3 April 2026 (session 7: login flow, cross-device sync, consent Continue button, companion auto-focus, Only You four-colour border).*
+*Master brief for all Claude sessions. Last updated: 7 April 2026.*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
-
----
-
-## STANDING INSTRUCTIONS — READ FIRST
-
-**Commercial strategy and decided pricing:** see `hue-commercialisation-v1.md`. All decisions in the Key Decisions Log are resolved unless explicitly reopened by Simon.
-
-**Psychological and theoretical foundations:** see `hue-psychology-foundations-v1.md`. Every assessment conversation, observation, and language decision should be traceable to this framework.
-
-**Identity lines:** "Four energies. Infinite versions of you." (product — welcome screen, result card, individual marketing) / "Understand how you show up. Reach for who you could be." (purpose — facilitator/org materials, about page, onboarding) / "The science is serious. The experience is human." (academic — methodology page, credentialing contexts only). The word 'reach' is Hue's own verb — use it consistently. Never substitute 'develop', 'grow', or 'access'.
-
-**The word 'arc' must never appear in user-facing copy.** The free tier is always the individual's dominant energy — never assumed to be Spark.
 
 ---
 
@@ -29,115 +17,44 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 ## CURRENT BUILD STATUS
 
 ### Working and live
-- Full assessment conversation flow (AI-conducted, 8–10 exchanges)
-- Four energy scores generated from conversation — all four shown for all users
-- Results screen: observation hero (mirror + in-practice bullets) + four energy cards with reach labels (Instinctive / Fluent / Intentional / Developing) + reach-position text in non-primary cards + flex insight and surprise sections below
-- All 16 primary observations implemented (4 energies × 4 reach positions)
-- **Consent conversation** — three-exchange intro before first assessment (Welcome → Consent → Assessment); skipped for returning users via `localStorage("hue_consent")`
-- **Companion chat** — profile-aware; energy-specific suggested questions (dynamic, based on ranked profile); reflective opener when memory exists
-- **Bespoke observation** — second Claude API call post-assessment generates one unrepeatable observation drawn from what the person actually said; displayed as "Only you" card on results screen (bordered in primary energy colour); loading state shown while generating
-- **One sentence card** — third Claude API call post-assessment generates one poetic identity sentence; displayed full-screen (Fraunces italic, dominant energy colour background) between results and companion; shareable via Web Share API / clipboard; downloadable as 1080×1080 PNG; stored in `one_sentences` table with timestamp; surfaced again on one-year anniversary via companion opener
-- **Colleague sharing** — share button on results screen; two modes: 30-day link and 8-hour session; UUID share tokens stored in `shared_profiles` table; `SharedProfileScreen` component renders shared profile view (energy hero, rank cards, reach labels, CTA to myhue.co); revocable by user
-- **Only You card** — four-colour gradient border (Spark/Glow/Root/Flow, 135deg); label in primary energy colour; "Only you" label + bespoke observation text; conceptually always accurate regardless of score distribution
-- **Login flow** — `POST /api/login` (email lookup, sets session cookie); `LoginScreen` component; "Already have a profile? Sign in" link on welcome screen when no local profile; `handleLogin` in App hydrates `savedProfile` from server data on sign-in
-- **Cross-device profile sync** — registered users recognised by session cookie on any device; `savedProfile` hydrated from server so returning user screen shows correctly without reassessment
-- **Consent screen** — "Continue" button (was "I'm ready") appears 2 seconds after the third message ("One last thing…") to ensure it is read before proceeding
-- **Companion auto-focus** — input focuses automatically after each Hue reply in both ChatScreen and CompanionScreen
-- **Conversation memory** — session summaries saved to SQLite, injected into companion system prompt; Hue opens each return session with a memory-informed reflection
+- Full assessment conversation flow (AI-conducted, 6–8 exchanges)
+- Four energy scores generated from conversation, with six-dimension scoring criteria in system prompt
+- Results screen: observation hero + four energy cards with reach labels + bespoke observation
+- Companion chat: profile-aware, responds to questions about results
 - Returning user flow: shows last result, offers retake after 90 days
 - Static SVG favicon
-- Deployed on Railway with persistent Volume at `/app/data`
-- Beta invite link: `https://myhue.co/register?invite=BETA2026`
+- Deployed on Railway, auto-deploys on GitHub push
+- User registration, email login, session cookies
+- SQLite user database with trial fields (trial_started_at, user_state, stripe_customer_id)
+- Root → Tend rename complete throughout codebase and database (idempotent migration)
+- `<EnergyWord>` component — energy names rendered in their colour everywhere in UI
+- Assessment system prompt updated with all six scoring dimensions
+- Trial gate: `individual-trial-expired` users see hard-stop TrialExpiredScreen
+- Stripe integration: checkout (14-day trial), billing portal, webhook handler
+- MailerLite sync: subscribers tagged with user_state on registration, assessment complete, and Stripe events
+- Share my profile link (facilitator use case) — token-based, expiry, revoke
+- Bespoke observation (second API call after assessment)
+- One-sentence summary screen post-assessment
+- Cross-device profile sync via server-side hydration
 
-### Beta infrastructure — live
-- User registration at `/register?invite=BETA2026` — name + personal email, invite-token gated
-- Registration copy nudges personal email (profile portability principle)
-- Session cookies — persistent identity across visits (1-year cookie, httpOnly)
-- SQLite user store at `/app/data/hue.db` — name, email, scores, reach labels, dominant energy
-- MailerLite subscriber sync — adds beta testers to "Hue Beta Testers" group with 10 custom energy fields
-- Assessment completion saves to server (`POST /api/complete`) and updates MailerLite
-- Daily email cron — 8:00 AM UK time, Claude-generated personalised content
-- Email sending via MailerSend (Free plan, 500 emails/month) — `mailersend.js`
-- `MAILERSEND_API_KEY` set in Railway env vars and local `.env`
-- Upgrade to Hobby ($5.60/month) if beta exceeds ~15 people
+### Built but needs real content
+- Consent conversation: drafted in `hue-consent-conversation-v1.md`, not yet built into app
 
-### Email infrastructure
-- **MailerLite** (Growing Business, €8.10/month) — subscriber management, LACE automations, TCMG marketing
-- **MailerSend** (Free, 500 emails/month) — Hue daily personalised transactional email only; upgrade to Hobby ($5.60/month) if beta exceeds ~15 people
-- Domain `myhue.co` verified in MailerSend via Cloudflare auto-DNS
-- From address: `hello@myhue.co`
-- Daily email template: `hue-email-template.html` — variables: `{{FIRST_NAME}}`, `{{PRIMARY_COLOR}}`, `{{ENERGY_NAME}}`, `{{CONTENT_TYPE}}`, `{{CONTENT_TEXT}}`, `{{CTA_URL}}`, `{{UNSUBSCRIBE_URL}}`
-
-### Conversation memory — detail
-Hue stores conversation summaries and uses them to open each new session with a reflection (Option A design).
-
-**How it works:**
-- `conversation_summaries` table in SQLite: `id, user_id, summary, created_at`
-- Summary generated by Claude (2–3 sentences, third person, specific) at two triggers:
-  1. Every 5th user message — background checkpoint, covers tab-close
-  2. Home button click — final wrap of the session
-- On companion open: server returns last 5 summaries via `GET /api/summaries`
-- If summaries exist, Claude generates a reflective opener using `"Hi Hue, I'm back."` seed — feels like continuation
-- If no summaries (first visit), hardcoded opener is used — no API call
-- Summaries are injected into the system prompt via `buildCompanionPrompt(ranked, summaries)`
-
-**Routes:** `GET /api/summaries`, `POST /api/summarise`
-**DB helpers:** `saveConversationSummary(userId, summary)`, `getConversationSummaries(userId, limit)`
-
-**Still to address:** Consent — users should know conversations are being summarised and stored. Build consent conversation before wider rollout.
+### Stripe env vars needed in Railway before trial gate is live for real users
+- `STRIPE_SECRET_KEY` — from Stripe dashboard
+- `STRIPE_PUBLISHABLE_KEY` — from Stripe dashboard
+- `STRIPE_WEBHOOK_SECRET` — from Stripe webhook endpoint settings
+- `STRIPE_PRICE_MONTHLY` — price ID for £9.99/month plan
+- `STRIPE_PRICE_ANNUAL` — price ID for £79/year plan
+- `APP_URL` — https://myhue.co
 
 ### Not yet built
 - Score-gap logic (profile shape observations)
-- Share my profile link (facilitator use case — spec in `hue-share-profile-spec-v1.md`)
+- Shareable result card
 - Team dashboard
-- Payment integration
-- Free-tier restriction (dominant energy only) — public app currently shows all four scores
-- Retest / energy check-in separation (Priority 4)
-- Stress response in companion — grip detection, energy-specific auxiliary prompts (Priority 5)
-- Data model: personal email field at account creation, 30-day grace period on org licence lapse (Priority 6)
-
-### Reset endpoint — built session 6
-`POST /api/reset-assessment` — clears assessment data for the current user (scores, completion date, reach labels, dominant energy); deletes conversation summaries and one sentences. For dev/admin use. Instructions: run in browser console at myhue.co, then clear localStorage manually.
-
----
-
-## ⚠️ POST-BETA DATABASE REQUIREMENT — DO NOT SKIP
-
-**Organisation and team linking must be built before any paid team accounts go live.**
-
-### The principle
-Users register with a personal email. Their profile is theirs — portable, not owned by their employer. Organisation membership is a separate relationship, carried by the invite link — not by the email address.
-
-### What needs to be built
-Two new database tables:
-
-**`organisations`**
-- `id` (uuid)
-- `name` (e.g. "The Change Maker Group")
-- `invite_code` (unique, e.g. `TCMG-X7K2`) — embedded in invite URL
-- `plan` (e.g. `beta`, `team`, `enterprise`)
-- `seat_count`
-- `created_at`
-
-**`org_memberships`**
-- `user_id` → foreign key to `users`
-- `org_id` → foreign key to `organisations`
-- `role` (e.g. `member`, `admin`)
-- `joined_at`
-- `active` (boolean — set to false when someone leaves, profile stays intact)
-
-### How registration changes
-The invite URL carries the org code: `myhue.co/register?org=TCMG-X7K2`
-On registration, the server creates the user record (personal email) and an `org_memberships` row linking them to that org. If they leave the organisation, the membership row is deactivated — their user record and profile are untouched.
-
-### Why this matters
-- Org admin can see their team's profiles (with consent) via the team dashboard
-- Daily emails continue to the individual's personal address regardless of employment status
-- Billing is tied to the org, not the individual
-- Individual can join a new org with the same profile
-
-### Beta status
-During beta, org linking is implicit — all beta testers share one invite token (`BETA2026`) and are implicitly linked to TCMG. The `organisations` and `org_memberships` tables do not exist yet. Build them before the first paid team account.
+- Gamification / mini missions layer
+- AI help layer
+- @search for team members
 
 ---
 
@@ -146,51 +63,22 @@ During beta, org linking is implicit — all beta testers share one invite token
 | File | Purpose |
 |------|---------|
 | `public/hue.html` | Entire frontend — single HTML file, React via CDN |
-| `server.js` | Node/Express backend — Anthropic proxy, registration routes, daily email cron |
-| `db.js` | SQLite user store — schema + query helpers |
-| `mailerlite.js` | MailerLite REST API helpers — subscriber upsert and group management only |
-| `mailersend.js` | MailerSend transactional email — daily personalised send via API |
-| `hue-email-template.html` | Daily email HTML template — variables: `{{FIRST_NAME}}` etc. |
-| `.env` | Local secrets — see `.env.example` for all required variables |
-| `.env.example` | Documents all required environment variables |
+| `server.js` | Node/Express backend, proxies Anthropic API calls |
+| `.env` | Local API key (ANTHROPIC_API_KEY) |
 | `hue-strategy-v1.md` | Full product strategy and decisions |
 | `hue-commercialisation-v1.md` | Commercial model, pricing, channels — all decided |
 | `hue-observations-v1.md` | 16 written observations + 71-observation scope plan |
 | `hue-team-client-doc-v1.md` | One-page sales document for team buyers |
-| `hue-consent-conversation-v1.md` | Three-exchange consent flow — live in app |
-| `hue-language-guide-v1.md` | Single vocabulary reference — all copy decisions |
+| `hue-consent-conversation-v1.md` | Three-exchange consent flow (not yet in app) |
 | `hue-share-profile-spec-v1.md` | Spec for facilitator share link feature |
-| `hue-psychology-foundations-v1.md` | Psychological & theoretical foundations — live design constraint, not background reading |
+| `hue-psychology-foundations-v1.md` | Theoretical and psychological foundations — design constraint, not background reading |
+| `hue-email-strategy-v1.md` | Trial email sequence, tagging structure, nurture flows — to be written |
+| `hue-language-guide-v1.md` | Single vocabulary reference — to be written |
+| `hue-launch-checklist.md` | Beta launch steps, BPS consistency, validation tasks — to be written |
 
 **GitHub:** github.com/SimonTCMG/hue-server (private)
 **Railway project:** humorous-sparkle / production
 **DNS:** Cloudflare (nameservers: jose.ns.cloudflare.com + magdalena.ns.cloudflare.com)
-
----
-
-## BEFORE DEPLOYING BETA — RAILWAY SETUP
-
-SQLite (`hue.db`) is wiped on every Railway redeploy. Do this before pushing the beta build:
-
-**Option A — Railway Volume (simplest)**
-1. Railway project → + New → Volume
-2. Mount path: `/app/data`
-3. In `db.js`, change the db path line to: `const db = new Database("/app/data/hue.db");`
-
-**Option B — Railway Postgres (more robust)**
-1. Railway project → + New → Database → PostgreSQL
-2. Railway sets `DATABASE_URL` automatically
-3. Replace `db.js` with a `pg`-based version (ask Claude Code to do this)
-
-**Environment variables to set in Railway:**
-- `ANTHROPIC_API_KEY` — already set
-- `MAILERLITE_API_KEY` — from app.mailerlite.com → Integrations → API
-- `FROM_EMAIL` — e.g. `hello@myhue.co` (must be authenticated in MailerLite)
-- `INVITE_TOKEN` — e.g. `BETA2026` (change before sharing)
-- `NODE_ENV` — set to `production`
-
-**Beta invite link:** `https://myhue.co/register?invite=BETA2026`
-(Replace BETA2026 with whatever you set INVITE_TOKEN to)
 
 ---
 
@@ -217,17 +105,21 @@ Then open `http://localhost:3001`
 |--------|--------|-------------|
 | Spark | Red `#D92010` | Drive · Action · Ignition |
 | Glow | Yellow `#F5D000` | Warmth · Optimism · Connection |
-| Root | Green `#1A8C4E` | Steadiness · Care · Depth |
+| Tend | Green `#1A8C4E` | Steadiness · Care · Depth |
 | Flow | Blue `#1755B8` | Clarity · Systems · Vision |
 
+**Note:** The energy previously called Root is now called **Tend** everywhere it refers to the energy. The word "root" remains valid in plain English usage (root cause, rooted in, etc.) — only the energy name changes.
+
 Every person has access to all four. The assessment measures preference — which energies someone tends to reach for most naturally. Rankings reflect preference, not capability.
+
+**Colour-coded energy words:** Wherever the words Spark, Glow, Tend, and Flow appear in the web app, emails, or any digital output, they must be rendered in their energy colour. This is a non-negotiable design standard. An `<EnergyWord>` component (or equivalent) handles this. Plain text contexts (e.g. this document) are exempt.
 
 ---
 
 ## CRITICAL LANGUAGE RULES — apply to every word in the product
 
 ### Energies are verbs, never nouns
-- **Never:** "a Spark person", "she's a Flow type", "your energy is Root"
+- **Never:** "a Spark person", "she's a Flow type", "your energy is Tend"
 - **Always:** "reaching for Spark energy", "tends to show up with Glow energy", "naturally reaches for Flow"
 
 ### The word "arc" is internal only — never in user-facing copy
@@ -238,14 +130,19 @@ Every person has access to all four. The assessment measures preference — whic
 | Arc 1 result | Your [energy] profile |
 | You've completed 2 arcs | You've explored 2 of 4 energies |
 
-### Free tier framing
-The free tier is always the **dominant energy** — whichever the conversation reveals. If someone's top energy is Flow, they get their Flow exploration free. Never assume or imply it is Spark. It is personalised to the individual.
+### Autonomy voice — non-negotiable
+Hue speaks to someone who already knows themselves. The observation confirms, it does not prescribe. The person is always the expert on their own life. Hue never positions itself as the authority on what someone should do, feel, or become. This applies to every word in the product — the companion, the observations, the emails, the onboarding.
+
+- **Never:** nudge, suggest action, imply what someone "should" do
+- **Always:** notice, reflect, ask — then step back
+- The person decides what to do with their profile entirely. Hue's role is to hold up the mirror, not interpret what the person sees in it.
 
 ### Banned phrasing
 - **"This isn't X. It's Y."** / **"That's not X. It's Y."** — recognised AI-generated phrasing. Never in any shareable material. Permitted only in live companion conversation inside the app.
 - **"Available"** as a reach label — implies others are unavailable. Use the approved label set below.
 - **"Unlock"** — transactional, wrong tone
 - **"Arc"** in anything user-facing
+- **"Lead with"** as a verb tied to one colour — implies others follow or are lesser
 
 ### Approved reach label set (energy position labels)
 | Position | Label |
@@ -258,62 +155,91 @@ The free tier is always the **dominant energy** — whichever the conversation r
 ### When scores are close
 When two or more energies are similarly scored, rank order is less meaningful than the scores themselves. The report should acknowledge closeness explicitly. Never present a 3rd-ranked energy at 62% the same way as a 3rd-ranked energy at 31%.
 
+### Celebrating all four energies
+The results experience must celebrate all four energies with equal presence — not just display them. Positions 2, 3, and 4 each deserve their own moment, their own framing, their own articulation of what they specifically add to this person's life. The Fluent, Intentional, and Developing position observations must be written with this spirit. See `hue-observations-v1.md` section 72 (The power of lower energies) as the philosophical foundation.
+
 ---
 
 ## KEY PRODUCT DECISIONS (all resolved)
 
-**Assessment format:** Conversational, AI-conducted, 6–8 exchanges per energy exploration. Behavioural questions ("what did you do") not hypothetical ("what would you prefer").
+**Assessment format:** Conversational, AI-conducted, 6–8 exchanges per energy exploration. Behavioural questions ("what did you do") not hypothetical ("what would you prefer"). See `hue-psychology-foundations-v1.md` for the theoretical basis (Mischel, Gosling).
 
-**Free tier:** Dominant energy exploration only — complete, remarkable, shareable. Never a teaser. The free tier must be good enough to drive word of mouth unprompted.
+**Trial model:** 14-day free trial — all four energies explored, full access. Clock starts at sign-up, not first conversation. Card required at sign-up for individuals (auto-converts or cancels). No card required for org/team members — access managed under org contract.
 
-**Paid tier:** All four energy explorations + daily companion. The distinction is accuracy (deeper picture from more conversations), not feature gating.
+**Post-trial (no payment):** Hard stop. Product is fully gated — "Your trial has ended. Subscribe to continue." Profile data is retained server-side (nothing is lost), but the experience is blocked entirely until subscription. No read-only mode, no partial access. The day-14 expiry email must reassure: "Your Hue profile is saved and waiting — pick up exactly where you left off." This preserves urgency at the highest conversion moment while removing fear of data loss. User moves to tagged email nurture sequence. No further AI calls until resubscription.
+
+**Two-track entry:**
+- Individual → card at sign-up → 14-day trial → subscriber or lapsed
+- Org/team member → registers free → access via org contract → no trial clock
+
+**User states for tagging:**
+- `individual-trial-active`
+- `individual-subscriber`
+- `individual-trial-expired`
+- `org-member-active`
+- `org-member-lapsed`
+
+**All four energies in trial:** Every user explores all four energies within their 14 days. The assessment is complete, not a teaser. The companion and daily practice are what subscription maintains.
 
 **Individual owns the profile:** Not the employer. Profile is portable — travels with the person if they leave a company. This is a public commitment, not a policy.
 
 **Consent:** Three conversational exchanges before assessment begins — warm, not legal. Already drafted in `hue-consent-conversation-v1.md`.
 
-**Results screen:** Observation hero first (full-bleed), energy cards below with reach labels and percentages.
+**Results screen:** Redesigned to celebrate all four energies equally. Observation hero first (full-bleed), then all four energy cards with reach labels and percentages — each with its own celebratory framing, not a hierarchy with three supporting items.
 
-**Companion chat:** Profile-aware. Can discuss any energy but is honest about accuracy limits for unexplored energies. Never gives advice — notices, reflects, asks. Has a graceful boundary response for conversations that feel heavier than an energy tool can hold.
+**Companion chat:** Profile-aware. Never gives advice — notices, reflects, asks. Has a graceful boundary response for conversations that feel heavier than an energy tool can hold. Speaks with autonomy voice at all times.
 
 **Retests:** Unlimited, quarterly cadence default. If retest comes too soon, Hue notes it conversationally — not as a gate.
 
-**Therapist-adjacent risk:** Hue never diagnoses, never names clinical states, never advises. Particularly important for low-energy profiles (all energies low) — frame as spaciousness, not deficit.
+**Therapist-adjacent risk:** Hue never diagnoses, never names clinical states, never advises. Particularly important for low-energy profiles — frame as spaciousness, not deficit.
+
+**Psychological validity:** Hue is a structured conversational AI instrument that measures behavioural energy preference through naturalistic language analysis across six explicit scoring dimensions (spontaneous choice, effort language, frequency signals, valence, cross-context consistency, recovery pattern). It does not claim to be a psychometric test in the clinical or regulatory sense. See `hue-psychology-foundations-v1.md` Section 8 for the full BPS-aligned framework. Nigel Evans is named collaborator for the joint validation paper.
+
+---
+
+## WHAT CLAUDE IS MEASURING IN THE ASSESSMENT CONVERSATION
+
+For each of the four energies, Claude attends to these six dimensions. They are not preferences — they are the scoring criteria.
+
+1. **Spontaneous choice** — which energy orientation does the person default to when describing situations unprompted?
+2. **Effort language** — are natural behaviours described as effortless ("I just...") or deliberate ("I had to force myself...")?
+3. **Frequency signals** — how often does each energy appear across multiple independent situations in the conversation?
+4. **Valence** — is the energy described with positive affect (preference) or negative affect (cost)?
+5. **Cross-context consistency** — does the same energy appear across work, relationships, and pressure situations?
+6. **Recovery pattern** — what does the person reach for when things go wrong or get hard?
+
+Instinctive energies appear spontaneously, effortlessly, frequently, positively, consistently, and in recovery. Developing energies appear with effort language, low frequency, cost framing, context-specificity, and absence in recovery. All six dimensions together produce the energy ranking — not self-report alone.
 
 ---
 
 ## PRICING (decided)
 
-| Tier | Price |
-|------|-------|
-| Individual free | £0 — dominant energy exploration |
-| Individual paid | £9.99/month or £79/year |
-| Organisational | £8/seat/month, annual contract, min 10 seats |
-| Not-for-profit / charity | £6/seat/month — applied in conversation, not advertised |
-| Facilitator | £49/month (up to 20 active clients) |
-| Training partner seats | £5/seat/month |
+| Tier | Price | Notes |
+|------|-------|-------|
+| Individual trial | Free for 14 days | Card required at sign-up. Full access — all four energies. Clock starts at sign-up. |
+| Individual paid | £9.99/month or £79/year | Auto-converts at trial end |
+| Organisational | £8/seat/month | Annual contract, min 10 seats. Team dashboard included. Team members register free. |
+| Not-for-profit / charity | £6/seat/month | Applied in conversation, not advertised |
+| Facilitator | £49/month (up to 20 active clients) | |
+| Training partner seats | £5/seat/month | |
 
 ---
 
 ## OBSERVATION LIBRARY STATUS
 
-**71 observations written** in `hue-observations-v1.md`:
-- All four energies × four reach positions — 16 (live in app)
-- Two-energy pairings (1st + 2nd energy combinations) — 12 (drafted, awaiting Simon review)
-- Misread observations — 8 (drafted, awaiting Simon review)
-- Profile shape observations — 6 (drafted, awaiting Simon review)
-- Under pressure — 4 (drafted, awaiting Simon review)
-- In leadership — 4 (drafted, awaiting Simon review)
-- In conflict — 4 (drafted, awaiting Simon review)
-- In relationships — 4 (drafted, awaiting Simon review)
-- Flex crossings — 8 (drafted, awaiting Simon review)
-- Near-equal combinations — 5 (drafted, awaiting Simon review — conditional on scores)
+16 observations written and saved in `hue-observations-v1.md`:
+- All four energies × four reach positions (Instinctive / Fluent / Intentional / Developing)
 
-**Misread observations — dual-use potential (Simon's note):** These should serve two purposes: validating the person's own experience of being misread, AND helping people understand the likely intentions of those around them (team context). Consider a "understanding others" framing in the team dashboard or facilitator materials.
+71 observation headings scoped in full in the same file. Priority next batch (to write before first client demo):
+- Two-energy pairings (12) — highest differentiation value
+- Misread observations (8) — highly shareable
+- Profile shape observations (6) — unique to Hue
+- Flex crossing observations (4) — dominant→4th energy
+- Under pressure (4)
 
-**Bespoke observation — BUILT:** `POST /api/bespoke-observation` generates one unrepeatable observation from the assessment conversation. Displayed as "Only you" card on results screen.
+**Bespoke observation (not yet built):** A second API call after assessment generates one observation drawn from the specific conversation — the "only you" moment. Draft prompt is in `hue-observations-v1.md`.
 
-**All 71 observations in scope are written. Remaining work is Simon review and deployment.**
+**Note on observations voice:** All Fluent, Intentional, and Developing position observations must celebrate what each energy adds — not describe it as a lesser version of the Instinctive. See section 72 of `hue-observations-v1.md` as the template philosophy.
 
 ---
 
@@ -323,35 +249,22 @@ Primary competitor: Insights Discovery. Most organisations bought it once (£85�
 
 The answer is almost always: "We did a workshop, people liked it, and then nothing." That gap is where Hue lives. What they paid for is finished. Hue never is.
 
+**C4D cross-reference:** The Clarity4D energy framework is closely aligned with Hue's four energies. See `hue-psychology-foundations-v1.md` Section 9 for the full attribute mapping. Never name or reference C4D in any user-facing material. For C4D-familiar practitioners, lead with method and depth as differentiators — conversation vs questionnaire, living profile vs static PDF, practice layer vs one-time workshop.
+
 ---
 
 ## CURRENT PRIORITIES
 
-1. **Companion opener copy** — "Your [energy] profile is right here" should reference the reach label: e.g. "Your Spark energy — your Instinctive reach — is right here." Needs updating in the hardcoded opener and the Claude-generated reflective opener system prompt.
-2. **Home button** — currently navigates to `screen === "welcome"` which reads savedProfile from localStorage. On a fresh device this works after sign-in; on desktop after a full localStorage.clear() it briefly shows fresh-start screen until refresh. Root fix: always hydrate savedProfile from betaUser server data on app load, not just on login.
-3. **Free tier registration** — unregistered free users will accumulate multiple profiles across devices. Fix: require lightweight registration (name + email, no payment) immediately after assessment. This also captures the email for upgrade nurture.
-4. **Free user email sequence** — separate MailerLite automation for free users: periodic nudges showing what they're missing (non-dominant energies), upgrade prompt at 90-day retake window, teaser insight from unexplored energy. Goal: make the full picture feel just out of reach, not inaccessible.
-5. Confirm 8am daily email arrived (check simon@simesco.co.uk — first send 2 April 2026)
-6. Invite beta team via `https://myhue.co/register?invite=BETA2026`
-7. **Simon review:** read all 55 drafted observations in `hue-observations-v1.md` (observations 17–71) — approve/amend before deploying to app
-8. **Priority 4 build:** Retest / energy check-in separation — reassessment annual, check-in weekly/daily, three taps max, never shared, no quarterly framing, add accountability layer
-9. **Priority 5 build:** Stress response in companion — grip detection, energy-specific auxiliary prompts, grip flag to reassessment trigger
-10. **Priority 6 build:** Data model — personal email field at account creation, 30-day grace period on org licence lapse, longitudinal data model documentation
-11. Build share my profile link (facilitator entry point — spec in `hue-share-profile-spec-v1.md`)
-12. Post-beta: build organisations + org_memberships tables before first paid team account
-
-### Completed session 7 (3 April 2026)
-- ✓ Fixed blank page — Babel syntax errors from session 6 resolved
-- ✓ Login flow — `POST /api/login`, `LoginScreen`, "Already have a profile? Sign in"
-- ✓ Cross-device sync — session cookie + server-side hydration of savedProfile
-- ✓ Consent Continue button — 2-second delay, replaces "I'm ready"
-- ✓ Companion auto-focus — input focuses after every Hue reply
-- ✓ Only You card — four-colour gradient border deployed
-
-### Completed session 6 (3 April 2026)
-- ✓ One sentence full-screen card
-- ✓ Colleague sharing (30-day links + 8-hour session mode)
-- ✓ Reset endpoint (`POST /api/reset-assessment`)
+1. ✅ Rename Root → Tend throughout codebase (tokens, variables, stored data fields)
+2. ✅ Implement real observations into app (all approved, delivered from `hue-observations-delivery-v1.md`)
+3. Build consent conversation into onboarding flow (copy ready in `hue-consent-conversation-v1.md`)
+4. ✅ Build trial/payment integration (Stripe — checkout, portal, webhook, trial gate, TrialExpiredScreen)
+5. ✅ Build user accounts and authentication (email login, user states, MailerLite tagging)
+6. Results screen redesign — celebrate all four energies (existing screen is functional; redesign to give positions 2–4 equal celebratory framing)
+7. Set Stripe env vars in Railway (see "Stripe env vars needed" section above)
+8. Write next batch of observations (pairings + misread + profile shape)
+9. Write `hue-launch-checklist.md` (beta steps, BPS consistency, validation tasks)
+10. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
 
 ---
 
@@ -360,9 +273,11 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 - Do not use the word "arc" in any user-facing copy
 - Do not describe any energy as unavailable or locked
 - Do not call anyone "a [energy] person" — energies are always verbs
-- Do not assume the free tier is Spark — it is always the dominant energy
+- Do not call the energy Tend "Root" — Root is retired as an energy name
+- Do not refer to any energy as leading, dominant in a hierarchical sense, or better than another
 - Do not give advice in the companion — only notice, reflect, ask
 - Do not name clinical states (depression, burnout) in any observation copy
+- Do not describe Hue as a psychometric test in clinical or regulatory contexts
 - Do not reopen any decision in this document without explicit instruction from Simon
 
 ---

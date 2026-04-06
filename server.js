@@ -7,11 +7,12 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import cron from "node-cron";
 import { v4 as uuidv4 } from "uuid";
+import Stripe from "stripe";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, ".env"), override: true });
 
-import {
+import db, {
   getUser,
   getUserByEmail,
   createUser,
@@ -27,6 +28,8 @@ import {
   getShareToken,
   revokeShareToken,
   getUserActiveShares,
+  updateUserState,
+  updateStripeCustomer,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -38,6 +41,13 @@ const PORT = process.env.PORT || 3001;
 // SIMON: Set INVITE_TOKEN in Railway environment variables before sharing the beta link.
 // Default is BETA2026 — change it to something less guessable.
 const INVITE_TOKEN = process.env.INVITE_TOKEN || "BETA2026";
+
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+const TRIAL_DAYS = 14;
+const TRIAL_MS   = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
 app.use(cors());
 app.use(express.json());
@@ -72,12 +82,30 @@ function setUserCookie(res, userId) {
   });
 }
 
+function resolveUserState(user) {
+  // Beta users (no user_state set) keep full access during the beta period
+  if (!user.user_state) return "beta";
+  // If trial active, check whether it has expired
+  if (user.user_state === "individual-trial-active") {
+    const started = user.trial_started_at || user.registered_at;
+    if (Date.now() > started + TRIAL_MS) return "individual-trial-expired";
+  }
+  return user.user_state;
+}
+
 function formatUserResponse(user) {
+  const userState = resolveUserState(user);
+  const started   = user.trial_started_at || user.registered_at;
+  const trialEndsAt = (userState === "individual-trial-active")
+    ? started + TRIAL_MS
+    : null;
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     betaAccess: true,
+    userState,
+    trialEndsAt,
     assessmentCompleted: !!user.assessment_completed_at,
     dominantEnergy: user.dominant_energy || null,
     scores: user.energy_scores ? JSON.parse(user.energy_scores) : null,
@@ -115,19 +143,22 @@ app.post("/api/register", async (req, res) => {
     return res.json({ user: formatUserResponse(existing), alreadyRegistered: true });
   }
 
-  const id = uuidv4();
+  const id  = uuidv4();
+  const now = Date.now();
   try {
-    createUser({ id, name: name.trim(), email: normalised, registered_at: Date.now() });
+    createUser({ id, name: name.trim(), email: normalised, registered_at: now,
+                 trial_started_at: now, user_state: "individual-trial-active" });
   } catch (err) {
     console.error("DB error on register:", err);
     return res.status(500).json({ error: "Could not create your account. Please try again." });
   }
 
   // Add to MailerLite (non-blocking — don't fail registration if this errors)
-  upsertSubscriber({ name: name.trim(), email: normalised }).catch(console.error);
+  upsertSubscriber({ name: name.trim(), email: normalised, userState: "individual-trial-active" }).catch(console.error);
 
   setUserCookie(res, id);
-  return res.json({ user: { id, name: name.trim(), email: normalised, betaAccess: true, assessmentCompleted: false } });
+  const newUser = getUser(id);
+  return res.json({ user: formatUserResponse(newUser) });
 });
 
 // POST /api/login — sign in existing user by email (sets session cookie)
@@ -138,6 +169,103 @@ app.post("/api/login", (req, res) => {
   if (!user) return res.status(404).json({ error: "No account found with that email." });
   setUserCookie(res, user.id);
   return res.json({ user: formatUserResponse(user) });
+});
+
+// ─── Stripe routes ──────────────────────────────────────────────────────────
+
+// POST /api/create-checkout — creates a Stripe Checkout session (14-day trial, card required)
+app.post("/api/create-checkout", async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Payment not configured." });
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+  const { priceId } = req.body; // STRIPE_PRICE_MONTHLY or STRIPE_PRICE_ANNUAL
+  if (!priceId) return res.status(400).json({ error: "Missing priceId." });
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer_email: user.email,
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: { trial_period_days: TRIAL_DAYS },
+      success_url: `${process.env.APP_URL || "https://myhue.co"}/?checkout=success`,
+      cancel_url:  `${process.env.APP_URL || "https://myhue.co"}/?checkout=cancelled`,
+      metadata: { hue_user_id: user.id },
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("Stripe checkout error:", err);
+    res.status(500).json({ error: "Could not create checkout session." });
+  }
+});
+
+// POST /api/billing-portal — opens Stripe customer portal for subscription management
+app.post("/api/billing-portal", async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Payment not configured." });
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+  if (!user.stripe_customer_id) return res.status(400).json({ error: "No billing account found." });
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripe_customer_id,
+      return_url: process.env.APP_URL || "https://myhue.co",
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("Stripe portal error:", err);
+    res.status(500).json({ error: "Could not open billing portal." });
+  }
+});
+
+// POST /api/stripe-webhook — handles Stripe subscription lifecycle events
+app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  if (!stripe) return res.status(503).send("Payment not configured.");
+  const sig = req.headers["stripe-signature"];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error("Stripe webhook signature error:", err.message);
+    return res.status(400).send(`Webhook error: ${err.message}`);
+  }
+  const getUserByStripeCustomer = (customerId) =>
+    db.prepare("SELECT * FROM users WHERE stripe_customer_id = ?").get(customerId) || null;
+
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session  = event.data.object;
+      const userId   = session.metadata?.hue_user_id;
+      const customer = session.customer;
+      if (userId) {
+        updateStripeCustomer(userId, customer);
+        updateUserState(userId, "individual-subscriber");
+        const subUser = getUser(userId);
+        if (subUser) {
+          upsertSubscriber({ name: subUser.name, email: subUser.email, userState: "individual-subscriber" }).catch(() => {});
+        }
+      }
+      break;
+    }
+    case "customer.subscription.deleted": {
+      const sub      = event.data.object;
+      const customer = sub.customer;
+      const user     = await getUserByStripeCustomer(customer);
+      if (user) {
+        updateUserState(user.id, "individual-trial-expired");
+        upsertSubscriber({ name: user.name, email: user.email, userState: "individual-trial-expired" }).catch(() => {});
+      }
+      break;
+    }
+    case "invoice.payment_failed": {
+      const inv      = event.data.object;
+      const customer = inv.customer;
+      const user     = await getUserByStripeCustomer(customer);
+      if (user) {
+        updateUserState(user.id, "individual-trial-expired");
+        upsertSubscriber({ name: user.name, email: user.email, userState: "individual-trial-expired" }).catch(() => {});
+      }
+      break;
+    }
+  }
+  res.json({ received: true });
 });
 
 // POST /api/complete — save completed assessment results
@@ -169,6 +297,7 @@ app.post("/api/complete", async (req, res) => {
     dominantEnergy,
     scores,
     labels,
+    userState: user.user_state || "",
   }).catch(console.error);
 
   return res.json({ ok: true });
@@ -415,7 +544,7 @@ app.get("/api/shared/:token", (req, res) => {
   const labels = user.reach_labels ? JSON.parse(user.reach_labels) : {};
   const total = Object.values(scores).reduce((a, b) => a + b, 0);
 
-  const ENERGY_ORDER = ["spark", "glow", "root", "flow"];
+  const ENERGY_ORDER = ["spark", "glow", "tend", "flow"];
   const ranked = ENERGY_ORDER
     .map(id => ({ id, score: scores[id] || 0 }))
     .sort((a, b) => b.score - a.score)
@@ -507,7 +636,7 @@ const EMAIL_TEMPLATE = existsSync(EMAIL_TEMPLATE_PATH)
 const ENERGY_COLORS = {
   spark: "#D92010",
   glow:  "#C9A800", // Darker value for text legibility on yellow background
-  root:  "#1A8C4E",
+  tend:  "#1A8C4E",
   flow:  "#1755B8",
 };
 
