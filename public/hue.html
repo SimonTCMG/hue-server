@@ -3110,25 +3110,54 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       useEffect(loadData, [orgId]);
 
-      const handleInvite = async () => {
-        if (!inviteEmail.trim() || !inviteTeamId) return;
+      const [inviteConfirmList, setInviteConfirmList] = useState(null); // parsed email list awaiting confirmation
+
+      const parseEmails = (raw) => {
+        // Split on commas, semicolons, newlines, or spaces — then validate
+        return raw.split(/[,;\n\s]+/).map(e => e.trim().toLowerCase()).filter(e => e && e.includes("@") && e.includes("."));
+      };
+
+      const handleInviteStart = () => {
+        const emails = parseEmails(inviteEmail);
+        if (emails.length === 0) { setInviteMsg("No valid email addresses found."); return; }
+        if (emails.length > 50) { setInviteMsg("Maximum 50 invites at a time. Please reduce the list."); return; }
+        const unique = [...new Set(emails)];
+        if (unique.length === 1) {
+          // Single email — send immediately, no confirmation needed
+          setInviteConfirmList(null);
+          sendInvites(unique);
+        } else {
+          setInviteConfirmList(unique);
+          setInviteMsg(null);
+        }
+      };
+
+      const sendInvites = async (emails) => {
         setInviting(true);
         setInviteMsg(null);
-        try {
-          const res = await fetch(`/api/org/${orgId}/invite`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: inviteEmail.trim().toLowerCase(), teamId: inviteTeamId }),
-          });
-          const d = await res.json();
-          if (d.ok) {
-            setInviteMsg(d.status === "already_member" ? "Already a member" : d.status === "added" ? "Added to team" : "Invite sent");
-            setInviteEmail("");
-            loadData();
-          } else {
-            setInviteMsg(d.error || "Failed to invite");
-          }
-        } catch { setInviteMsg("Network error"); }
+        setInviteConfirmList(null);
+        let sent = 0, added = 0, failed = 0;
+        for (const email of emails) {
+          try {
+            const res = await fetch(`/api/org/${orgId}/invite`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, teamId: inviteTeamId }),
+            });
+            const d = await res.json();
+            if (d.ok) {
+              if (d.status === "invited") sent++;
+              else added++;
+            } else { failed++; }
+          } catch { failed++; }
+        }
+        const parts = [];
+        if (sent) parts.push(`${sent} invite${sent > 1 ? "s" : ""} sent`);
+        if (added) parts.push(`${added} already registered — added to team`);
+        if (failed) parts.push(`${failed} failed`);
+        setInviteMsg(parts.join(". ") + ".");
+        setInviteEmail("");
+        loadData();
         setInviting(false);
       };
 
@@ -3219,11 +3248,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
           // ─── Invite member ───
           React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}`, marginBottom: 24 } },
-            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 20 } }, "Invite members"),
-            React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 8 } }, "Invite members"),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, margin: "0 0 16px", lineHeight: 1.5 } },
+              "Enter one email address, or paste several separated by commas, semicolons, or one per line. Maximum 50 at a time."
+            ),
+            !inviteConfirmList && React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" } },
               React.createElement("div", { style: { flex: 1, minWidth: 200 } },
-                React.createElement("label", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.stone, display: "block", marginBottom: 6 } }, "Email"),
-                React.createElement("input", { value: inviteEmail, onChange: e => setInviteEmail(e.target.value), placeholder: "name@example.com", type: "email", style: { ...inputStyle, width: "100%", boxSizing: "border-box" } })
+                React.createElement("textarea", { value: inviteEmail, onChange: e => setInviteEmail(e.target.value), placeholder: "name@example.com, another@example.com", rows: 3, style: { ...inputStyle, width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15 } })
               ),
               teams.length > 1 && React.createElement("div", { style: { minWidth: 160 } },
                 React.createElement("label", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.stone, display: "block", marginBottom: 6 } }, "Team"),
@@ -3232,9 +3263,27 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 )
               ),
               React.createElement("button", {
-                onClick: handleInvite, disabled: inviting || !inviteEmail.trim(),
+                onClick: handleInviteStart, disabled: inviting || !inviteEmail.trim(),
                 style: { ...btnStyle, opacity: inviting || !inviteEmail.trim() ? 0.5 : 1 },
               }, inviting ? "Sending..." : "Invite")
+            ),
+            inviteConfirmList && React.createElement("div", { style: { background: `${C.sand}33`, borderRadius: 12, padding: 16, marginTop: 8 } },
+              React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink, margin: "0 0 8px" } },
+                `Send ${inviteConfirmList.length} invite${inviteConfirmList.length > 1 ? "s" : ""}?`
+              ),
+              React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginBottom: 12, maxHeight: 120, overflowY: "auto", lineHeight: 1.6 } },
+                inviteConfirmList.map((e, i) => React.createElement("div", { key: i }, e))
+              ),
+              React.createElement("div", { style: { display: "flex", gap: 10 } },
+                React.createElement("button", {
+                  onClick: () => sendInvites(inviteConfirmList), disabled: inviting,
+                  style: { ...btnStyle, opacity: inviting ? 0.5 : 1 },
+                }, inviting ? "Sending..." : "Confirm and send"),
+                React.createElement("button", {
+                  onClick: () => { setInviteConfirmList(null); setInviteMsg(null); },
+                  style: { ...btnStyle, background: "white", color: C.ink, border: `1.5px solid ${C.sand}` },
+                }, "Cancel")
+              )
             ),
             inviteMsg && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.tend, marginTop: 12 } }, inviteMsg)
           ),
