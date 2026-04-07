@@ -225,4 +225,249 @@ export function recordTrialEmailSent(userId, dayNumber) {
   ).run(userId, dayNumber, Date.now());
 }
 
+// ─── Org member onboarding emails ─────────────────────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS org_emails (
+    user_id    TEXT NOT NULL,
+    day_number INTEGER NOT NULL,
+    sent_at    INTEGER NOT NULL,
+    PRIMARY KEY (user_id, day_number)
+  )
+`);
+
+export function hasOrgEmailBeenSent(userId, dayNumber) {
+  return !!db.prepare(
+    "SELECT 1 FROM org_emails WHERE user_id = ? AND day_number = ?"
+  ).get(userId, dayNumber);
+}
+
+export function recordOrgEmailSent(userId, dayNumber) {
+  db.prepare(
+    "INSERT OR IGNORE INTO org_emails (user_id, day_number, sent_at) VALUES (?, ?, ?)"
+  ).run(userId, dayNumber, Date.now());
+}
+
+export function getOrgMembersForEmails() {
+  return db.prepare(
+    "SELECT * FROM users WHERE user_state = 'org-member-active' AND registered_at IS NOT NULL"
+  ).all();
+}
+
+// ─── Team dashboard — data model ──────────────────────────────────────────
+// TWO STRICT PIPELINES:
+//   Pipeline 1 (team layer): energy BANDS only. Never raw scores, never behavioural
+//     patterns, never longitudinal data per person.
+//   Pipeline 2 (personal companion): full individual data. Never crosses into team layer.
+//
+// Band calculation thresholds:
+//   65%+ = "Naturally present"
+//   40-64% = "Intentionally present"
+//   <40% = "Developing"
+//
+// The UI never shows a number — only the band label.
+// ──────────────────────────────────────────────────────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS organisations (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS teams (
+    id         TEXT PRIMARY KEY,
+    org_id     TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    visibility TEXT DEFAULT 'full_team',
+    FOREIGN KEY (org_id) REFERENCES organisations(id)
+  )
+`);
+
+// A user can belong to multiple teams. Role per team.
+// Roles: org-admin (all teams in org), team-lead (their teams), member
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_members (
+    user_id  TEXT NOT NULL,
+    team_id  TEXT NOT NULL,
+    role     TEXT NOT NULL DEFAULT 'member',
+    added_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, team_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+  )
+`);
+
+// Pipeline 1 storage: bands only. Raw scores NEVER stored here.
+// Each energy is stored as a band label string, never a percentage.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_energy_bands (
+    user_id    TEXT NOT NULL,
+    team_id    TEXT NOT NULL,
+    spark_band TEXT,
+    glow_band  TEXT,
+    tend_band  TEXT,
+    flow_band  TEXT,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, team_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+  )
+`);
+
+// ─── Band calculation ─────────────────────────────────────────────────────
+// Input: raw scores object { spark: N, glow: N, tend: N, flow: N }
+// Output: bands object { spark: "label", glow: "label", tend: "label", flow: "label" }
+// This function is the ONLY place where raw scores touch the team layer.
+// After this, only band labels exist.
+
+// Thresholds for percentage-of-total model (4 energies sum to 100%, baseline = 25% each)
+// 33%+ = clearly dominant, 22–32% = present but not leading, <22% = below baseline
+const BAND_THRESHOLDS = { high: 33, mid: 22 };
+const BAND_LABELS = { high: "Naturally present", mid: "Intentionally present", low: "Developing" };
+
+export function calculateBands(scores) {
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+  if (total === 0) return { spark: BAND_LABELS.low, glow: BAND_LABELS.low, tend: BAND_LABELS.low, flow: BAND_LABELS.low };
+  const bands = {};
+  for (const energy of ["spark", "glow", "tend", "flow"]) {
+    const pct = Math.round((scores[energy] / total) * 100);
+    if (pct >= BAND_THRESHOLDS.high) bands[energy] = BAND_LABELS.high;
+    else if (pct >= BAND_THRESHOLDS.mid) bands[energy] = BAND_LABELS.mid;
+    else bands[energy] = BAND_LABELS.low;
+  }
+  return bands;
+}
+
+// ─── Team CRUD ────────────────────────────────────────────────────────────
+
+export function createOrganisation(id, name) {
+  return db.prepare(
+    "INSERT INTO organisations (id, name, created_at) VALUES (?, ?, ?)"
+  ).run(id, name, Date.now());
+}
+
+export function getOrganisation(id) {
+  return db.prepare("SELECT * FROM organisations WHERE id = ?").get(id);
+}
+
+export function createTeam(id, orgId, name) {
+  return db.prepare(
+    "INSERT INTO teams (id, org_id, name, created_at) VALUES (?, ?, ?, ?)"
+  ).run(id, orgId, name, Date.now());
+}
+
+export function getTeam(id) {
+  return db.prepare("SELECT * FROM teams WHERE id = ?").get(id);
+}
+
+export function getTeamsForOrg(orgId) {
+  return db.prepare("SELECT * FROM teams WHERE org_id = ? ORDER BY name").all(orgId);
+}
+
+export function addTeamMember(userId, teamId, role = "member") {
+  return db.prepare(
+    "INSERT OR REPLACE INTO team_members (user_id, team_id, role, added_at) VALUES (?, ?, ?, ?)"
+  ).run(userId, teamId, role, Date.now());
+}
+
+export function getTeamMembers(teamId) {
+  return db.prepare(
+    `SELECT tm.user_id, tm.role, tm.added_at, u.name, u.email
+     FROM team_members tm
+     JOIN users u ON u.id = tm.user_id
+     WHERE tm.team_id = ?
+     ORDER BY u.name`
+  ).all(teamId);
+}
+
+export function getTeamsForUser(userId) {
+  return db.prepare(
+    `SELECT t.*, tm.role
+     FROM team_members tm
+     JOIN teams t ON t.id = tm.team_id
+     WHERE tm.user_id = ?
+     ORDER BY t.name`
+  ).all(userId);
+}
+
+export function updateTeamVisibility(teamId, visibility) {
+  return db.prepare("UPDATE teams SET visibility = ? WHERE id = ?").run(visibility, teamId);
+}
+
+// ─── Pipeline 1: team energy bands ────────────────────────────────────────
+// Stores band labels derived from scores. Raw scores never touch this table.
+
+export function upsertTeamEnergyBands(userId, teamId, bands) {
+  return db.prepare(
+    `INSERT OR REPLACE INTO team_energy_bands (user_id, team_id, spark_band, glow_band, tend_band, flow_band, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(userId, teamId, bands.spark, bands.glow, bands.tend, bands.flow, Date.now());
+}
+
+export function getTeamEnergyBands(teamId) {
+  return db.prepare(
+    `SELECT teb.*, u.name
+     FROM team_energy_bands teb
+     JOIN users u ON u.id = teb.user_id
+     WHERE teb.team_id = ?`
+  ).all(teamId);
+}
+
+// Aggregate: count of each band per energy for a team
+export function getTeamAggregate(teamId) {
+  const rows = getTeamEnergyBands(teamId);
+  const aggregate = {
+    memberCount: rows.length,
+    spark: { "Naturally present": 0, "Intentionally present": 0, "Developing": 0 },
+    glow:  { "Naturally present": 0, "Intentionally present": 0, "Developing": 0 },
+    tend:  { "Naturally present": 0, "Intentionally present": 0, "Developing": 0 },
+    flow:  { "Naturally present": 0, "Intentionally present": 0, "Developing": 0 },
+  };
+  for (const row of rows) {
+    if (row.spark_band) aggregate.spark[row.spark_band]++;
+    if (row.glow_band)  aggregate.glow[row.glow_band]++;
+    if (row.tend_band)  aggregate.tend[row.tend_band]++;
+    if (row.flow_band)  aggregate.flow[row.flow_band]++;
+  }
+  // Suppress behavioural observations below 8 members
+  aggregate.observationsEnabled = rows.length >= 8;
+  return aggregate;
+}
+
+export function removeTeamMember(userId, teamId) {
+  db.prepare("DELETE FROM team_energy_bands WHERE user_id = ? AND team_id = ?").run(userId, teamId);
+  return db.prepare("DELETE FROM team_members WHERE user_id = ? AND team_id = ?").run(userId, teamId);
+}
+
+export function getOrgMembers(orgId) {
+  return db.prepare(
+    `SELECT u.id, u.name, u.email, u.assessment_completed_at, u.user_state, u.dominant_energy,
+            tm.team_id, tm.role, t.name as team_name
+     FROM users u
+     JOIN team_members tm ON tm.user_id = u.id
+     JOIN teams t ON t.id = tm.team_id
+     WHERE t.org_id = ?
+     ORDER BY u.name`
+  ).all(orgId);
+}
+
+export function getUserRole(userId, teamId) {
+  const row = db.prepare("SELECT role FROM team_members WHERE user_id = ? AND team_id = ?").get(userId, teamId);
+  return row ? row.role : null;
+}
+
+export function isOrgAdmin(userId, orgId) {
+  const row = db.prepare(
+    `SELECT tm.role FROM team_members tm
+     JOIN teams t ON t.id = tm.team_id
+     WHERE tm.user_id = ? AND t.org_id = ? AND tm.role = 'org-admin'
+     LIMIT 1`
+  ).get(userId, orgId);
+  return !!row;
+}
+
 export default db;

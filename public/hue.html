@@ -22,9 +22,8 @@
       -webkit-text-size-adjust: 100%;
     }
     #root {
-      min-height: 100%;
+      min-height: 100vh;
       width: 100%;
-      position: relative;
     }
     @media (min-width: 768px) {
       body { background: #F5F0E8; }
@@ -457,7 +456,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── Welcome screen ───────────────────────────────────────────────────────
-    function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn }) {
+    function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn, teams = [] }) {
       const isDesktop = useIsDesktop();
       const primaryEnergy = savedProfile
         ? ENERGIES.find(e => e.id === savedProfile.rankedIds[0])
@@ -605,6 +604,30 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             >
               View my results
             </button>
+          )}
+
+          {/* Team links */}
+          {teams.length > 0 && (
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+              {teams.map(t => (
+                <a key={t.id} href={`/team/${t.id}`} style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 13, color: C.ink, fontWeight: 600,
+                  textDecoration: "none",
+                  background: `${C.sand}44`, padding: "8px 20px", borderRadius: 99,
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                }}>
+                  <span style={{ fontSize: 11, opacity: 0.5 }}>Team</span> {t.name}
+                </a>
+              ))}
+              {teams.some(t => t.role === "org-admin") && teams[0]?.org_id && (
+                <a href={`/org/${teams[0].org_id}`} style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 12, color: C.stone,
+                  textDecoration: "underline", textUnderlineOffset: 3,
+                }}>Manage organisation</a>
+              )}
+            </div>
           )}
 
           {!hasProfile && (
@@ -1294,6 +1317,101 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       const rankLabels = ["Instinctive", "Fluent", "Intentional", "Developing"];
 
+      // ── Shareable result card — canvas-rendered, exportable as image ──
+      const generateShareCard = async () => {
+        await document.fonts.ready;
+        const w = 1080, h = 1350;
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+
+        // Cream background
+        ctx.fillStyle = C.cream;
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw the four energy colour dots at top
+        const dotY = 120, dotR = 18, dotSpacing = 64;
+        const dotsStartX = w / 2 - (3 * dotSpacing) / 2;
+        ranked.forEach((e, i) => {
+          ctx.beginPath();
+          ctx.arc(dotsStartX + i * dotSpacing, dotY, dotR, 0, Math.PI * 2);
+          ctx.fillStyle = e.color;
+          ctx.fill();
+        });
+
+        // "hue" wordmark
+        ctx.fillStyle = C.ink;
+        ctx.font = "900 64px Fraunces, Georgia, serif";
+        ctx.textAlign = "center";
+        ctx.fillText("hue", w / 2, dotY + 90);
+
+        // Dominant energy name — large
+        ctx.font = "700 52px Fraunces, Georgia, serif";
+        ctx.fillStyle = ranked[0].color;
+        ctx.fillText(`Instinctive ${ranked[0].name}`, w / 2, dotY + 170);
+
+        // Four energy bars
+        const barStartY = dotY + 230;
+        const barLeft = 120, barRight = w - 120;
+        const barWidth = barRight - barLeft;
+        const barH = 32, barGap = 100;
+
+        ranked.forEach((e, i) => {
+          const y = barStartY + i * barGap;
+
+          // Energy name and position label
+          ctx.textAlign = "left";
+          ctx.font = "700 28px 'Plus Jakarta Sans', sans-serif";
+          ctx.fillStyle = e.color;
+          ctx.fillText(e.name, barLeft, y - 12);
+
+          ctx.textAlign = "right";
+          ctx.font = "600 22px 'Plus Jakarta Sans', sans-serif";
+          ctx.fillStyle = C.stone;
+          ctx.fillText(rankLabels[i], barRight, y - 12);
+
+          // Bar background
+          ctx.fillStyle = `${e.color}22`;
+          ctx.beginPath();
+          ctx.roundRect(barLeft, y, barWidth, barH, barH / 2);
+          ctx.fill();
+
+          // Bar fill
+          ctx.fillStyle = e.color;
+          const fillW = Math.max(barH, (e.pct / 100) * barWidth);
+          ctx.beginPath();
+          ctx.roundRect(barLeft, y, fillW, barH, barH / 2);
+          ctx.fill();
+
+          // Percentage
+          ctx.textAlign = "right";
+          ctx.font = "600 20px 'Plus Jakarta Sans', sans-serif";
+          ctx.fillStyle = C.stone;
+          ctx.fillText(`${e.pct}%`, barRight, y + barH + 28);
+        });
+
+        // Tagline
+        ctx.textAlign = "center";
+        ctx.font = "italic 500 28px Fraunces, Georgia, serif";
+        ctx.fillStyle = C.stone;
+        ctx.fillText("Four energies. Infinite versions of you.", w / 2, h - 140);
+
+        // myhue.co
+        ctx.font = "500 22px 'Plus Jakarta Sans', sans-serif";
+        ctx.fillStyle = C.stone;
+        ctx.globalAlpha = 0.5;
+        ctx.fillText("myhue.co", w / 2, h - 80);
+        ctx.globalAlpha = 1;
+
+        // Export
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "my-hue-profile.png"; a.click();
+          URL.revokeObjectURL(url);
+        });
+      };
+
       // ── Share modal state ──
       const [shareOpen,    setShareOpen]    = useState(false);
       const [shareResult,  setShareResult]  = useState(null);   // { token, url, expiresAt, mode }
@@ -1462,53 +1580,69 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const heroTextColor = primary.id === "glow" ? C.ink : "#fff";
       const heroSubColor = primary.id === "glow" ? "rgba(26,20,16,0.6)" : "rgba(255,255,255,0.7)";
 
-      const EnergyCard = ({ e, i }) => (
-        <div style={{
-          background: e.light,
-          borderRadius: 20,
-          padding: isDesktop ? "24px 24px" : "18px 20px",
-          border: `1.5px solid ${e.color}30`,
-          animation: `fadeUp 0.35s ease ${i * 0.1}s both`,
-          overflow: "hidden",
-          position: "relative",
-        }}>
-          {/* Colour accent bar along the top */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: e.color }} />
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, marginTop: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 13, height: 13, borderRadius: "50%", background: e.color, flexShrink: 0, marginTop: 4 }} />
-              <div>
-                <div style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 22 : 21, fontWeight: 700, color: C.ink, lineHeight: 1.2 }}><EnergyWord name={e.name} bold /></div>
-                <div style={{
-                  fontSize: 11, color: e.color,
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                  marginTop: 2,
-                }}>{rankLabels[i]}</div>
+      // Position-specific celebratory headers for each card
+      const positionHeaders = [
+        "This is where you naturally live. The energy that shows up without you having to think about it.",
+        null, // Fluent gets energy-specific copy from observations
+        null, // Intentional gets energy-specific copy from observations
+        null, // Developing gets energy-specific copy from observations
+      ];
+
+      const EnergyCard = ({ e, i }) => {
+        const obsData = OBSERVATIONS[e.id];
+        // Each position gets its own celebratory text
+        const positionText = i === 0
+          ? positionHeaders[0]
+          : obsData.reach[i] || null;
+
+        return (
+          <div style={{
+            background: e.light,
+            borderRadius: 20,
+            padding: isDesktop ? "28px 28px" : "22px 20px",
+            border: `1.5px solid ${e.color}30`,
+            animation: `fadeUp 0.35s ease ${i * 0.1}s both`,
+            overflow: "hidden",
+            position: "relative",
+          }}>
+            {/* Colour accent bar along the top */}
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: e.color }} />
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, marginTop: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 13, height: 13, borderRadius: "50%", background: e.color, flexShrink: 0, marginTop: 4 }} />
+                <div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 22 : 21, fontWeight: 700, color: C.ink, lineHeight: 1.2 }}><EnergyWord name={e.name} bold /></div>
+                  <div style={{
+                    fontSize: 11, color: e.color,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+                    marginTop: 2,
+                  }}>{rankLabels[i]}</div>
+                </div>
               </div>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.stone, marginTop: 2 }}>{e.pct}%</span>
             </div>
-            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.stone, marginTop: 2 }}>{e.pct}%</span>
+            <div style={{ height: 6, background: `${e.color}22`, borderRadius: 99, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", background: e.color, borderRadius: 99,
+                width: `${e.pct}%`,
+                animation: `barGrow 0.9s cubic-bezier(0.23,1,0.32,1) ${0.2 + i * 0.1}s both`,
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: C.stone, marginTop: 7, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{e.desc}</div>
+            {positionText && (
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: isDesktop ? 14 : 13, lineHeight: 1.7,
+                color: C.ink,
+                margin: "14px 0 0",
+                paddingTop: 14,
+                borderTop: `1px solid ${e.color}25`,
+              }}>{colorize(positionText)}</p>
+            )}
           </div>
-          <div style={{ height: 6, background: `${e.color}22`, borderRadius: 99, overflow: "hidden" }}>
-            <div style={{
-              height: "100%", background: e.color, borderRadius: 99,
-              width: `${e.pct}%`,
-              animation: `barGrow 0.9s cubic-bezier(0.23,1,0.32,1) ${0.2 + i * 0.1}s both`,
-            }} />
-          </div>
-          <div style={{ fontSize: 11, color: C.stone, marginTop: 7, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{e.desc}</div>
-          {i > 0 && OBSERVATIONS[e.id].reach[i] && (
-            <p style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontSize: isDesktop ? 14 : 13, lineHeight: 1.7,
-              color: C.ink,
-              margin: "14px 0 0",
-              paddingTop: 14,
-              borderTop: `1px solid ${e.color}25`,
-            }}>{colorize(OBSERVATIONS[e.id].reach[i])}</p>
-          )}
-        </div>
-      );
+        );
+      };
 
       return (
         <div style={{ minHeight: "100vh", background: isDesktop ? "transparent" : C.cream }}>
@@ -1519,7 +1653,6 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             borderRadius: isDesktop ? 32 : 0,
             marginTop: isDesktop ? 32 : 0,
             marginBottom: isDesktop ? 32 : 0,
-            overflow: "hidden",
           }}>
 
             {/* Nav */}
@@ -1532,6 +1665,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink }}>Hue</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={generateShareCard} style={{
+                  background: "none", border: `1px solid ${C.sand}`, borderRadius: 99,
+                  padding: "6px 14px",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 12, fontWeight: 600, color: C.stone,
+                  cursor: "pointer",
+                }}>Save card</button>
                 <button onClick={() => { setShareOpen(true); setShareResult(null); setShareRevoked(false); }} style={{
                   background: "none", border: `1px solid ${C.sand}`, borderRadius: 99,
                   padding: "6px 14px",
@@ -1544,78 +1684,69 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             </div>
             <ShareModal />
 
-            {/* Observation hero */}
-            <div style={{
-              background: primary.color,
-              margin: isDesktop ? "28px 40px 0" : "20px 0 0",
-              borderRadius: isDesktop ? 24 : 0,
-              padding: isDesktop ? "52px 56px" : "40px 24px",
-              animation: "fadeUp 0.4s ease both",
-            }}>
-              <p style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 11, fontWeight: 600,
-                letterSpacing: "0.12em", textTransform: "uppercase",
-                color: heroSubColor, margin: "0 0 20px",
-              }}>Your colour energy profile</p>
-              <h2 style={{
-                fontFamily: "'Fraunces', serif",
-                fontSize: isDesktop ? 48 : 36,
-                fontWeight: 900, lineHeight: 1.05,
-                letterSpacing: "-0.02em",
-                color: heroTextColor,
-                margin: "0 0 24px",
-              }}>{colorize(obs.headline)}</h2>
-              <p style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: isDesktop ? 17 : 15,
-                lineHeight: 1.7,
-                color: heroTextColor,
-                opacity: 0.9,
-                margin: "0 0 24px",
-                maxWidth: 540,
-              }}>{colorize(obs.mirror)}</p>
-              <p style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 11, fontWeight: 600,
-                letterSpacing: "0.1em", textTransform: "uppercase",
-                color: heroSubColor, margin: "0 0 10px",
-              }}>In practice, this tends to look like:</p>
-              <ul style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 8 }}>
-                {obs.inPractice.map((item, idx) => (
-                  <li key={idx} style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontSize: isDesktop ? 15 : 14,
-                    lineHeight: 1.65,
-                    color: heroTextColor,
-                    opacity: 0.85,
-                  }}>{colorize(item)}</li>
-                ))}
-              </ul>
-            </div>
+            {/* Bespoke observation — the "only you" moment, first thing they read */}
+            {bespokeObs !== undefined && (
+              <div style={{ padding: isDesktop ? "28px 40px 0" : "20px 20px 0" }}>
+                {bespokeObs === null ? (
+                  <div style={{
+                    background: "#fff", borderRadius: 20,
+                    padding: isDesktop ? "32px 32px" : "24px 20px",
+                    border: `1.5px solid ${C.sand}`,
+                    display: "flex", alignItems: "center", gap: 12,
+                  }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%", background: primary.color,
+                      animation: "bounce 1.3s ease-in-out infinite",
+                      flexShrink: 0,
+                    }} />
+                    <p style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      fontSize: 14, color: C.stone, margin: 0, fontStyle: "italic",
+                    }}>Writing something just for you…</p>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: "linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #D92010, #F5D000, #1A8C4E, #1755B8) border-box",
+                    borderRadius: 20,
+                    padding: isDesktop ? "36px 36px" : "28px 24px",
+                    border: "2px solid transparent",
+                    animation: "fadeUp 0.4s ease both",
+                  }}>
+                    <p style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      fontSize: 11, fontWeight: 600,
+                      letterSpacing: "0.12em", textTransform: "uppercase",
+                      color: C.stone, margin: "0 0 14px",
+                    }}>Only you</p>
+                    <p style={{
+                      fontFamily: "'Fraunces', serif",
+                      fontSize: isDesktop ? 20 : 17,
+                      fontWeight: 500,
+                      fontStyle: "italic",
+                      lineHeight: 1.55,
+                      color: C.ink, margin: 0,
+                    }}>{colorize(bespokeObs)}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Energy cards */}
-            <div style={{ padding: isDesktop ? "32px 40px 0" : "24px 20px 0" }}>
+            {/* Energy cards — each celebrated equally */}
+            <div style={{ padding: isDesktop ? "28px 40px 0" : "20px 20px 0" }}>
               <p style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: 12, fontWeight: 600,
                 letterSpacing: "0.08em", textTransform: "uppercase",
                 color: C.stone, margin: "0 0 16px",
-              }}>Your full colour picture</p>
+              }}>Your four energies</p>
 
-              {isDesktop ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
-                </div>
-              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: isDesktop ? 14 : 10 }}>
+                {ranked.map((e, i) => <EnergyCard key={e.id} e={e} i={i} />)}
+              </div>
             </div>
 
             {/* Flex & Surprise */}
-            <div style={{ padding: isDesktop ? "32px 40px 0" : "24px 20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ padding: isDesktop ? "28px 40px 0" : "20px 20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{
                 background: "#fff", borderRadius: 20,
                 padding: isDesktop ? "28px 28px" : "20px 20px",
@@ -1651,50 +1782,6 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 }}>{colorize(obs.surprise)}</p>
               </div>
             </div>
-
-            {/* Bespoke observation */}
-            {bespokeObs !== undefined && (
-              <div style={{ padding: isDesktop ? "14px 40px 0" : "14px 20px 0" }}>
-                {bespokeObs === null ? (
-                  <div style={{
-                    background: "#fff", borderRadius: 20,
-                    padding: isDesktop ? "28px 28px" : "20px 20px",
-                    border: `1.5px solid ${C.sand}`,
-                    display: "flex", alignItems: "center", gap: 12,
-                  }}>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: "50%", background: primary.color,
-                      animation: "bounce 1.3s ease-in-out infinite",
-                      flexShrink: 0,
-                    }} />
-                    <p style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: 14, color: C.stone, margin: 0, fontStyle: "italic",
-                    }}>Writing something just for you…</p>
-                  </div>
-                ) : (
-                  <div style={{
-                    background: "linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #D92010, #F5D000, #1A8C4E, #1755B8) border-box",
-                    borderRadius: 20,
-                    padding: isDesktop ? "28px 28px" : "20px 20px",
-                    border: "1.5px solid transparent",
-                    animation: "fadeUp 0.4s ease both",
-                  }}>
-                    <p style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: 11, fontWeight: 600,
-                      letterSpacing: "0.08em", textTransform: "uppercase",
-                      color: primary.color, margin: "0 0 10px",
-                    }}>Only you</p>
-                    <p style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
-                      color: C.ink, margin: 0,
-                    }}>{colorize(bespokeObs)}</p>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Extended observation cards */}
             {selectAdditionalObs(ranked).map((card, i) => (
@@ -2392,8 +2479,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
             <div style={{ background: primary.color, margin: isDesktop ? "28px 40px 0" : "20px 0 0", borderRadius: isDesktop ? 24 : 0, padding: isDesktop ? "48px 52px" : "36px 24px", animation: "fadeUp 0.4s ease both" }}>
               <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: heroSubColor, margin: "0 0 20px" }}>{profile.name}'s colour energy profile</p>
-              <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 44 : 34, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.02em", color: heroTextColor, margin: "0 0 20px" }}>{colorize(obs.headline)}</h2>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: isDesktop ? 16 : 14, lineHeight: 1.7, color: heroTextColor, opacity: 0.9, margin: 0, maxWidth: 500 }}>{colorize(obs.mirror)}</p>
+              <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 44 : 34, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.02em", color: heroTextColor, margin: "0 0 20px" }}>{obs.headline}</h2>
+              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: isDesktop ? 16 : 14, lineHeight: 1.7, color: heroTextColor, opacity: 0.9, margin: 0, maxWidth: 500 }}>{obs.mirror}</p>
             </div>
 
             <div style={{ padding: isDesktop ? "32px 40px 0" : "24px 20px 0" }}>
@@ -2429,6 +2516,756 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             </div>
           </div>
         </div>
+      );
+    }
+
+    // ─── Org member registration ──────────────────────────────────────────────
+    function OrgRegisterScreen({ onRegistered, onSignIn }) {
+      const isDesktop = useIsDesktop();
+      const [name,    setName]    = useState("");
+      const [email,   setEmail]   = useState("");
+      const [orgCode, setOrgCode] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [error,   setError]   = useState(null);
+
+      const [teamIdFromUrl, setTeamIdFromUrl] = useState("");
+
+      // Pre-fill org code and team ID from URL params if present
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("org") || params.get("code");
+        if (code) setOrgCode(code);
+        const team = params.get("team");
+        if (team) setTeamIdFromUrl(team);
+      }, []);
+
+      const inputStyle = {
+        background: "#fff", border: `1.5px solid ${C.sand}`,
+        borderRadius: 12, padding: "14px 18px",
+        fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
+        color: C.ink, outline: "none", width: "100%", boxSizing: "border-box",
+      };
+
+      const submit = async () => {
+        if (!name.trim() || !email.trim()) { setError("Please enter your name and email."); return; }
+        if (!orgCode.trim()) { setError("Please enter your organisation code."); return; }
+        setLoading(true); setError(null);
+        try {
+          const res = await fetch("/api/register-org", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.trim(), email: email.trim(), orgCode: orgCode.trim(), teamId: teamIdFromUrl || undefined }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setError(data.error || "Something went wrong. Please try again."); return; }
+          window.history.replaceState({}, "", "/");
+          onRegistered(data.user);
+        } catch { setError("Something went wrong. Please try again."); }
+        finally { setLoading(false); }
+      };
+
+      return (
+        <div style={{
+          minHeight: "100vh", background: C.cream,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: isDesktop ? "64px 32px" : "48px 24px", textAlign: "center",
+        }}>
+          <SpinMark size={isDesktop ? 100 : 72} speed={8} />
+          <h1 style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: isDesktop ? 48 : 36, fontWeight: 900,
+            color: C.ink, letterSpacing: "-0.03em",
+            lineHeight: 1, marginTop: isDesktop ? 28 : 20,
+          }}>Your team uses Hue.</h1>
+          <p style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: isDesktop ? 17 : 15, color: C.stone,
+            lineHeight: 1.65, maxWidth: isDesktop ? 400 : 300,
+            marginTop: 14,
+          }}>
+            Discover how you show up across four colour energies — through conversation, not a quiz.
+          </p>
+
+          <div style={{ marginTop: 36, width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 12 }}>
+            <input type="text" placeholder="First name" value={name}
+              onChange={e => setName(e.target.value)} style={inputStyle}
+              onFocus={e => e.target.style.borderColor = C.ink}
+              onBlur={e  => e.target.style.borderColor = C.sand}
+            />
+            <input type="email" placeholder="Work email address" value={email}
+              onChange={e => setEmail(e.target.value)} style={inputStyle}
+              onFocus={e => e.target.style.borderColor = C.ink}
+              onBlur={e  => e.target.style.borderColor = C.sand}
+            />
+            <input type="text" placeholder="Organisation code" value={orgCode}
+              onChange={e => setOrgCode(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              style={inputStyle}
+              onFocus={e => e.target.style.borderColor = C.ink}
+              onBlur={e  => e.target.style.borderColor = C.sand}
+            />
+            {error && <p style={{ fontSize: 13, color: C.spark, textAlign: "left", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{error}</p>}
+            <button onClick={submit} disabled={loading || !name.trim() || !email.trim() || !orgCode.trim()} style={{
+              background: name.trim() && email.trim() && orgCode.trim() && !loading ? C.ink : C.sand,
+              color: name.trim() && email.trim() && orgCode.trim() && !loading ? C.cream : C.stone,
+              border: "none", borderRadius: 99, padding: "16px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16,
+              cursor: name.trim() && email.trim() && orgCode.trim() && !loading ? "pointer" : "default",
+              transition: "background 0.15s",
+            }}>
+              {loading ? "One moment…" : "Get started"}
+            </button>
+          </div>
+
+          {/* Data ownership message — specific to org members */}
+          <div style={{
+            marginTop: 28, padding: "16px 20px",
+            background: C.tendLight, borderRadius: 14,
+            border: `1.5px solid ${C.tend}30`,
+            maxWidth: 380, width: "100%",
+            textAlign: "left",
+          }}>
+            <p style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: 13, lineHeight: 1.6,
+              color: C.ink, margin: 0,
+            }}>
+              Your profile is yours — not your employer's. They see the team picture, never your individual result.
+            </p>
+          </div>
+
+          <button onClick={onSignIn} style={{
+            background: "none", border: "none", color: C.stone,
+            fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif",
+            marginTop: 16, cursor: "pointer", textDecoration: "underline",
+          }}>
+            Already have a profile? Sign in
+          </button>
+        </div>
+      );
+    }
+
+    // ─── Team Dashboard ──────────────────────────────────────────────────────
+    const DIMENSIONS_32 = {
+      spark: { label: "What the team drives", items: ["Purpose","Vision","Decision","Transformation","Momentum","Courage","Ambition","Challenge"] },
+      glow:  { label: "How the team connects", items: ["Collaboration","Communication","Environment","Team Meetings","Celebration","Inclusion","Belonging","Energy"] },
+      tend:  { label: "What the team holds", items: ["Trust","Accountability","Commitment","Diversity","Wellbeing","Consistency","Loyalty","Memory"] },
+      flow:  { label: "What the team structures", items: ["Planning","Processes","Roles & Skills","Reflection","Clarity","Evidence","Learning","Systems"] },
+    };
+
+    function BandDot({ band, energy }) {
+      const col = C[energy];
+      if (band === "Naturally present") return React.createElement("div", { style: { width: 14, height: 14, borderRadius: "50%", background: col } });
+      if (band === "Intentionally present") return React.createElement("div", { style: { width: 14, height: 14, borderRadius: "50%", background: `${col}55`, border: `2px solid ${col}` } });
+      return React.createElement("div", { style: { width: 14, height: 14, borderRadius: "50%", background: "transparent", border: `2px solid ${col}44` } });
+    }
+
+    // ─── Team Constellation ──────────────────────────────────────────────────
+    function TeamConstellation({ members, isDesktop }) {
+      const canvasSize = isDesktop ? 500 : 320;
+      const centre = canvasSize / 2;
+      const radius = canvasSize * 0.38;
+      const [hovered, setHovered] = useState(null);
+      const [tick, setTick] = useState(0);
+
+      // Ambient float animation
+      useEffect(() => {
+        const id = setInterval(() => setTick(t => t + 1), 2000);
+        return () => clearInterval(id);
+      }, []);
+
+      // Position each member using X/Y axes mapped to energy pairs:
+      // X axis: Spark (right) ←→ Tend (left)  — drive vs steadiness
+      // Y axis: Flow (top) ←→ Glow (bottom)   — systems vs connection
+      // Band weights determine pull strength along each axis
+      const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.45, "Developing": 0.0 };
+
+      // First pass: compute raw positions from bands
+      const rawPositions = members.filter(m => m.assessmentComplete && m.bands).map(m => {
+        const sw = bandWeight[m.bands.spark] || 0;
+        const gw = bandWeight[m.bands.glow] || 0;
+        const tw = bandWeight[m.bands.tend] || 0;
+        const fw = bandWeight[m.bands.flow] || 0;
+        // X: positive = Spark, negative = Tend
+        const rawX = (sw - tw);
+        // Y: positive = Glow (bottom), negative = Flow (top)
+        const rawY = (gw - fw);
+        return { ...m, rawX, rawY };
+      });
+
+      // Second pass: nudge overlapping nodes apart (same profile = cluster, not stack)
+      const positioned = rawPositions.map((m, i) => {
+        let px = m.rawX * radius * 0.7;
+        let py = m.rawY * radius * 0.7;
+
+        // Check for near-overlaps with earlier nodes and nudge
+        for (let j = 0; j < i; j++) {
+          const other = rawPositions[j];
+          const ox = other.rawX * radius * 0.7;
+          const oy = other.rawY * radius * 0.7;
+          const dx = px - ox, dy = py - oy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 42) {
+            // Nudge perpendicular to the line from centre, proportional to index
+            const nudgeAngle = Math.atan2(py, px) + (Math.PI / 2);
+            const nudgeDist = 22 + (i % 3) * 10;
+            px += Math.cos(nudgeAngle) * nudgeDist;
+            py += Math.sin(nudgeAngle) * nudgeDist;
+          }
+        }
+
+        // Ambient float
+        const seed = m.initials.charCodeAt(0) * 7 + (m.initials.charCodeAt(1) || 0) * 13;
+        const floatX = Math.sin((tick * 0.5) + seed * 0.1) * 2;
+        const floatY = Math.cos((tick * 0.7) + seed * 0.13) * 2;
+
+        const x = centre + px + floatX;
+        const y = centre + py + floatY;
+        const col = m.instinctiveEnergy ? C[m.instinctiveEnergy] : C.sand;
+
+        return { ...m, x, y, col };
+      });
+
+      // Quadrant glow — matches axis mapping: Spark right, Tend left, Flow top, Glow bottom
+      const quadrants = [
+        { energy: "spark", cx: canvasSize * 0.85, cy: canvasSize * 0.5, col: C.spark },
+        { energy: "tend",  cx: canvasSize * 0.15, cy: canvasSize * 0.5, col: C.tend },
+        { energy: "flow",  cx: canvasSize * 0.5, cy: canvasSize * 0.15, col: C.flow },
+        { energy: "glow",  cx: canvasSize * 0.5, cy: canvasSize * 0.85, col: C.glow },
+      ];
+
+      if (positioned.length === 0) {
+        return React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, fontStyle: "italic", textAlign: "center" } },
+          "The constellation will appear once team members complete their profiles."
+        );
+      }
+
+      return React.createElement("div", { style: { position: "relative" } },
+        React.createElement("svg", {
+          width: canvasSize, height: canvasSize,
+          viewBox: `0 0 ${canvasSize} ${canvasSize}`,
+          style: { display: "block", margin: "0 auto" },
+        },
+          // Quadrant glow
+          quadrants.map(q => React.createElement("circle", {
+            key: q.energy, cx: q.cx, cy: q.cy, r: canvasSize * 0.3,
+            fill: q.col, opacity: 0.06,
+          })),
+          // Quadrant labels
+          quadrants.map(q => {
+            const e = ENERGIES.find(x => x.id === q.energy);
+            return React.createElement("text", {
+              key: `label-${q.energy}`,
+              x: q.energy === "spark" ? canvasSize - 12 : q.energy === "tend" ? 12 : q.cx,
+              y: q.energy === "flow" ? 20 : q.energy === "glow" ? canvasSize - 8 : centre + 5,
+              textAnchor: q.energy === "spark" ? "end" : q.energy === "tend" ? "start" : "middle",
+              style: { fontFamily: "'Fraunces', serif", fontSize: 16, fill: q.col, fontWeight: 700, opacity: 0.85 },
+            }, e.name);
+          }),
+          // Member nodes
+          positioned.map(m => React.createElement("g", {
+            key: m.userId,
+            onMouseEnter: () => setHovered(m),
+            onMouseLeave: () => setHovered(null),
+            style: { cursor: "pointer" },
+          },
+            React.createElement("circle", { cx: m.x, cy: m.y, r: 18, fill: `${m.col}22`, stroke: m.col, strokeWidth: 2 }),
+            React.createElement("text", {
+              x: m.x, y: m.y + 4, textAnchor: "middle",
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, fill: m.col },
+            }, m.initials)
+          ))
+        ),
+        // Hover tooltip
+        hovered && React.createElement("div", { style: {
+          position: "absolute", top: 8, right: 8, background: "white", borderRadius: 12,
+          padding: "10px 16px", boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.ink,
+          border: `1px solid ${C.sand}`,
+        } },
+          React.createElement("strong", null, hovered.name),
+          hovered.instinctiveEnergy && React.createElement("span", { style: { marginLeft: 8, color: C[hovered.instinctiveEnergy], fontWeight: 600 } },
+            ENERGIES.find(e => e.id === hovered.instinctiveEnergy)?.name
+          )
+        )
+      );
+    }
+
+    // ─── Team List/Table (for 10+ members) ────────────────────────────────────
+    function TeamListView({ members }) {
+      return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+        members.filter(m => m.assessmentComplete).map(m => {
+          const col = m.instinctiveEnergy ? C[m.instinctiveEnergy] : C.sand;
+          return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.sand}22` } },
+            React.createElement("div", { style: { width: 28, height: 28, borderRadius: "50%", background: `${col}22`, border: `2px solid ${col}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: col } }, m.initials),
+            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.ink, flex: 1 } }, m.name),
+            ["spark", "glow", "tend", "flow"].map(energy =>
+              m.bands && React.createElement(BandDot, { key: energy, band: m.bands[energy], energy })
+            )
+          );
+        })
+      );
+    }
+
+    function TeamDashboardScreen({ teamId, onBack, currentUserId }) {
+      const isDesktop = useIsDesktop();
+      const [data, setData] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [visibility, setVisibility] = useState(null);
+      const [toggling, setToggling] = useState(false);
+
+      useEffect(() => {
+        fetch(`/api/team/${teamId}`).then(r => r.json()).then(d => {
+          setData(d);
+          setVisibility(d.team?.visibility || "full_team");
+          setLoading(false);
+        }).catch(() => setLoading(false));
+      }, [teamId]);
+
+      if (loading) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.cream } },
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone } }, "Loading team dashboard...")
+      );
+
+      if (!data || data.restricted) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.cream, padding: 32 } },
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone, textAlign: "center", maxWidth: 400 } },
+          "Your team lead has set this dashboard to leader-only visibility. Ask them about sharing the team energy picture with everyone."
+        ),
+        React.createElement("button", { onClick: onBack, style: { marginTop: 24, background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99, padding: "12px 28px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer", color: C.ink } }, "Back")
+      );
+
+      const { team, role, aggregate, members } = data;
+      const isLead = role === "team-lead" || role === "org-admin";
+      const assessedMembers = members.filter(m => m.assessmentComplete);
+      const pendingMembers = members.filter(m => !m.assessmentComplete);
+
+      const handleVisibilityToggle = async () => {
+        const newVis = visibility === "full_team" ? "leader_only" : "full_team";
+        setToggling(true);
+        try {
+          await fetch(`/api/team/${teamId}/visibility`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ visibility: newVis }),
+          });
+          setVisibility(newVis);
+        } catch {}
+        setToggling(false);
+      };
+
+      // Band bar component
+      const BandBar = ({ energy, counts, total }) => {
+        const col = C[energy];
+        const e = ENERGIES.find(x => x.id === energy);
+        return React.createElement("div", { style: { marginBottom: 20 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+            React.createElement("div", { style: { width: 12, height: 12, borderRadius: "50%", background: col } }),
+            React.createElement("span", { style: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 18, color: C.ink } },
+              React.createElement(EnergyWord, { name: e.name })
+            )
+          ),
+          // Three band rows
+          ["Naturally present", "Intentionally present", "Developing"].map(band => {
+            const count = counts[band] || 0;
+            const pct = total > 0 ? (count / total) * 100 : 0;
+            // All bars full colour — visual weight comes from bar length, not opacity
+            const fill = col;
+            const border = "none";
+            return React.createElement("div", { key: band, style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 6 } },
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, width: isDesktop ? 140 : 100, flexShrink: 0 } }, band),
+              React.createElement("div", { style: { flex: 1, height: 20, background: `${col}11`, borderRadius: 10, overflow: "hidden", position: "relative" } },
+                React.createElement("div", { style: { width: `${Math.max(pct, 2)}%`, height: "100%", background: fill, border, borderRadius: 10, boxSizing: "border-box", transition: "width 0.5s ease" } })
+              ),
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.ink, width: 24, textAlign: "right" } }, count)
+            );
+          })
+        );
+      };
+
+      // Rank the four energies relative to each other by "Naturally present" count
+      // This ensures the panel shows contrast — strongest vs growth frontier
+      const energyStrength = ["spark", "glow", "tend", "flow"].map(energy => ({
+        energy,
+        nat: aggregate[energy]["Naturally present"] || 0,
+        int: aggregate[energy]["Intentionally present"] || 0,
+        dev: aggregate[energy]["Developing"] || 0,
+      })).sort((a, b) => b.nat - a.nat || (b.nat + b.int) - (a.nat + a.int));
+
+      // Top energy = Naturally present, bottom = Developing, middle = Intentionally present
+      const energyBandMap = {};
+      energyStrength.forEach((es, i) => {
+        if (i === 0) energyBandMap[es.energy] = "Naturally present";
+        else if (i === energyStrength.length - 1) energyBandMap[es.energy] = "Developing";
+        else energyBandMap[es.energy] = "Intentionally present";
+      });
+
+      // 32-dimension panel quadrant
+      const DimensionQuadrant = ({ energy }) => {
+        const col = C[energy];
+        const dim = DIMENSIONS_32[energy];
+        const e = ENERGIES.find(x => x.id === energy);
+        const nat = aggregate[energy]["Naturally present"] || 0;
+        const int = aggregate[energy]["Intentionally present"] || 0;
+        const total = aggregate.memberCount;
+        const qBand = energyBandMap[energy] || "Developing";
+
+        const qualifier = qBand === "Naturally present"
+          ? `This is where your team is strongest. ${nat} of ${total} reach for this energy instinctively \u2014 these dimensions are well covered.`
+          : qBand === "Intentionally present"
+          ? `Present but not your team\u2019s instinct. ${nat + int} of ${total} bring this energy, though it takes deliberate attention to sustain.`
+          : `Your team\u2019s growth frontier. Only ${nat} of ${total} reach for this naturally \u2014 these dimensions risk going unattended.`;
+
+        return React.createElement("div", { style: { background: C.cream, border: `1px solid ${C.sand}`, borderRadius: 16, padding: isDesktop ? 20 : 16 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+            React.createElement("div", { style: { width: 10, height: 10, borderRadius: "50%", background: col } }),
+            React.createElement("span", { style: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 15, color: C.ink } },
+              React.createElement(EnergyWord, { name: e.name })
+            )
+          ),
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, marginBottom: 4, fontStyle: "italic" } }, dim.label),
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.ink, marginBottom: 14, lineHeight: 1.5 } }, qualifier),
+          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+            dim.items.map(item => React.createElement("div", { key: item, style: { display: "flex", alignItems: "center", gap: 6 } },
+              React.createElement(BandDot, { band: qBand, energy }),
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.ink } }, item)
+            ))
+          )
+        );
+      };
+
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream } },
+        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px" } },
+          // Header
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 } },
+            React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
+            React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em" } }, team.name)
+          ),
+
+          // Member count
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, marginBottom: 8 } },
+            `${members.length} member${members.length !== 1 ? "s" : ""} \u00B7 ${assessedMembers.length} assessed`
+          ),
+
+          // ─── Energy band overview ───
+          React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 24 } }, "Team energy picture"),
+            aggregate.memberCount === 0
+              ? React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, fontStyle: "italic" } }, "No assessments completed yet. The energy picture will appear once team members complete their profiles.")
+              : ["spark", "glow", "tend", "flow"].map(energy =>
+                  React.createElement(BandBar, { key: energy, energy, counts: aggregate[energy], total: aggregate.memberCount })
+                )
+          ),
+
+          // ─── 32-dimension panel ───
+          aggregate.memberCount > 0 && React.createElement("div", { style: { marginTop: 24 } },
+            React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}` } },
+              React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 12 } },
+                React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: 0 } }, "Functional dimensions"),
+                React.createElement("div", { style: { display: "flex", gap: 14, alignItems: "center" } },
+                  [
+                    { label: "Naturally present", style: { width: 12, height: 12, borderRadius: "50%", background: C.stone } },
+                    { label: "Intentionally present", style: { width: 12, height: 12, borderRadius: "50%", background: `${C.stone}55`, border: `2px solid ${C.stone}`, boxSizing: "border-box" } },
+                    { label: "Developing", style: { width: 12, height: 12, borderRadius: "50%", background: "transparent", border: `2px solid ${C.stone}44`, boxSizing: "border-box" } },
+                  ].map(k => React.createElement("div", { key: k.label, style: { display: "flex", alignItems: "center", gap: 5 } },
+                    React.createElement("div", { style: k.style }),
+                    React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, k.label)
+                  ))
+                )
+              ),
+              React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginBottom: 20 } },
+                "What the team naturally attends to \u2014 and what may need deliberate attention."
+              ),
+              React.createElement("div", { style: { display: "grid", gridTemplateColumns: isDesktop ? "1fr 1fr" : "1fr", gap: 16 } },
+                ["spark", "glow", "tend", "flow"].map(energy =>
+                  React.createElement(DimensionQuadrant, { key: energy, energy })
+                )
+              )
+            )
+          ),
+
+          // ─── Constellation view ───
+          assessedMembers.length >= 2 && React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 8 } }, "Team constellation"),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginBottom: 20 } },
+              "Each person positioned by their energy profile. Hover for names. Proximity shows shared energy tendencies."
+            ),
+            assessedMembers.length > 10
+              ? React.createElement("div", null,
+                  React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 16 } },
+                    React.createElement("button", { id: "constellation-toggle", onClick: (e) => {
+                      const target = e.target.closest("div").parentElement;
+                      const spatial = target.querySelector("[data-view='spatial']");
+                      const list = target.querySelector("[data-view='list']");
+                      if (spatial.style.display === "none") { spatial.style.display = ""; list.style.display = "none"; }
+                      else { spatial.style.display = "none"; list.style.display = ""; }
+                    }, style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, background: `${C.sand}44`, border: "none", borderRadius: 99, padding: "6px 16px", cursor: "pointer" } }, "Toggle view")
+                  ),
+                  React.createElement("div", { "data-view": "spatial" }, React.createElement(TeamConstellation, { members, isDesktop })),
+                  React.createElement("div", { "data-view": "list", style: { display: "none" } }, React.createElement(TeamListView, { members }))
+                )
+              : React.createElement(TeamConstellation, { members, isDesktop })
+          ),
+
+          // ─── Member list ───
+          React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 } },
+              React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: 0 } }, "Members"),
+              // Legend
+              React.createElement("div", { style: { display: "flex", gap: 14, alignItems: "center" } },
+                [
+                  { label: "Naturally present", style: { width: 12, height: 12, borderRadius: "50%", background: C.stone } },
+                  { label: "Intentionally present", style: { width: 12, height: 12, borderRadius: "50%", background: `${C.stone}55`, border: `2px solid ${C.stone}`, boxSizing: "border-box" } },
+                  { label: "Developing", style: { width: 12, height: 12, borderRadius: "50%", background: "transparent", border: `2px solid ${C.stone}44`, boxSizing: "border-box" } },
+                ].map(k => React.createElement("div", { key: k.label, style: { display: "flex", alignItems: "center", gap: 5 } },
+                  React.createElement("div", { style: k.style }),
+                  React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, k.label)
+                ))
+              )
+            ),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+              members.map(m => {
+                const instCol = m.instinctiveEnergy ? C[m.instinctiveEnergy] : C.sand;
+                return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, background: m.assessmentComplete ? `${instCol}08` : "transparent", border: `1px solid ${m.assessmentComplete ? `${instCol}18` : `${C.sand}22`}` } },
+                  React.createElement("div", { style: { width: 36, height: 36, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instCol : C.stone, flexShrink: 0 } }, m.initials),
+                  React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                    React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink } }, m.name),
+                    !m.assessmentComplete && React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, marginLeft: 8 } }, "Not yet assessed"),
+                    m.bands && React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 4 } },
+                      ["spark", "glow", "tend", "flow"].map(energy =>
+                        React.createElement("div", { key: energy, style: { display: "flex", alignItems: "center", gap: 3 } },
+                          React.createElement(BandDot, { band: m.bands[energy], energy }),
+                          React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: C.stone } },
+                            ENERGIES.find(x => x.id === energy)?.name
+                          )
+                        )
+                      )
+                    )
+                  ),
+                  m.role !== "member" && React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}44`, padding: "3px 10px", borderRadius: 99, flexShrink: 0 } }, m.role === "org-admin" ? "Admin" : "Lead")
+                );
+              })
+            )
+          ),
+
+          // ─── Cultural prompt + visibility toggle (team leads / org admins only) ───
+          isLead && React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 16 } }, "Dashboard visibility"),
+            React.createElement("p", { style: { fontFamily: "'Fraunces', serif", fontSize: 15, fontWeight: 500, fontStyle: "italic", color: C.ink, lineHeight: 1.7, marginBottom: 24, maxWidth: 560 } },
+              "By default, your team dashboard is visible to everyone on the team. This is intentional \u2014 the energy picture belongs to all of you, not just to you as the leader. Turning this off means only you see it. Before you do, it\u2019s worth asking: what does that choice signal to your team about how you intend to use this information? There\u2019s no wrong answer \u2014 but it\u2019s worth the conversation."
+            ),
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
+              React.createElement("button", {
+                onClick: handleVisibilityToggle,
+                disabled: toggling,
+                style: {
+                  width: 48, height: 26, borderRadius: 13, border: "none", cursor: "pointer",
+                  background: visibility === "full_team" ? C.tend : C.sand,
+                  position: "relative", transition: "background 0.3s ease",
+                }
+              },
+                React.createElement("div", { style: {
+                  width: 20, height: 20, borderRadius: "50%", background: "white",
+                  position: "absolute", top: 3,
+                  left: visibility === "full_team" ? 25 : 3,
+                  transition: "left 0.3s ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                } })
+              ),
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.ink } },
+                visibility === "full_team" ? "Visible to all members" : "Visible to leaders only"
+              )
+            )
+          ),
+
+          // ─── Observations threshold notice ───
+          aggregate.memberCount > 0 && aggregate.memberCount < 8 && React.createElement("p", { style: {
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic",
+            textAlign: "center", marginTop: 24, maxWidth: 400, margin: "24px auto 0",
+          } },
+            `Team observations will appear when 8 members have completed their profiles. Currently ${aggregate.memberCount} of 8.`
+          )
+        )
+      );
+    }
+
+    // ─── Org Admin ────────────────────────────────────────────────────────────
+    function OrgAdminScreen({ orgId, onBack }) {
+      const isDesktop = useIsDesktop();
+      const [data, setData] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [inviteEmail, setInviteEmail] = useState("");
+      const [inviteTeamId, setInviteTeamId] = useState("");
+      const [inviting, setInviting] = useState(false);
+      const [inviteMsg, setInviteMsg] = useState(null);
+      const [newTeamName, setNewTeamName] = useState("");
+      const [creatingTeam, setCreatingTeam] = useState(false);
+
+      const loadData = () => {
+        fetch(`/api/org/${orgId}`).then(r => r.json()).then(d => {
+          setData(d);
+          if (d.teams?.length > 0 && !inviteTeamId) setInviteTeamId(d.teams[0].id);
+          setLoading(false);
+        }).catch(() => setLoading(false));
+      };
+
+      useEffect(loadData, [orgId]);
+
+      const handleInvite = async () => {
+        if (!inviteEmail.trim() || !inviteTeamId) return;
+        setInviting(true);
+        setInviteMsg(null);
+        try {
+          const res = await fetch(`/api/org/${orgId}/invite`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: inviteEmail.trim().toLowerCase(), teamId: inviteTeamId }),
+          });
+          const d = await res.json();
+          if (d.ok) {
+            setInviteMsg(d.status === "already_member" ? "Already a member" : d.status === "added" ? "Added to team" : "Invite sent");
+            setInviteEmail("");
+            loadData();
+          } else {
+            setInviteMsg(d.error || "Failed to invite");
+          }
+        } catch { setInviteMsg("Network error"); }
+        setInviting(false);
+      };
+
+      const handleCreateTeam = async () => {
+        if (!newTeamName.trim()) return;
+        setCreatingTeam(true);
+        try {
+          const res = await fetch(`/api/org/${orgId}/team`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ teamName: newTeamName.trim() }),
+          });
+          const d = await res.json();
+          if (d.ok) {
+            setNewTeamName("");
+            loadData();
+          }
+        } catch {}
+        setCreatingTeam(false);
+      };
+
+      const handleRemoveMember = async (userId) => {
+        if (!confirm("Remove this person from all teams in this organisation?")) return;
+        try {
+          await fetch(`/api/org/${orgId}/member/${userId}`, { method: "DELETE" });
+          loadData();
+        } catch {}
+      };
+
+      if (loading) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.cream } },
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone } }, "Loading...")
+      );
+
+      if (!data?.org) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.cream } },
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone } }, "Organisation not found."),
+        React.createElement("button", { onClick: onBack, style: { marginTop: 16, background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99, padding: "12px 28px", cursor: "pointer" } }, "Back")
+      );
+
+      const { org, teams, members: membersList } = data;
+
+      const statusLabel = (m) => {
+        if (m.assessmentComplete) return { text: "Assessment complete", col: C.tend };
+        if (m.userState) return { text: "Registered", col: C.glow };
+        return { text: "Not yet registered", col: C.stone };
+      };
+
+      const inputStyle = {
+        fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14,
+        padding: "12px 16px", borderRadius: 12, border: `1.5px solid ${C.sand}`,
+        background: C.cream, color: C.ink, outline: "none",
+      };
+
+      const btnStyle = {
+        fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14,
+        padding: "12px 24px", borderRadius: 99, border: "none", cursor: "pointer",
+        background: C.ink, color: C.cream,
+      };
+
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream } },
+        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px" } },
+          // Header
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 } },
+            React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
+            React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em" } }, org.name)
+          ),
+
+          // ─── Teams ───
+          React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}`, marginBottom: 24 } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 20 } }, "Teams"),
+            teams.map(t => React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: `1px solid ${C.sand}22` } },
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 600, color: C.ink } }, t.name),
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone } },
+                `${membersList.filter(m => m.teams.some(mt => mt.teamId === t.id)).length} members`
+              )
+            )),
+            // Create team
+            React.createElement("div", { style: { display: "flex", gap: 12, marginTop: 20, flexWrap: "wrap" } },
+              React.createElement("input", {
+                value: newTeamName, onChange: e => setNewTeamName(e.target.value),
+                placeholder: "New team name", style: { ...inputStyle, flex: 1, minWidth: 180 },
+              }),
+              React.createElement("button", {
+                onClick: handleCreateTeam, disabled: creatingTeam || !newTeamName.trim(),
+                style: { ...btnStyle, opacity: creatingTeam || !newTeamName.trim() ? 0.5 : 1 },
+              }, "Create team")
+            )
+          ),
+
+          // ─── Invite member ───
+          React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}`, marginBottom: 24 } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 20 } }, "Invite members"),
+            React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" } },
+              React.createElement("div", { style: { flex: 1, minWidth: 200 } },
+                React.createElement("label", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.stone, display: "block", marginBottom: 6 } }, "Email"),
+                React.createElement("input", { value: inviteEmail, onChange: e => setInviteEmail(e.target.value), placeholder: "name@example.com", type: "email", style: { ...inputStyle, width: "100%", boxSizing: "border-box" } })
+              ),
+              teams.length > 1 && React.createElement("div", { style: { minWidth: 160 } },
+                React.createElement("label", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.stone, display: "block", marginBottom: 6 } }, "Team"),
+                React.createElement("select", { value: inviteTeamId, onChange: e => setInviteTeamId(e.target.value), style: { ...inputStyle, width: "100%", boxSizing: "border-box" } },
+                  teams.map(t => React.createElement("option", { key: t.id, value: t.id }, t.name))
+                )
+              ),
+              React.createElement("button", {
+                onClick: handleInvite, disabled: inviting || !inviteEmail.trim(),
+                style: { ...btnStyle, opacity: inviting || !inviteEmail.trim() ? 0.5 : 1 },
+              }, inviting ? "Sending..." : "Invite")
+            ),
+            inviteMsg && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.tend, marginTop: 12 } }, inviteMsg)
+          ),
+
+          // ─── Member list ───
+          React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}` } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 20 } },
+              `All members (${membersList.length})`
+            ),
+            membersList.length === 0
+              ? React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, fontStyle: "italic" } }, "No members yet. Use the invite form above to add people.")
+              : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+                  membersList.map(m => {
+                    const s = statusLabel(m);
+                    const initials = m.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+                    const instCol = m.dominantEnergy ? C[m.dominantEnergy] : C.sand;
+                    return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${C.sand}22` } },
+                      React.createElement("div", { style: { width: 36, height: 36, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instCol : C.stone } }, initials),
+                      React.createElement("div", { style: { flex: 1 } },
+                        React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink } }, m.name),
+                        React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone } }, m.email),
+                        React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" } },
+                          React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: s.col, fontWeight: 600 } }, s.text),
+                          m.teams.map(t => React.createElement("span", { key: t.teamId, style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}44`, padding: "2px 8px", borderRadius: 99 } }, t.teamName))
+                        )
+                      ),
+                      React.createElement("button", { onClick: () => handleRemoveMember(m.userId), style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, cursor: "pointer", padding: "6px 10px" } }, "Remove")
+                    );
+                  })
+                )
+          )
+        )
       );
     }
 
@@ -2470,6 +3307,27 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       // Shared profile path — /shared/:token
       const sharedPathMatch = window.location.pathname.match(/^\/shared\/([^/]+)$/);
       const sharedToken = sharedPathMatch ? sharedPathMatch[1] : null;
+
+      // Org member registration path — /register-org
+      const isOrgRegister = window.location.pathname === "/register-org";
+
+      // Team dashboard path — /team/:teamId
+      const teamPathMatch = window.location.pathname.match(/^\/team\/([^/]+)$/);
+      const teamPathId = teamPathMatch ? teamPathMatch[1] : null;
+
+      // Org admin path — /org/:orgId
+      const orgPathMatch = window.location.pathname.match(/^\/org\/([^/]+)$/);
+      const orgPathId = orgPathMatch ? orgPathMatch[1] : null;
+
+      // Team list state (for welcome screen team nav)
+      const [userTeams, setUserTeams] = useState([]);
+      useEffect(() => {
+        if (betaUser) {
+          fetch("/api/teams").then(r => r.json()).then(d => {
+            if (d.teams) setUserTeams(d.teams);
+          }).catch(() => {});
+        }
+      }, [betaUser]);
 
       // Checkout return params
       const urlParams = new URLSearchParams(window.location.search);
@@ -2595,10 +3453,28 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             input::placeholder { color: ${C.stone}; }
             input:focus { border-color: ${C.ink} !important; outline: none; }
           `}</style>
-          {sharedToken ? (
+          {teamPathId && betaUser ? (
+            <TeamDashboardScreen
+              teamId={teamPathId}
+              currentUserId={betaUser.id}
+              onBack={() => { window.history.replaceState({}, "", "/"); setScreen("welcome"); window.location.reload(); }}
+            />
+          ) : orgPathId && betaUser ? (
+            <OrgAdminScreen
+              orgId={orgPathId}
+              onBack={() => { window.history.replaceState({}, "", "/"); setScreen("welcome"); window.location.reload(); }}
+            />
+          ) : sharedToken ? (
             <SharedProfileScreen token={sharedToken} />
           ) : betaChecked && betaUser?.userState === "individual-trial-expired" ? (
             <TrialExpiredScreen userName={betaUser.name} />
+          ) : showRegister && isOrgRegister ? (
+            screen === "sign-in"
+              ? <LoginScreen onLogin={handleLogin} onBack={() => setScreen("register")} />
+              : <OrgRegisterScreen
+                  onRegistered={user => { setBetaUser(user); window.history.replaceState({}, "", "/"); navigate("welcome"); }}
+                  onSignIn={() => setScreen("sign-in")}
+                />
           ) : showRegister ? (
             screen === "sign-in"
               ? <LoginScreen onLogin={handleLogin} onBack={() => setScreen("register")} />
@@ -2617,6 +3493,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   onChat={handleChat}
                   savedProfile={savedProfile}
                   onSignIn={() => navigate("sign-in")}
+                  teams={userTeams}
                 />
               )}
               {screen === "consent" && (

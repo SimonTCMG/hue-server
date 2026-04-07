@@ -233,17 +233,134 @@ The trial model replaces the previous free tier flywheel. The card requirement m
 
 ## Team Dashboard — Brief
 
-The Team Dashboard is the B2B product layer. It sits above individual profiles — showing the collective picture, not personal data. This section defines what it should contain and the philosophy behind it.
+The Team Dashboard is the B2B product layer. It sits above individual profiles — showing the collective picture, not personal data. This section defines what it should contain, the privacy architecture that governs it, and all resolved design decisions.
+
+---
+
+### Core principle — banded display throughout
+
+All energy data in the team dashboard is displayed in bands, never as precise percentages. Raw percentages exist in the data model (Code needs them to calculate bands and detect shifts) but never surface in the UI.
+
+**The three bands:**
+
+| Band | Meaning | Display |
+|------|---------|---------|
+| Naturally present | This energy shows up without effort in this team | Full colour fill |
+| Intentionally present | This energy is here but requires deliberate attention | Partial colour fill |
+| Developing | This energy is the team's growth frontier | Outline only |
+
+**Why banding, not percentages:**
+Precise numbers invite reverse-engineering in small teams — 20% means one person in a team of five. Numbers also invite debate ("is 29% actually a problem?") where bands force a decision ("we're Developing in Tend — what do we do?"). The banding language maps directly onto the individual reach label set (Instinctive / Fluent / Intentional / Developing) so the vocabulary is consistent across personal profile and team picture. The new hire modeller shows band shifts (Developing → Intentionally present) rather than percentage deltas — more legible for a hiring conversation and impossible to reverse-engineer.
+
+**This decision is non-negotiable.** Do not surface raw percentages anywhere in the team dashboard UI under any circumstances.
+
+---
+
+### Privacy architecture — two strict data pipelines
+
+The team dashboard and the personal companion operate on strictly separate data pipelines. This is an architectural decision, not a policy — it must be built this way, not configured this way.
+
+**Pipeline 1 — Team layer:**
+Receives: energy band per member (calculated from profile scores). Nothing else.
+Produces: aggregate team energy picture in bands, 32-dimension panel, gap radar, new hire modeller, constellation view.
+Never contains: individual scores, individual behavioural patterns, longitudinal data per person, any data that could identify an individual's specific state.
+
+**Pipeline 2 — Personal companion:**
+Receives: full individual profile, all conversation history, longitudinal energy patterns.
+Produces: personal observations, flex challenges, check-ins, "Hue has noticed..." prompts.
+Never crosses into: the team layer. Ever.
+
+Hue never surfaces individual behavioural patterns to anyone other than the individual themselves. The team leader sees "one or more members have been operating in high-Spark mode" — not which members. The member themselves sees it in their personal companion as a private check-in. That observation is theirs alone.
+
+This separation must be stated publicly as part of the product's data commitment — not just a technical fact but a published promise. The onboarding conversation for every org member must include: "Here is exactly what your employer sees. Here is what only you see. These two things never mix."
+
+---
+
+### Team dashboard visibility model — who sees what
+
+**Default: full team visibility.**
+
+Every team member can see the team dashboard — the energy picture, the 32-dimension panel, the gap radar, the constellation. This is not a management report. It is a shared team resource. The default position is that the information belongs to everyone in the team equally.
+
+This is a deliberate philosophical choice aligned with the organisational development principles of [lovingworkplace.org](https://lovingworkplace.org) — the belief that transparency, shared understanding, and psychological safety are the conditions under which people and teams genuinely flourish. A dashboard that only the leader sees is a surveillance tool with good intentions. A dashboard everyone sees is a shared language.
+
+**The leader switch:**
+
+Team leads can choose to move to leader-only visibility. This is not presented as a restriction option — it is presented as a cultural decision that requires deliberate consideration. When a team lead navigates to visibility settings, they encounter this before any toggle:
+
+> *"By default, your team dashboard is visible to everyone on the team. This is intentional — the energy picture belongs to all of you, not just to you as the leader. Turning this off means only you see it. Before you do, it's worth asking: what does that choice signal to your team about how you intend to use this information? There's no wrong answer — but it's worth the conversation."*
+
+Then, and only then, the toggle.
+
+**Why the friction is the feature:**
+
+The prompt before the toggle is not a warning — it is an organisational development intervention. It asks the leader to be conscious about a cultural choice they might otherwise make automatically. Many will read it and leave visibility on. Some will turn it off and be more thoughtful about how they share what they learn. A few will use the prompt as the opening for exactly the team conversation that Hue is designed to create. All three outcomes are good.
+
+**What individual members always control:**
+
+Regardless of the team visibility setting, each member's individual profile — their personal observations, their companion conversations, their longitudinal energy data — is always and only theirs. The team layer shows the aggregate. The personal layer is inviolable. The leader switching to leader-only visibility affects what team members see about the team — it has no effect on what anyone can see about any individual. Those pipelines are architecturally separate and that separation cannot be changed by any setting.
+
+---
+
+### Anonymity in small teams
+
+**Minimum threshold for behavioural observations:** 8 members.
+
+Below 8 members, the dashboard shows energy bands and the 32-dimension panel but suppresses any observation that could identify an individual — no "one or more members have been..." language, no gap observations that in a small team effectively point at a specific person.
+
+**Banding protects small teams by default.** Because precise numbers are never shown, reverse-engineering ("Tend is 19% — that must be just Marcus") is not possible. The band ("Tend: Developing") tells the leader what they need to act on without revealing who.
+
+**Consent-based individual visibility (opt-in):** Members can choose to make their energy band visible to their team lead or their whole team — beyond the default aggregate contribution. This is an explicit opt-in action in their personal settings, never a default. It respects autonomy and creates the possibility of team members who choose to be openly known — which some people will actively want.
+
+---
+
+### New hire modeller — process design
+
+Three scenarios, each handled differently:
+
+**Scenario 1 — Candidate has no Hue profile:**
+The hiring manager inputs approximate energy bands based on interview observation. The modeller runs on this estimate and marks the result as "Based on interview estimate — not a verified profile." If the candidate is hired and completes their assessment, the estimate is replaced with their real profile and the team picture updates automatically.
+
+**Scenario 2 — Candidate is an existing Hue subscriber:**
+Their profile exists and belongs to them. They are asked: "Your prospective employer uses Hue for team insights. Would you like your energy profile to contribute to their team picture? Your individual result stays private — they see only the aggregate." This is an explicit consent action. Declining has no bearing on the hiring process (Hue never communicates consent decisions to employers).
+
+**Scenario 3 — Standard org onboarding:**
+New joiner completes assessment as part of onboarding. Profile feeds team dashboard once complete. A 30-day settling period applies before the profile influences team-level observations — early conversations may not yet reflect the stable profile.
+
+**The onboarding note:** Every new hire modeller result includes a section on what the team needs to do to integrate this person's energy well. This is one of the highest-value outputs — specific, actionable, and impossible to get from any existing tool.
+
+---
+
+### Sub-teams
+
+Sub-teams are fully supported. One person can belong to multiple teams — their profile contributes to each aggregate independently.
+
+**Setup:** Org admin creates named teams, assigns members by email or @search, designates a team lead per team. Team leads see only their team's dashboard. Org admins see all teams. Members see nothing in the team layer — only their personal profile.
+
+**Cross-team comparison (Phase 3):** "How does the leadership team's energy picture compare to the teams they lead?" If the leadership team is predominantly Spark and Flow and the delivery teams are predominantly Tend and Glow, there is a structural mismatch between how decisions get made and how they land. Hue names that. No existing tool can.
+
+---
 
 ### The Constellation view
-A live spatial representation of the team's energy landscape. Each team member appears as a node positioned by their energy profile — pulled toward the energies they reach for most. As people join, leave, or develop, the constellation shifts.
+A live spatial representation of the team's energy landscape. Each team member appears as a node positioned by their energy band profile.
 
-**Current state:** Prototype built (April 2026). Needs refinement for teams of 10+ with longer names. List/table alternative view required alongside the spatial view.
+**Axis mapping (decided 7 April 2026):**
+- X axis: Spark (right) ←→ Tend (left) — drive vs steadiness
+- Y axis: Flow (top) ←→ Glow (bottom) — systems vs connection
+- Same energy band profile = same position. Overlap nudging prevents stacking but keeps similar profiles clustered.
+
+**No connection lines.** Connection lines were prototyped and removed — "shared energy affinity" was an undefined concept that added visual noise without conveying meaning. Proximity alone shows who shares energy tendencies.
+
+**Current state:** Built and functional (April 2026). List/table alternative view available for teams of 10+. Ambient float animation on nodes.
+
+**Display note:** Member nodes are labelled with initials only. Full names visible on hover. This reduces visual identification of individuals in the spatial layout.
+
+---
 
 ### The 32-dimension functional panel
-Beyond showing who the team members are, the dashboard should surface what the team tends to do well and what it tends to skip — the functional implications of the collective energy profile.
+Surfaces what the team tends to do well and what it structurally tends to skip — the functional implications of the collective energy profile. Displayed in bands, never percentages.
 
-32 dimensions mapped across the four energies. 16 from reference, 16 original to Hue. Teams with a particular energy profile will naturally attend to the dimensions in that energy's cluster and deprioritise the others — without naming what they're missing.
+**Relative ranking (decided 7 April 2026):** The four energies are ranked against each other by "Naturally present" count. The energy with the most naturally-present members = strongest (full dots), the energy with fewest = growth frontier (hollow dots), middle two = intentionally present (partial dots). This guarantees contrast regardless of team composition. Absolute thresholds were rejected because with varied profiles every energy gets covered by someone.
 
 **Spark dimensions (what the team drives):**
 Purpose · Vision · Decision · Transformation · Momentum · Courage · Ambition · Challenge
@@ -254,19 +371,8 @@ Collaboration · Communication · Environment · Team Meetings · Celebration ·
 **Tend dimensions (what the team holds):**
 Trust · Accountability · Commitment · Diversity · Wellbeing · Consistency · Loyalty · Memory
 
-**Flow dimensions (how the team thinks):**
+**Flow dimensions (what the team structures):**
 Planning · Processes · Roles & Skills · Reflection · Clarity · Evidence · Learning · Systems
-
-**The insight:** A team heavy in Spark and Flow but light in Glow and Tend can be visionary and well-organised while quietly losing trust and burning people out. Hue names that specifically, and prompts the team to tend to it deliberately.
-
-**Important:** This framework is Hue's own, derived from the energy model. The reference material that inspired it is internal only — never named or reproduced in any user-facing material.
-
-### Additional dashboard panels (to be scoped)
-- Before/after a hire — models what a new hire would do to team energy composition
-- Gap radar — identifies what the team is systematically missing, names it, suggests interventions
-- Intervention prompt — when team engagement patterns shift, alerts the leader
-- @search for team members — find a team member by name or energy profile
-- Cross-check team code users against registered list — prevent ungated access
 
 ---
 
@@ -399,6 +505,13 @@ Check-in mini-conversation · Energy timeline view · Flex-for-context prompt ·
 | Autonomy voice as named design principle | Hue speaks to someone who already knows themselves — the observation confirms, not prescribes | Apr 2026 |
 | Colour-coded EnergyWord component — non-negotiable | Visual identity requires consistent colour rendering of energy names everywhere | Apr 2026 |
 | Team Dashboard includes 32 functional dimensions | Goes beyond who the team is to what the team tends to do well and skip | Apr 2026 |
+| All team dashboard data displayed in bands not percentages | Prevents reverse-engineering in small teams; forces decisions not debates; consistent with individual reach label vocabulary | Apr 2026 |
+| Two strict data pipelines — team layer and personal companion never cross | Architectural decision not a policy; personal behavioural patterns never reach the team layer under any circumstances | Apr 2026 |
+| Minimum 8 members for behavioural observations in team dashboard | Below threshold, banding alone protects anonymity; observations suppressed | Apr 2026 |
+| Team dashboard default visibility: all members | Dashboard is a shared team resource not a management report; aligned with lovingworkplace.org OD principles | Apr 2026 |
+| Leader can switch to leader-only visibility with deliberate friction | The prompt before the toggle is an OD intervention — makes the cultural choice conscious, not automatic | Apr 2026 |
+| New hire modeller handles three candidate scenarios | No profile (estimate), existing subscriber (consent), standard onboarding (30-day settling period) | Apr 2026 |
+| Sub-teams fully supported; one person can belong to multiple teams | Profile contributes independently to each team aggregate | Apr 2026 |
 
 ---
 

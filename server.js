@@ -33,6 +33,26 @@ import db, {
   updateStripeCustomer,
   hasTrialEmailBeenSent,
   recordTrialEmailSent,
+  calculateBands,
+  getTeamsForUser,
+  upsertTeamEnergyBands,
+  createOrganisation,
+  getOrganisation,
+  createTeam,
+  getTeam,
+  getTeamsForOrg,
+  updateTeamVisibility,
+  addTeamMember,
+  getTeamMembers,
+  getTeamEnergyBands,
+  getTeamAggregate,
+  removeTeamMember,
+  getOrgMembers,
+  getUserRole,
+  isOrgAdmin,
+  hasOrgEmailBeenSent,
+  recordOrgEmailSent,
+  getOrgMembersForEmails,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -111,7 +131,10 @@ function sendApp(req, res) {
 }
 app.get("/", sendApp);
 app.get("/register", sendApp);
+app.get("/register-org", sendApp);
 app.get("/shared/:token", sendApp);
+app.get("/team/:teamId", sendApp);
+app.get("/org/:orgId", sendApp);
 
 // ─── Session helper ────────────────────────────────────────────────────────
 
@@ -213,6 +236,98 @@ app.post("/api/register", async (req, res) => {
       .then(sent => { if (sent) recordTrialEmailSent(id, 1); })
       .catch(() => {});
   }
+
+  setUserCookie(res, id);
+  const newUser = getUser(id);
+  return res.json({ user: formatUserResponse(newUser) });
+});
+
+// POST /api/register-org — create org member account (no payment, no trial clock)
+app.post("/api/register-org", async (req, res) => {
+  const { name, email, orgCode, teamId } = req.body;
+
+  if (!name?.trim() || !email?.trim()) {
+    return res.status(400).json({ error: "Please enter your name and email." });
+  }
+
+  // orgCode is the org ID from the invite link
+  if (!orgCode?.trim()) {
+    return res.status(400).json({ error: "Please enter your organisation code." });
+  }
+
+  // Validate org exists
+  const org = getOrganisation(orgCode.trim());
+  if (!org) {
+    return res.status(400).json({ error: "Organisation not found. Please check your invite link." });
+  }
+
+  const normalised = email.toLowerCase().trim();
+  const existing = getUserByEmail(normalised);
+
+  if (existing) {
+    // Auto-add to team if teamId provided and not already a member
+    if (teamId) {
+      const role = getUserRole(existing.id, teamId);
+      if (!role) {
+        addTeamMember(existing.id, teamId, "member");
+        if (existing.energy_scores) {
+          try {
+            const scores = JSON.parse(existing.energy_scores);
+            upsertTeamEnergyBands(existing.id, teamId, calculateBands(scores));
+          } catch {}
+        }
+      }
+    }
+    setUserCookie(res, existing.id);
+    return res.json({ user: formatUserResponse(existing), alreadyRegistered: true });
+  }
+
+  const id  = uuidv4();
+  const now = Date.now();
+  try {
+    createUser({ id, name: name.trim(), email: normalised, registered_at: now,
+                 trial_started_at: null, user_state: "org-member-active" });
+  } catch (err) {
+    console.error("DB error on org register:", err);
+    return res.status(500).json({ error: "Could not create your account. Please try again." });
+  }
+
+  // Auto-add to team from invite link
+  if (teamId) {
+    const team = getTeam(teamId);
+    if (team && team.org_id === orgCode.trim()) {
+      addTeamMember(id, teamId, "member");
+    }
+  } else {
+    // No specific team — add to first team in the org
+    const teams = getTeamsForOrg(orgCode.trim());
+    if (teams.length > 0) {
+      addTeamMember(id, teams[0].id, "member");
+    }
+  }
+
+  // Add to MailerLite with org-member-active state (non-blocking)
+  upsertSubscriber({ name: name.trim(), email: normalised, userState: "org-member-active" }).catch(console.error);
+
+  // Send Email 1 (Welcome) immediately
+  const firstName = name.trim().split(" ")[0];
+  sendEmail({
+    to: normalised,
+    toName: firstName,
+    subject: "Welcome to Hue \u2014 your profile is yours",
+    html: orgOnboardingEmailHtml({
+      firstName,
+      body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you \u2014 an ongoing companion that helps you understand your own patterns over time.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
+<p style="margin:0 0 16px">When you\u2019re ready, start your first conversation. It takes about five minutes. There are no right or wrong answers \u2014 just honest ones.</p>`,
+      ctaText: "Start your first conversation",
+      ctaUrl: APP_URL,
+    }),
+  }).then(() => {
+    recordOrgEmailSent(id, 0);
+    console.log(`Org welcome email sent to ${normalised}`);
+  }).catch(err => console.error("Org welcome email failed:", err));
 
   setUserCookie(res, id);
   const newUser = getUser(id);
@@ -371,6 +486,18 @@ app.post("/api/complete", async (req, res) => {
     labels,
     userState: user.user_state || "",
   }).catch(console.error);
+
+  // Pipeline 1: calculate bands and push to any teams this user belongs to.
+  // Only band labels cross into the team layer — never raw scores.
+  try {
+    const bands = calculateBands(scores);
+    const teams = getTeamsForUser(user.id);
+    for (const team of teams) {
+      upsertTeamEnergyBands(user.id, team.id, bands);
+    }
+  } catch (err) {
+    console.error("Team bands update error (non-blocking):", err);
+  }
 
   return res.json({ ok: true });
 });
@@ -836,6 +963,271 @@ cron.schedule("0 8 * * *", sendDailyEmails, {
   timezone: "Europe/London",
 });
 
+// ─── Team & Org API ──────────────────────────────────────────────────────────
+
+// Get teams for current user
+app.get("/api/teams", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  const teams = getTeamsForUser(user.id);
+  res.json({ teams });
+});
+
+// Get team dashboard data (overview)
+app.get("/api/team/:teamId", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId } = req.params;
+  const team = getTeam(teamId);
+  if (!team) return res.status(404).json({ error: "Team not found" });
+
+  // Check membership
+  const role = getUserRole(user.id, teamId);
+  if (!role) return res.status(403).json({ error: "Not a member of this team" });
+
+  // If visibility is leader-only and user is not lead/admin, block
+  if (team.visibility === "leader_only" && role === "member") {
+    return res.json({ team: { id: team.id, name: team.name, visibility: team.visibility }, restricted: true });
+  }
+
+  const aggregate = getTeamAggregate(teamId);
+  const members = getTeamMembers(teamId);
+  const bands = getTeamEnergyBands(teamId);
+
+  // Build member list with initials and instinctive energy colour (never raw scores)
+  const memberList = members.map(m => {
+    const band = bands.find(b => b.user_id === m.user_id);
+    return {
+      userId: m.user_id,
+      name: m.name,
+      initials: m.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2),
+      role: m.role,
+      assessmentComplete: !!band,
+      // Instinctive energy = the one with "Naturally present" band (or first if multiple)
+      instinctiveEnergy: band ? (
+        band.spark_band === "Naturally present" ? "spark" :
+        band.glow_band === "Naturally present" ? "glow" :
+        band.tend_band === "Naturally present" ? "tend" :
+        band.flow_band === "Naturally present" ? "flow" : null
+      ) : null,
+      bands: band ? {
+        spark: band.spark_band,
+        glow: band.glow_band,
+        tend: band.tend_band,
+        flow: band.flow_band,
+      } : null,
+    };
+  });
+
+  res.json({
+    team: { id: team.id, name: team.name, visibility: team.visibility, orgId: team.org_id },
+    role,
+    aggregate,
+    members: memberList,
+  });
+});
+
+// Update team visibility (team-lead or org-admin only)
+app.put("/api/team/:teamId/visibility", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId } = req.params;
+  const { visibility } = req.body;
+  if (!["full_team", "leader_only"].includes(visibility)) {
+    return res.status(400).json({ error: "Invalid visibility value" });
+  }
+
+  const role = getUserRole(user.id, teamId);
+  if (!role || role === "member") {
+    return res.status(403).json({ error: "Only team leads and org admins can change visibility" });
+  }
+
+  updateTeamVisibility(teamId, visibility);
+  res.json({ ok: true, visibility });
+});
+
+// ─── Org admin endpoints ─────────────────────────────────────────────────────
+
+// Create organisation + first team
+app.post("/api/org/create", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { orgName, teamName } = req.body;
+  if (!orgName || !teamName) return res.status(400).json({ error: "orgName and teamName required" });
+
+  const orgId = uuidv4();
+  const teamId = uuidv4();
+  createOrganisation(orgId, orgName);
+  createTeam(teamId, orgId, teamName);
+  addTeamMember(user.id, teamId, "org-admin");
+
+  // Sync bands if user has completed assessment
+  if (user.energy_scores) {
+    try {
+      const scores = JSON.parse(user.energy_scores);
+      const bands = calculateBands(scores);
+      upsertTeamEnergyBands(user.id, teamId, bands);
+    } catch {}
+  }
+
+  res.json({ ok: true, orgId, teamId });
+});
+
+// Create additional team within an org
+app.post("/api/org/:orgId/team", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { orgId } = req.params;
+  const { teamName } = req.body;
+  if (!teamName) return res.status(400).json({ error: "teamName required" });
+
+  if (!isOrgAdmin(user.id, orgId)) {
+    return res.status(403).json({ error: "Only org admins can create teams" });
+  }
+
+  const teamId = uuidv4();
+  createTeam(teamId, orgId, teamName);
+  res.json({ ok: true, teamId });
+});
+
+// Get org overview (all teams, all members)
+app.get("/api/org/:orgId", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { orgId } = req.params;
+  if (!isOrgAdmin(user.id, orgId)) {
+    return res.status(403).json({ error: "Only org admins can view org overview" });
+  }
+
+  const org = getOrganisation(orgId);
+  if (!org) return res.status(404).json({ error: "Organisation not found" });
+
+  const teams = getTeamsForOrg(orgId);
+  const members = getOrgMembers(orgId);
+
+  // Group members by user (a user can be in multiple teams)
+  const memberMap = {};
+  for (const m of members) {
+    if (!memberMap[m.id]) {
+      memberMap[m.id] = {
+        userId: m.id,
+        name: m.name,
+        email: m.email,
+        assessmentComplete: !!m.assessment_completed_at,
+        userState: m.user_state,
+        dominantEnergy: m.dominant_energy,
+        teams: [],
+      };
+    }
+    memberMap[m.id].teams.push({ teamId: m.team_id, teamName: m.team_name, role: m.role });
+  }
+
+  res.json({
+    org: { id: org.id, name: org.name },
+    teams: teams.map(t => ({ id: t.id, name: t.name, visibility: t.visibility })),
+    members: Object.values(memberMap),
+  });
+});
+
+// Invite member to team by email
+app.post("/api/org/:orgId/invite", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { orgId } = req.params;
+  const { email, teamId } = req.body;
+  if (!email || !teamId) return res.status(400).json({ error: "email and teamId required" });
+
+  if (!isOrgAdmin(user.id, orgId)) {
+    return res.status(403).json({ error: "Only org admins can invite members" });
+  }
+
+  // Check team belongs to this org
+  const team = getTeam(teamId);
+  if (!team || team.org_id !== orgId) {
+    return res.status(400).json({ error: "Team not found in this organisation" });
+  }
+
+  // Check if user already exists
+  const existingUser = getUserByEmail(email.toLowerCase().trim());
+  if (existingUser) {
+    // Add to team if not already a member
+    const role = getUserRole(existingUser.id, teamId);
+    if (role) return res.json({ ok: true, status: "already_member" });
+    addTeamMember(existingUser.id, teamId, "member");
+    // Sync bands if assessment complete
+    if (existingUser.energy_scores) {
+      try {
+        const scores = JSON.parse(existingUser.energy_scores);
+        const bands = calculateBands(scores);
+        upsertTeamEnergyBands(existingUser.id, teamId, bands);
+      } catch {}
+    }
+    return res.json({ ok: true, status: "added" });
+  }
+
+  // User doesn't exist yet — send invite email
+  const inviteUrl = `${APP_URL}/register-org?org=${orgId}&team=${teamId}`;
+  const orgObj = getOrganisation(orgId);
+  sendEmail({
+    to: email.toLowerCase().trim(),
+    toName: email.split("@")[0],
+    subject: `${user.name} has invited you to Hue`,
+    html: trialEmailHtml({
+      firstName: email.split("@")[0],
+      body: `<p style="margin:0 0 16px">${user.name} has invited you to join <strong>${team.name}</strong> on Hue.</p>
+<p style="margin:0 0 16px">Hue is a short conversation that identifies how you tend to show up across four colour energy dimensions. It takes about five minutes, and there are no right or wrong answers. Afterwards, you get a profile with specific observations about your energy patterns \u2014 and an ongoing companion that helps you make sense of them over time.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
+<p style="margin:0 0 16px">Your individual scores, observations, and companion conversations are completely private. The team dashboard shows only the aggregate energy picture \u2014 which energies the team tends to reach for collectively.</p>`,
+      ctaText: `Join ${team.name}`,
+      ctaUrl: inviteUrl,
+    }),
+  }).catch(err => console.error("Invite email failed:", err));
+
+  res.json({ ok: true, status: "invited" });
+});
+
+// Remove member from org (all their teams in this org)
+app.delete("/api/org/:orgId/member/:userId", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { orgId, userId } = req.params;
+  if (!isOrgAdmin(user.id, orgId)) {
+    return res.status(403).json({ error: "Only org admins can remove members" });
+  }
+
+  // Remove from all teams in this org
+  const teams = getTeamsForOrg(orgId);
+  for (const team of teams) {
+    removeTeamMember(userId, team.id);
+  }
+
+  res.json({ ok: true });
+});
+
+// Assign team lead role
+app.put("/api/org/:orgId/team/:teamId/lead", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { orgId, teamId } = req.params;
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "userId required" });
+
+  if (!isOrgAdmin(user.id, orgId)) {
+    return res.status(403).json({ error: "Only org admins can assign team leads" });
+  }
+
+  addTeamMember(userId, teamId, "team-lead");
+  res.json({ ok: true });
+});
+
 // ─── Trial email sequence ────────────────────────────────────────────────────
 
 const APP_URL = process.env.APP_URL || "https://myhue.co";
@@ -861,6 +1253,123 @@ function trialEmailHtml({ firstName, body, ctaText, ctaUrl }) {
 </table></td></tr></table>
 </body></html>`;
 }
+
+// Org onboarding emails use the same HTML wrapper as trial emails
+const orgOnboardingEmailHtml = trialEmailHtml;
+
+// ─── Org member onboarding email builder ──────────────────────────────────
+
+const ORG_EMAIL_DAYS = [3, 7, 14]; // Day 0 (welcome) is sent immediately at registration
+
+function buildOrgEmail(dayNumber, user) {
+  const firstName = user.name.trim().split(" ")[0];
+  const energy = user.dominant_energy
+    ? user.dominant_energy.charAt(0).toUpperCase() + user.dominant_energy.slice(1)
+    : null;
+
+  // Developing energy = 4th ranked
+  let developingEnergy = null;
+  if (user.reach_labels) {
+    try {
+      const labels = JSON.parse(user.reach_labels);
+      const dev = Object.entries(labels).find(([, v]) => v === "Developing");
+      if (dev) developingEnergy = dev[0].charAt(0).toUpperCase() + dev[0].slice(1);
+    } catch {}
+  }
+
+  const appUrl = APP_URL;
+
+  switch (dayNumber) {
+    case 3:
+      if (!energy) return null; // Can't send personalised email without assessment
+      return {
+        subject: `Your ${energy} energy \u2014 and what the other three are telling us`,
+        html: orgOnboardingEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Your conversation with Hue revealed something worth sitting with. You tend to reach for ${energy} energy first \u2014 it\u2019s where you go naturally, often without thinking about it.</p>
+<p style="margin:0 0 16px">${developingEnergy ? `Your ${developingEnergy} energy sits in a different place. Not absent \u2014 but not instinctive. This is where deliberate practice produces the most visible change. When you consciously reach for ${developingEnergy}, people notice.` : "The energy you reach for least isn\u2019t missing \u2014 it\u2019s where deliberate practice produces the most visible change."}</p>
+<p style="margin:0 0 16px">The companion knows your profile. Bring it a real situation and see what it reflects back.</p>`,
+          ctaText: "Talk to the companion",
+          ctaUrl: appUrl,
+        }),
+      };
+
+    case 7:
+      return {
+        subject: "What your employer sees \u2014 and what they don\u2019t",
+        html: orgOnboardingEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">You might be wondering what your employer can see. Here\u2019s the short answer: the team picture, never your individual result.</p>
+<p style="margin:0 0 16px">Your employer sees an aggregate \u2014 which energies the team tends to reach for collectively. They never see your individual scores, your personal observations, or anything from your companion conversations. Those are yours.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
+<p style="margin:0 0 16px">The companion is completely private. Whatever you bring to it stays between you and Hue.</p>`,
+          ctaText: "Continue the conversation",
+          ctaUrl: appUrl,
+        }),
+      };
+
+    case 14:
+      return {
+        subject: "Two weeks in \u2014 here\u2019s what Hue can do from here",
+        html: orgOnboardingEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">You\u2019ve had your profile for two weeks now. The companion is the part of Hue that continues the conversation \u2014 it knows your energy picture, remembers what you\u2019ve talked about, and can help you think through real situations using the lens of your profile.</p>
+<p style="margin:0 0 16px">It\u2019s not therapy. It\u2019s not coaching. It\u2019s a specific, informed conversation that gets more useful the more you use it.</p>
+<p style="margin:0 0 16px">${energy ? `Try bringing something real \u2014 a situation you\u2019re navigating, a relationship you\u2019re thinking about, a decision you\u2019re weighing. See what your ${energy} energy looks like in context.` : "Try bringing something real \u2014 a situation you\u2019re navigating, a relationship you\u2019re thinking about, a decision you\u2019re weighing."}</p>`,
+          ctaText: "Talk to the companion",
+          ctaUrl: appUrl,
+        }),
+      };
+
+    default:
+      return null;
+  }
+}
+
+// ─── Org member onboarding email cron ─────────────────────────────────────
+
+async function sendOrgOnboardingEmails() {
+  const users = getOrgMembersForEmails();
+
+  for (const user of users) {
+    const daysSinceReg = (Date.now() - user.registered_at) / DAY_MS;
+
+    for (const dayNumber of ORG_EMAIL_DAYS) {
+      if (daysSinceReg < dayNumber) continue;
+      if (hasOrgEmailBeenSent(user.id, dayNumber)) continue;
+
+      const email = buildOrgEmail(dayNumber, user);
+      if (!email) continue;
+
+      const firstName = user.name.trim().split(" ")[0];
+      const sent = await sendEmail({
+        to:      user.email,
+        toName:  firstName,
+        subject: email.subject,
+        html:    email.html.replace("{{EMAIL}}", user.email),
+      }).catch(() => false);
+
+      if (sent) {
+        recordOrgEmailSent(user.id, dayNumber);
+        console.log(`Org email day ${dayNumber} sent to ${user.email}`);
+      } else {
+        console.error(`Org email day ${dayNumber} FAILED for ${user.email}`);
+      }
+
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+}
+
+// Org onboarding emails run at 9:15 AM UK time daily (after trial emails)
+cron.schedule("15 9 * * *", sendOrgOnboardingEmails, {
+  timezone: "Europe/London",
+});
+
+// ─── Trial email builder ──────────────────────────────────────────────────
 
 function buildTrialEmail(dayNumber, user) {
   const firstName  = user.name.trim().split(" ")[0];
@@ -948,23 +1457,49 @@ ${user.assessment_completed_at
         }),
       };
 
-    case 12:
+    case 12: {
+      // Testimonial library — matched to recipient's dominant energy
+      const testimonials = {
+        spark: {
+          name: "Rachel",
+          colour: "#D92010",
+          quote: "I did it because a friend wouldn\u2019t stop going on about it. Expected to get told I\u2019m bossy and impatient, which, fair enough. But there was this bit about how I move fastest when I can already see how everything fits together \u2014 and that\u2019s so specifically true it was a bit irritating. Showed my husband. He just laughed and said \u2018well yeah.\u2019",
+        },
+        glow: {
+          name: "Dom",
+          colour: "#F5D000",
+          quote: "I thought it would be a bit woo. It wasn\u2019t really. It just had this way of describing stuff I do without making it sound like a flaw or a superpower \u2014 just, this is how you are. There was a line about bringing warmth without holding things up that I\u2019ve thought about quite a bit since. I don\u2019t fully know why it landed but it did.",
+        },
+        tend: {
+          name: "Priya",
+          colour: "#1A8C4E",
+          quote: "The conversation took about 20 minutes and I nearly didn\u2019t finish it. Glad I did. It said something about commitments I\u2019ve never walked away from even when it would\u2019ve been easier \u2014 which is true and I\u2019d never really clocked that about myself before. My mum would say I\u2019ve always been like that. She\u2019s probably right.",
+        },
+        flow: {
+          name: "Kiran",
+          colour: "#1755B8",
+          quote: "I\u2019ve spent a lot of my career being told I overthink things. Hue basically said \u2014 no, you\u2019re checking whether the question is even the right one. Which is different. I don\u2019t know if that makes me feel better or just more aware of it, but either way it\u2019s more useful than being told to trust my gut.",
+        },
+      };
+      const t = testimonials[(user.dominant_energy || "").toLowerCase()] || testimonials.spark;
       return {
-        subject: "What changed after three months with Hue",
+        subject: `What ${t.name} noticed`,
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
 <p style="margin:0 0 16px">Your trial ends in two days.</p>
-<p style="margin:0 0 16px">We asked some of our earliest users what changed after a few months with Hue. One answer stayed with us:</p>
-<blockquote style="border-left:3px solid #D92010;margin:20px 0;padding:0 0 0 20px;font-style:italic;color:#6B6357">
-  "I stopped explaining myself so much. I already knew why I was doing what I was doing — I just needed the words for it."
+<p style="margin:0 0 16px">We asked some of our earliest users what changed after spending time with Hue. Here\u2019s what ${t.name} said:</p>
+<blockquote style="border-left:3px solid ${t.colour};margin:20px 0;padding:0 0 0 20px;font-style:italic;color:#6B6357">
+  "${t.quote}"
 </blockquote>
-<p style="margin:0 0 16px">That's what the companion does over time. Not more insight — sharper language for what you already know about yourself.</p>
+<p style="margin:0 0 12px;font-weight:600;color:#3D3630">\u2014 ${t.name}</p>
+<p style="margin:0 0 16px">That\u2019s what the companion does over time. Not more insight \u2014 sharper language for what you already know about yourself.</p>
 <p style="margin:0 0 16px">Your trial ends in two days. Subscribe to keep going.</p>`,
-          ctaText: "Subscribe — £9.99/month",
+          ctaText: "Subscribe \u2014 \u00A39.99/month",
           ctaUrl: `${appUrl}?subscribe=1`,
         }),
       };
+    }
 
     case 13:
       return {

@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 7 April 2026 (session 2).*
+*Master brief for all Claude sessions. Last updated: 7 April 2026.*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -16,58 +16,69 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 
 ## CURRENT BUILD STATUS
 
+**⚠️ Railway billing: 22 days / $4.85 remaining — Simon must top up at railway.app/account/billing before site goes offline.**
+
 ### Working and live
-- Full assessment conversation flow (AI-conducted, 6–8 exchanges)
-- Four energy scores generated from conversation, with six-dimension scoring criteria in system prompt
-- Results screen: observation hero + four energy cards with reach labels + bespoke observation
-- Companion chat: profile-aware, responds to questions about results
+- Full assessment conversation flow (AI-conducted, 6–8 exchanges, six scoring dimensions in system prompt)
+- Four energy scores generated from conversation
+- Results screen: redesigned — bespoke observation at top ("only you"), four energy cards each with position-specific celebratory framing (Instinctive/Fluent/Intentional/Developing), flex and surprise cards, extended observations
+- Bespoke observation: second API call generates one unrepeatable observation from the specific conversation
+- One sentence: identity-distillation sentence, shareable, with canvas download
+- Observation library: all 16 primary observations live (4 energies × 4 reach positions), plus 12 pairings, 8 misread, 4 under pressure, 4 leadership, 4 conflict, 4 relationships, 8 flex crossings, 7 near-equal, 6 profile shapes — all in companion and results
+- Score-gap logic: profile shape observations triggered by wide gap, near-zero, all-high, all-low, all-equal patterns
+- Consent conversation: three-exchange conversational flow before first assessment (ConsentScreen component, stored in localStorage)
+- `<EnergyWord>` component: renders Spark, Glow, Tend, Flow in their energy colours throughout the app
+- `colorize()` helper: auto-wraps energy names in EnergyWord within any text string
+- Companion chat: profile-aware, coaching register, colour energy in coaching, conversation memory (summaries), anniversary sentence, pre/post situation practice
+- User accounts: email registration, login, session cookies, user states
+- Stripe integration: checkout sessions, 14-day trial with card at sign-up, webhook handling (checkout.session.completed, invoice.paid, customer.subscription.deleted, invoice.payment_failed), billing portal
+- Trial email sequence: days 1, 3, 5, 7, 10, 12, 13, 14 via MailerSend, cron at 9am UK. Day 12 uses testimonial library matched to recipient's dominant energy (Spark→Rachel, Glow→Dom, Tend→Priya, Flow→Kiran). Blockquote border colour matches energy.
+- MailerLite subscriber sync with user_state tagging and energy score custom fields
+- App gate: all visitors must register before accessing assessment
+- Trial gate: hard stop at day 14 — TrialExpiredScreen with subscribe CTAs
+- Share my profile: link and session share tokens (30-day / 8-hour), SharedProfileScreen, revoke capability
+- Shareable result card: canvas-rendered PNG (1080×1350) with four energy bars, dominant energy, myhue.co branding — "Save card" button on results screen
+- Org member registration: separate screen at `/register-org`, no payment, no trial clock, `org-member-active` state, data ownership messaging. Invite link passes org and team IDs — user auto-added to team on registration.
+- Org member onboarding emails: 4-email sequence via MailerSend. Email 1 (Welcome, immediate on registration), Email 2 (First insight, Day 3 — personalised by dominant/developing energy), Email 3 (Team context, Day 7 — what employer sees), Email 4 (Companion intro, Day 14). Cron at 9:15am UK for Days 3/7/14. Tracked in `org_emails` table. Org members never receive trial emails (suppressed by state).
+- Invite email: language-guide-compliant, explains what Hue is, states data ownership, links to `/register-org`. Uses proper email HTML template.
 - Returning user flow: shows last result, offers retake after 90 days
-- Static SVG favicon
+- Maintenance mode: `MAINTENANCE_MODE` env var closes site instantly (Stripe webhook still passes through)
+- Tend rename: complete throughout codebase (tokens, variables, stored data, migration for old profiles)
+- Static SVG favicon, PWA manifest
 - Deployed on Railway, auto-deploys on GitHub push
-- User registration, email login, session cookies
-- SQLite user database with trial fields (trial_started_at, user_state, stripe_customer_id)
-- Root → Tend rename complete throughout codebase and database (idempotent migration)
-- `<EnergyWord>` component — energy names rendered in their colour everywhere in UI
-- Assessment system prompt updated with all six scoring dimensions
-- App gate: all non-logged-in visitors see RegisterScreen — assessment cannot be accessed without an account
-- RegisterScreen: two-step flow (details → plan choice → Stripe checkout); employer copy removed; individual-appropriate copy
-- Trial gate: `individual-trial-expired` users see hard-stop TrialExpiredScreen
-- Stripe integration: checkout (14-day trial, monthly or annual), billing portal, webhook handler (checkout.session.completed stores customer_id; invoice.paid converts to subscriber; payment_failed/subscription.deleted sets trial-expired)
-- MailerLite sync: subscribers tagged with user_state on registration, assessment complete, and all Stripe events; tend_score/tend_label fields (was root)
-- Trial email sequence: days 1, 3, 5, 7, 10, 12, 13, 14 — automated, personalised to dominant energy, cron at 9am UK; day 1 sent on registration; tracked in trial_emails table
-- Maintenance mode: `MAINTENANCE_MODE=true` env var closes site instantly (holding page served; Stripe webhook always passes through)
-- No-cache headers on HTML routes so deploys are always visible immediately
-- localStorage Root→Tend migration: old profiles with 'root' key migrate silently on load
-- Share my profile link (facilitator use case) — token-based, expiry, revoke
-- Bespoke observation (second API call after assessment)
-- One-sentence summary screen post-assessment
-- Cross-device profile sync via server-side hydration
 
-### Built but needs real content
-- Consent conversation: drafted in `hue-consent-conversation-v1.md`, not yet built into app
-- Trial email day 12: placeholder testimonial — needs real testimonial content before launch (see hue-email-strategy-v1.md note on testimonial library)
+### Team dashboard — UI built
+- Team dashboard overview at `/team/:teamId`: four energy band bars (all full colour — visual weight from bar length, not opacity), member count, member list with initials in instinctive energy colour, subtle tinted card backgrounds per member
+- Member list: shows all four energy band dots per person (not just instinctive colour) — reinforces that everyone has access to all four energies. Legend in header row explains dot styles (full = Naturally present, partial = Intentionally present, hollow = Developing)
+- 32-dimension functional panel: four quadrants (Spark/Glow/Tend/Flow), each showing 8 confirmed dimensions as dots. Qualifying text per quadrant based on relative ranking — energies ranked against each other so the team always sees contrast (strongest, present-but-deliberate, growth frontier). Legend in header row. Spark: Purpose/Vision/Decision/Transformation/Momentum/Courage/Ambition/Challenge. Glow: Collaboration/Communication/Environment/Team Meetings/Celebration/Inclusion/Belonging/Energy. Tend: Trust/Accountability/Commitment/Diversity/Wellbeing/Consistency/Loyalty/Memory. Flow: Planning/Processes/Roles & Skills/Reflection/Clarity/Evidence/Learning/Systems.
+- Team constellation view: SVG spatial layout using consistent X/Y axis mapping — X: Spark (right) vs Tend (left), Y: Flow (top) vs Glow (bottom). Same energy bands = same position. Overlap nudging prevents stacking. No connection lines (removed — "shared energy affinity" was undefined and meaningless). Ambient float animation, quadrant glow, Fraunces labels at edges. Initials only on nodes, full name on hover. List/table alternative for teams of 10+.
+- Cultural prompt inline above visibility toggle — exact copy from strategy doc. Toggle only for team-lead/org-admin. Green when full_team, sand when leader_only.
+- Restricted view for members when leader_only visibility is set
+- Observations threshold notice: below 8 members, shows progress message
 
-### Org member registration: NOT YET BUILT
-- Org members need a separate registration screen (no payment, invite/domain-gated, data ownership messaging)
-- Individual RegisterScreen copy deliberately does not include employer/data ownership language — that belongs in the org flow
+### Team data model and architecture
+- DB tables: `organisations`, `teams`, `team_members`, `team_energy_bands`
+- Band calculation: 33%+ Naturally present, 22–32% Intentionally present, <22% Developing (percentage-of-total model — 4 energies sum to 100%, baseline 25%)
+- Two strict data pipelines enforced at DB level — team layer stores bands only, never raw scores
+- Sub-team support: user can belong to multiple teams, profile contributes independently to each
+- Roles: org-admin (all teams), team-lead (their teams), member
+- Aggregate function: band counts per energy, observations suppressed below 8 members
+- Auto-sync: assessment completion pushes bands to all teams user belongs to
 
-### Stripe: needs Railway env vars before payment flows work
-Set these in Railway → hue-server → Variables:
-- `STRIPE_SECRET_KEY` — Stripe dashboard → Developers → API keys
-- `STRIPE_PUBLISHABLE_KEY` — same
-- `STRIPE_WEBHOOK_SECRET` — Stripe dashboard → Webhooks → endpoint secret
-- `STRIPE_PRICE_MONTHLY` — Stripe dashboard → Products → monthly price ID (£9.99/month)
-- `STRIPE_PRICE_ANNUAL` — annual price ID (£79/year)
-- `APP_URL` — https://myhue.co
-- `MAINTENANCE_MODE` — set `true` to close site, remove or set `false` to reopen
+### Org admin — UI built
+- Org admin screen at `/org/:orgId`: create teams, invite members by email (sends invite via MailerSend with data ownership message), view all members with status (assessment complete / registered / not yet registered), remove members, assign team leads
+- API endpoints: `/api/org/create`, `/api/org/:orgId`, `/api/org/:orgId/team`, `/api/org/:orgId/invite`, `/api/org/:orgId/member/:userId` (DELETE), `/api/org/:orgId/team/:teamId/lead`
+- Team API endpoints: `/api/teams`, `/api/team/:teamId`, `/api/team/:teamId/visibility`
+- Welcome screen shows team links and "Manage organisation" link for org admins
 
-Until Stripe env vars are set: registration works but skips card step (beta behaviour preserved for existing users).
+### Production environment — complete
+- Stripe env vars live in Railway ✓
+- MailerLite fields clean, `mailerlite.js` updated to correct tag names, backfill complete ✓
+- Four redundant Stripe webhook destinations deleted — only `upbeat-harmony` remains ✓
+- MailerSend and MailerLite API keys set ✓
 
 ### Not yet built
-- Score-gap logic (profile shape observations)
-- Shareable result card
-- Team dashboard
-- Org member registration and access flow
+- Team dashboard: gap radar, new hire modeller panels
 - Gamification / mini missions layer
 - AI help layer
 - @search for team members
@@ -79,18 +90,21 @@ Until Stripe env vars are set: registration works but skips card step (beta beha
 | File | Purpose |
 |------|---------|
 | `public/hue.html` | Entire frontend — single HTML file, React via CDN |
-| `server.js` | Node/Express backend, proxies Anthropic API calls |
-| `.env` | Local API key (ANTHROPIC_API_KEY) |
+| `server.js` | Node/Express backend, proxies Anthropic API calls, Stripe, email cron |
+| `db.js` | SQLite schema and queries — users, teams, orgs, shares, summaries, trial emails |
+| `mailerlite.js` | MailerLite subscriber sync |
+| `mailersend.js` | MailerSend email sending |
+| `.env` | Local API keys (ANTHROPIC_API_KEY, STRIPE, MAILERLITE, MAILERSEND) |
 | `hue-strategy-v1.md` | Full product strategy and decisions |
 | `hue-commercialisation-v1.md` | Commercial model, pricing, channels — all decided |
-| `hue-observations-v1.md` | 16 written observations + 71-observation scope plan |
+| `hue-observations-v1.md` | 73 observations — all written and implemented in app |
 | `hue-team-client-doc-v1.md` | One-page sales document for team buyers |
-| `hue-consent-conversation-v1.md` | Three-exchange consent flow (not yet in app) |
-| `hue-share-profile-spec-v1.md` | Spec for facilitator share link feature |
+| `hue-consent-conversation-v1.md` | Three-exchange consent flow — implemented in app |
+| `hue-share-profile-spec-v1.md` | Spec for facilitator share link feature — implemented |
 | `hue-psychology-foundations-v1.md` | Theoretical and psychological foundations — design constraint, not background reading |
 | `hue-email-strategy-v1.md` | Trial email sequence, tagging structure, nurture flows — written and implemented |
 | `hue-language-guide-v1.md` | Single vocabulary reference — written |
-| `hue-observations-delivery-v1.md` | Observations delivery spec — all observations approved and built into app |
+| `hue-identity-v1.jsx` | Design language reference (tokens, logo mark, typography) |
 | `hue-launch-checklist.md` | Beta launch steps, BPS consistency, validation tasks — not yet written |
 
 **GitHub:** github.com/SimonTCMG/hue-server (private)
@@ -202,7 +216,7 @@ The results experience must celebrate all four energies with equal presence — 
 
 **Consent:** Three conversational exchanges before assessment begins — warm, not legal. Already drafted in `hue-consent-conversation-v1.md`.
 
-**Results screen:** Redesigned to celebrate all four energies equally. Observation hero first (full-bleed), then all four energy cards with reach labels and percentages — each with its own celebratory framing, not a hierarchy with three supporting items.
+**Results screen:** Redesigned to celebrate all four energies equally. Bespoke observation ("only you") at the very top, then four energy cards vertically — each with its own celebratory framing and position-specific text. No observation hero panel. No hierarchy with three supporting items beneath a dominant energy. Flex/surprise cards, extended observations (misread, profile shape, near-equal, power of lower), and CTA follow.
 
 **Companion chat:** Profile-aware. Never gives advice — notices, reflects, asks. Has a graceful boundary response for conversations that feel heavier than an energy tool can hold. Speaks with autonomy voice at all times.
 
@@ -211,6 +225,31 @@ The results experience must celebrate all four energies with equal presence — 
 **Therapist-adjacent risk:** Hue never diagnoses, never names clinical states, never advises. Particularly important for low-energy profiles — frame as spaciousness, not deficit.
 
 **Psychological validity:** Hue is a structured conversational AI instrument that measures behavioural energy preference through naturalistic language analysis across six explicit scoring dimensions (spontaneous choice, effort language, frequency signals, valence, cross-context consistency, recovery pattern). It does not claim to be a psychometric test in the clinical or regulatory sense. See `hue-psychology-foundations-v1.md` Section 8 for the full BPS-aligned framework. Nigel Evans is named collaborator for the joint validation paper.
+
+**Team dashboard — all data displayed in bands, never percentages:** The three bands are Naturally present / Intentionally present / Developing. Raw percentages exist in the data model but never surface in the UI under any circumstances. This is non-negotiable.
+
+**Team dashboard — two strict data pipelines, architecturally separate:**
+- Pipeline 1 (team layer): receives energy band per member only. Produces aggregate picture, 32-dimension panel, gap radar, constellation, new hire modeller. Never contains individual scores, behavioural patterns, or longitudinal data.
+- Pipeline 2 (personal companion): receives full individual profile and history. Never crosses into the team layer. Ever.
+Individual behavioural patterns (overstretch, check-ins, longitudinal observations) go only to the individual via their companion — never to the team layer or the team lead.
+
+**Team dashboard — default visibility is full team.** Every member sees the same dashboard. Aligned with lovingworkplace.org OD principles — the dashboard is a shared team resource, not a management report. Team leads can switch to leader-only visibility, but only after encountering a deliberate prompt that asks them to consider the cultural implications of that choice. The friction before the toggle is intentional — it is itself an OD intervention.
+
+**Team dashboard — minimum threshold:** Below 8 members, behavioural observations are suppressed. Banding alone protects anonymity at small team sizes.
+
+**Team dashboard — sub-teams:** Fully supported. One person can belong to multiple teams; their profile contributes independently to each aggregate. Org admins see all teams; team leads see only their team; members see the team dashboard (by default) but no individual data beyond their own.
+
+**Team dashboard — band bar styling:** All bars rendered in full energy colour. Visual weight comes from bar length (how many members fall in that band), not from opacity or fill style. Pale/hollow bars were rejected — not impactful enough.
+
+**Team dashboard — band thresholds (percentage-of-total model):** Since four energies sum to 100% (baseline 25% each), the thresholds are: 33%+ = Naturally present, 22–32% = Intentionally present, <22% = Developing. The original 65%/40% thresholds were unreachable in this model.
+
+**Team dashboard — functional dimensions use relative ranking:** The 32-dimension panel ranks the four energies against each other by "Naturally present" count across the team. The energy with the most naturally-present members = "Naturally present" (strongest), the energy with fewest = "Developing" (growth frontier), middle two = "Intentionally present." This guarantees contrast — the panel always shows where the team is strongest and where it has gaps, regardless of team composition. Absolute thresholds were rejected because with varied profiles every energy gets covered by someone.
+
+**Team dashboard — member list shows all four energies:** Each member row displays four band dots (Spark/Glow/Tend/Flow) below their name, not just their instinctive energy colour. This reinforces that every person has access to all four energies. The initials avatar still uses the instinctive energy colour, but the full picture is always visible.
+
+**Team constellation — axis logic:** X axis maps Spark (right) vs Tend (left). Y axis maps Flow (top) vs Glow (bottom). Same energy band profile = same position on the canvas. Overlap nudging prevents stacking but keeps similar profiles clustered. No connection lines — "shared energy affinity" was an undefined concept and added visual noise without meaning. Positioning alone shows who shares energy tendencies.
+
+**New hire modeller — three scenarios:** (1) No profile: hiring manager inputs estimate, marked as such, replaced when real profile exists. (2) Existing subscriber: explicit consent to contribute to team picture, declining has no bearing on hiring process. (3) Standard onboarding: 30-day settling period before profile influences team-level observations.
 
 ---
 
@@ -244,19 +283,22 @@ Instinctive energies appear spontaneously, effortlessly, frequently, positively,
 
 ## OBSERVATION LIBRARY STATUS
 
-16 observations written and saved in `hue-observations-v1.md`:
-- All four energies × four reach positions (Instinctive / Fluent / Intentional / Developing)
+All 73 observations written, saved in `hue-observations-v1.md`, and implemented in the app:
+- 4 primary observations (one per energy, full mirror + in-practice + flex + surprise)
+- 12 reach-position observations (4 energies × Fluent/Intentional/Developing)
+- 12 two-energy pairings (1st + 2nd combination)
+- 8 misread observations (2 per energy — what others see vs what's happening)
+- 4 under pressure (with Jungian shadow dynamics)
+- 4 leadership, 4 conflict, 4 relationships (companion-only, surfaced contextually)
+- 8 flex crossings (dominant → each other energy)
+- 7 near-equal combinations (triggered when top energies within close range)
+- 6 profile shapes (specialist, natural flex, structural distance, quiet, high-range, power of lower)
 
-71 observation headings scoped in full in the same file. Priority next batch (to write before first client demo):
-- Two-energy pairings (12) — highest differentiation value
-- Misread observations (8) — highly shareable
-- Profile shape observations (6) — unique to Hue
-- Flex crossing observations (4) — dominant→4th energy
-- Under pressure (4)
+**Bespoke observation:** Built. Second API call generates one unrepeatable observation from the specific conversation — the "only you" moment. Displayed at the top of the results screen.
 
-**Bespoke observation (not yet built):** A second API call after assessment generates one observation drawn from the specific conversation — the "only you" moment. Draft prompt is in `hue-observations-v1.md`.
+**One sentence:** Built. Identity-distillation sentence generated from conversation, displayed on full-screen card with share and download.
 
-**Note on observations voice:** All Fluent, Intentional, and Developing position observations must celebrate what each energy adds — not describe it as a lesser version of the Instinctive. See section 72 of `hue-observations-v1.md` as the template philosophy.
+**Note on observations voice:** All Fluent, Intentional, and Developing position observations celebrate what each energy adds — not describe it as a lesser version of the Instinctive. See section 72 of `hue-observations-v1.md` as the template philosophy.
 
 ---
 
@@ -272,20 +314,38 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 ## CURRENT PRIORITIES
 
-1. ✅ Rename Root → Tend throughout codebase (tokens, variables, stored data fields)
-2. ✅ Implement real observations into app (all approved, delivered from `hue-observations-delivery-v1.md`)
-3. ✅ Build trial/payment integration (Stripe — checkout, portal, webhook, trial gate, TrialExpiredScreen, two-step registration)
-4. ✅ Build user accounts and authentication (email login, user states, MailerLite tagging)
-5. ✅ Trial email sequence — days 1, 3, 5, 7, 10, 12, 13, 14 automated and personalised
-6. ✅ App gate — all visitors must register before accessing assessment
-7. ✅ Maintenance mode — MAINTENANCE_MODE env var closes site instantly
-8. **NOW: Set Stripe env vars in Railway** — see "Stripe: needs Railway env vars" section above. Until this is done, no card is captured at registration.
-9. Build consent conversation into onboarding flow (copy ready in `hue-consent-conversation-v1.md`)
-10. Results screen redesign — celebrate all four energies equally (positions 2–4 need own celebratory framing)
-11. Build org member registration flow (separate screen, no payment, data ownership messaging)
-12. Write next batch of observations (pairings + misread + profile shape)
-13. Write `hue-launch-checklist.md`
-14. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
+1. ✅ Rename Root → Tend throughout codebase
+2. ✅ Implement real observations into app — all 73 observations live
+3. ✅ Build trial/payment integration (Stripe)
+4. ✅ Build user accounts and authentication
+5. ✅ Trial email sequence
+6. ✅ MailerLite subscriber sync
+7. ✅ App gate
+8. ✅ Maintenance mode
+9. ✅ Results screen redesign — bespoke obs at top, four cards with celebratory position framing
+10. ✅ Consent conversation built into onboarding flow
+11. ✅ Bespoke observation (second API call)
+12. ✅ Share my profile (link + session tokens)
+13. ✅ EnergyWord component + colorize helper
+14. ✅ Six scoring dimensions in assessment system prompt
+15. ✅ Score-gap logic for profile shape observations
+16. ✅ Org member registration flow (`/register-org`, no payment, data ownership messaging)
+17. ✅ Team dashboard data model and architecture (bands, pipelines, sub-teams, roles)
+18. ✅ Shareable result card (canvas PNG, "Save card" button)
+19. ✅ Set Railway env vars — Stripe + APP_URL live
+20. ✅ Create MailerLite custom fields — 11 fields set, backfill complete, tag names corrected
+21. ✅ Day 12 email — testimonials matched by dominant energy (Rachel/Dom/Priya/Kiran)
+22. ✅ Team dashboard overview screen (bands, member list, 32-dimension panel)
+23. ✅ Cultural prompt before team visibility toggle — inline, exact strategy doc copy
+24. ✅ Org admin interface (create team, invite members by email, view status, remove members)
+25. ✅ Team constellation view (SVG spatial, no connection lines, list alternative for 10+)
+26. ✅ 32-dimension panel — all 32 dimensions confirmed by Simon (Tend: +Consistency/Loyalty/Memory; Flow: Planning/Processes/Roles & Skills/Reflection/Clarity/Evidence/Learning/Systems)
+27. ✅ Org member onboarding emails (4-email sequence: Welcome, First insight, Team context, Companion intro)
+28. ✅ Invite email rewritten to language-guide standard
+29. ✅ Register-org flow updated — auto-adds to team from invite link, validates org exists
+30. **NOW: Deploy to Railway** — git push to trigger auto-deploy. Then create TCMG org on production via API.
+31. Write `hue-launch-checklist.md`
+32. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
 
 ---
 
@@ -299,6 +359,8 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 - Do not give advice in the companion — only notice, reflect, ask
 - Do not name clinical states (depression, burnout) in any observation copy
 - Do not describe Hue as a psychometric test in clinical or regulatory contexts
+- Do not surface raw percentages anywhere in the team dashboard UI — bands only
+- Do not allow any individual behavioural data to cross from the personal companion pipeline into the team layer — these pipelines are architecturally separate and must stay that way
 - Do not reopen any decision in this document without explicit instruction from Simon
 
 ---
