@@ -2529,12 +2529,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [error,   setError]   = useState(null);
 
       const [teamIdFromUrl, setTeamIdFromUrl] = useState("");
+      const [orgFromUrl, setOrgFromUrl] = useState(false);
 
       // Pre-fill org code and team ID from URL params if present
       useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const code = params.get("org") || params.get("code");
-        if (code) setOrgCode(code);
+        if (code) { setOrgCode(code); setOrgFromUrl(true); }
         const team = params.get("team");
         if (team) setTeamIdFromUrl(team);
       }, []);
@@ -2592,18 +2593,18 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               onFocus={e => e.target.style.borderColor = C.ink}
               onBlur={e  => e.target.style.borderColor = C.sand}
             />
-            <input type="email" placeholder="Work email address" value={email}
+            <input type="email" placeholder="Personal email address" value={email}
               onChange={e => setEmail(e.target.value)} style={inputStyle}
               onFocus={e => e.target.style.borderColor = C.ink}
               onBlur={e  => e.target.style.borderColor = C.sand}
             />
-            <input type="text" placeholder="Organisation code" value={orgCode}
+            {!orgFromUrl && <input type="text" placeholder="Organisation code" value={orgCode}
               onChange={e => setOrgCode(e.target.value)}
               onKeyDown={e => e.key === "Enter" && submit()}
               style={inputStyle}
               onFocus={e => e.target.style.borderColor = C.ink}
               onBlur={e  => e.target.style.borderColor = C.sand}
-            />
+            />}
             {error && <p style={{ fontSize: 13, color: C.spark, textAlign: "left", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{error}</p>}
             <button onClick={submit} disabled={loading || !name.trim() || !email.trim() || !orgCode.trim()} style={{
               background: name.trim() && email.trim() && orgCode.trim() && !loading ? C.ink : C.sand,
