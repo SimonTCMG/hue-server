@@ -136,6 +136,27 @@ app.get("/shared/:token", sendApp);
 app.get("/team/:teamId", sendApp);
 app.get("/org/:orgId", sendApp);
 
+// ─── TCMG org bootstrap (idempotent — runs once on first deploy) ──────────
+{
+  const TCMG_ORG_ID = "tcmg-org-001";
+  const TCMG_TEAM_ID = "tcmg-team-001";
+  const existing = getOrganisation(TCMG_ORG_ID);
+  if (!existing) {
+    createOrganisation(TCMG_ORG_ID, "The Change Maker Group");
+    createTeam(TCMG_TEAM_ID, TCMG_ORG_ID, "TCMG");
+    console.log("TCMG org and team created (first deploy)");
+  }
+  // If Simon has already registered, make him org-admin
+  const simon = getUserByEmail("simon@thechangemakergroup.com");
+  if (simon) {
+    const role = getUserRole(simon.id, TCMG_TEAM_ID);
+    if (!role) {
+      addTeamMember(simon.id, TCMG_TEAM_ID, "org-admin");
+      console.log("Simon added as TCMG org-admin");
+    }
+  }
+}
+
 // ─── Session helper ────────────────────────────────────────────────────────
 
 function getUserFromCookie(req) {
@@ -223,6 +244,15 @@ app.post("/api/register", async (req, res) => {
   } catch (err) {
     console.error("DB error on register:", err);
     return res.status(500).json({ error: "Could not create your account. Please try again." });
+  }
+
+  // Auto-link TCMG org admin if Simon registers with his known email
+  if (normalised === "simon@thechangemakergroup.com") {
+    const tcmgTeam = getTeam("tcmg-team-001");
+    if (tcmgTeam) {
+      addTeamMember(id, "tcmg-team-001", "org-admin");
+      console.log("Simon auto-linked as TCMG org-admin on registration");
+    }
   }
 
   // Add to MailerLite (non-blocking)
