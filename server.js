@@ -323,16 +323,19 @@ app.post("/api/register-org", async (req, res) => {
   }
 
   // Auto-add to team from invite link
+  // Simon gets org-admin role; everyone else gets member
+  const isSimon = normalised === "simon@thechangemakergroup.com";
+  const assignRole = isSimon ? "org-admin" : "member";
   if (teamId) {
     const team = getTeam(teamId);
     if (team && team.org_id === orgCode.trim()) {
-      addTeamMember(id, teamId, "member");
+      addTeamMember(id, teamId, assignRole);
     }
   } else {
     // No specific team — add to first team in the org
     const teams = getTeamsForOrg(orgCode.trim());
     if (teams.length > 0) {
-      addTeamMember(id, teams[0].id, "member");
+      addTeamMember(id, teams[0].id, assignRole);
     }
   }
 
