@@ -252,24 +252,48 @@ app.post("/api/register", async (req, res) => {
   }
 
   // Auto-link TCMG org admin if Simon registers with his known email
+  // Switch to org-member-active state and org email sequence (not trial)
+  let isOrgAutoPromoted = false;
   if (normalised === "simon@thechangemakergroup.com") {
     const tcmgTeam = getTeam("tcmg-team-001");
     if (tcmgTeam) {
       addTeamMember(id, "tcmg-team-001", "org-admin");
-      console.log("Simon auto-linked as TCMG org-admin on registration");
+      db.prepare("UPDATE users SET user_state = 'org-member-active', trial_started_at = NULL WHERE id = ?").run(id);
+      isOrgAutoPromoted = true;
+      console.log("Simon auto-linked as TCMG org-admin on registration (switched to org track)");
     }
   }
 
   // Add to MailerLite (non-blocking)
-  upsertSubscriber({ name: name.trim(), email: normalised, userState: "individual-trial-active" }).catch(console.error);
+  upsertSubscriber({ name: name.trim(), email: normalised, userState: isOrgAutoPromoted ? "org-member-active" : "individual-trial-active" }).catch(console.error);
 
-  // Send day 1 welcome email immediately (non-blocking)
-  const day1 = buildTrialEmail(1, { name: name.trim(), dominant_energy: null, assessment_completed_at: null });
-  if (day1) {
-    const firstName = name.trim().split(" ")[0];
-    sendEmail({ to: normalised, toName: firstName, subject: day1.subject, html: day1.html.replace("{{EMAIL}}", normalised) })
-      .then(sent => { if (sent) recordTrialEmailSent(id, 1); })
-      .catch(() => {});
+  // Send welcome email — org welcome if auto-promoted, trial day 1 otherwise
+  const firstName = name.trim().split(" ")[0];
+  if (isOrgAutoPromoted) {
+    sendEmail({
+      to: normalised,
+      toName: firstName,
+      subject: "Welcome to Hue \u2014 your profile is yours",
+      html: orgOnboardingEmailHtml({
+        firstName,
+        body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you \u2014 an ongoing companion that helps you understand your own patterns over time.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
+<p style="margin:0 0 16px">When you\u2019re ready, start your first conversation. It takes about five minutes. There are no right or wrong answers \u2014 just honest ones.</p>`,
+        ctaText: "Start your first conversation",
+        ctaUrl: APP_URL,
+      }),
+    }).then(() => {
+      recordOrgEmailSent(id, 0);
+      console.log(`Org welcome email sent to ${normalised} (auto-promoted path)`);
+    }).catch(err => console.error("Org welcome email failed:", err));
+  } else {
+    const day1 = buildTrialEmail(1, { name: name.trim(), dominant_energy: null, assessment_completed_at: null });
+    if (day1) {
+      sendEmail({ to: normalised, toName: firstName, subject: day1.subject, html: day1.html.replace("{{EMAIL}}", normalised) })
+        .then(sent => { if (sent) recordTrialEmailSent(id, 1); })
+        .catch(() => {});
+    }
   }
 
   setUserCookie(res, id);
@@ -1658,4 +1682,14 @@ cron.schedule("0 9 * * *", sendTrialEmails, {
 
 app.listen(PORT, () => {
   console.log(`Hue server running on http://localhost:${PORT}`);
+
+  // One-time backfill: enrol Simon into org email sequence (he registered via individual route)
+  // Safe to run repeatedly — recordOrgEmailSent checks for duplicates
+  try {
+    const simon = getUserByEmail("simon@thechangemakergroup.com");
+    if (simon && !hasOrgEmailBeenSent(simon.id, 0)) {
+      recordOrgEmailSent(simon.id, 0); // Day 0 welcome already received
+      console.log("Backfilled Simon into org email sequence (Day 0 marked as sent)");
+    }
+  } catch (e) { /* ignore if user doesn't exist yet */ }
 });
