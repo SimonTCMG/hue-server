@@ -113,7 +113,8 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 | `hue-share-profile-spec-v1.md` | Spec for facilitator share link feature — implemented |
 | `hue-psychology-foundations-v1.md` | Theoretical and psychological foundations — design constraint, not background reading |
 | `hue-email-strategy-v1.md` | Trial email sequence, tagging structure, nurture flows — written and implemented |
-| `hue-language-guide-v1.md` | Single vocabulary reference — includes "The accessibility test" section added 8 April |
+| `hue-voice-v1.md` | **Master voice and copy reference** — supersedes voice/tone sections of language guide. Read before writing any user-facing text |
+| `hue-language-guide-v1.md` | Technical vocabulary reference (energy names, hex codes, rendering rules, data ownership language, team/org language). Voice/tone sections now in `hue-voice-v1.md` |
 | `hue-identity-v1.jsx` | Design language reference (tokens, logo mark, typography) |
 | `hue-launch-checklist.md` | Beta launch steps, BPS consistency, validation tasks — not yet written |
 
@@ -154,6 +155,12 @@ Then open `http://localhost:3001`
 Every person has access to all four. The assessment measures preference — which energies someone tends to reach for most naturally. Rankings reflect preference, not capability.
 
 **Colour-coded energy words:** Wherever the words Spark, Glow, Tend, and Flow appear in the web app, emails, or any digital output, they must be rendered in their energy colour. This is a non-negotiable design standard. An `<EnergyWord>` component (or equivalent) handles this. Plain text contexts (e.g. this document) are exempt.
+
+---
+
+## VOICE AND COPY
+
+Before writing any user-facing copy — UI labels, companion responses, email content, observations, onboarding text, error states, or any other text a user will read — read `hue-voice-v1.md` in full. All copy decisions not covered by that document default to the autonomy voice principle in its section 2.
 
 ---
 
@@ -371,14 +378,10 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 ## WHAT NOT TO DO
 
-- Do not use the word "arc" in any user-facing copy
-- Do not describe any energy as unavailable or locked
-- Do not call anyone "a [energy] person" — energies are always verbs
+**All user-facing copy rules are in `hue-voice-v1.md`.** Read that document before writing any text a user will see. The banned phrasing list, autonomy voice rules, energy description rules, and accessibility test all live there.
+
+**Architecture and code rules (not covered by voice doc):**
 - Do not call the energy Tend "Root" — Root is retired as an energy name
-- Do not refer to any energy as leading, dominant in a hierarchical sense, or better than another
-- Do not give advice in the companion — only notice, reflect, ask
-- Do not name clinical states (depression, burnout) in any observation copy
-- Do not describe Hue as a psychometric test in clinical or regulatory contexts
 - Do not surface raw percentages anywhere in the team dashboard UI — bands only
 - Do not allow any individual behavioural data to cross from the personal companion pipeline into the team layer — these pipelines are architecturally separate and must stay that way
 - Do not reopen any decision in this document without explicit instruction from Simon

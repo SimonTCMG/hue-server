@@ -1,12 +1,12 @@
 # Hue AI — Language Guide
-*hue-language-guide-v1.md · Added April 2026 · Single vocabulary reference for all copy, system prompts, UI labels, and onboarding text.*
+*hue-language-guide-v1.md · Added April 2026 · Technical vocabulary reference for energy names, rendering rules, approved phrasing, data ownership, and team/org language.*
 *All decisions resolved — do not reopen without explicit instruction from Simon.*
 
 ---
 
 ## Purpose
 
-This is the master vocabulary reference for everyone writing anything for Hue — Code building UI labels, Claude writing system prompts, copywriters drafting onboarding, or anyone producing user-facing material. If a word or phrase isn't covered here, default to the autonomy voice principle (section 2) and check against the banned list (section 4).
+This is the technical vocabulary reference — energy names, hex codes, rendering rules, approved phrasing tables, data ownership statements, and team/org language. **For voice, tone, banned phrasing, accessibility rules, companion response style, and email copy rules, see `hue-voice-v1.md`** — that is the master voice document and supersedes the voice/tone sections previously in this file.
 
 ---
 
@@ -27,17 +27,9 @@ This is the master vocabulary reference for everyone writing anything for Hue �
 
 ---
 
-## 2. The Autonomy Voice — Non-Negotiable Principle
+## 2. The Autonomy Voice
 
-Hue speaks to someone who already knows themselves. The observation confirms — it does not prescribe. The person is always the expert on their own life.
-
-Hue never positions itself as the authority on what someone should do, feel, or become. It observes, reflects, asks — then steps back. The person decides what to do with their profile entirely.
-
-**In practice, this means:**
-- Never tell the user what to do with an insight
-- Never frame an energy as something the user "needs to work on"
-- Never imply that more of one energy is better
-- Always leave space after an observation — Hue offers the mirror, not the interpretation
+*Now fully covered in `hue-voice-v1.md` section 2. See that document for the complete autonomy voice rules.*
 
 ---
 
@@ -90,62 +82,21 @@ Hue never positions itself as the authority on what someone should do, feel, or 
 
 ---
 
-## 4. Banned Phrasing — Never Use Anywhere
+## 4. Banned Phrasing
 
-| Banned | Why | Alternative |
-|--------|-----|-------------|
-| "This isn't X. It's Y." | Recognised AI-generated construction | State the positive directly |
-| "That's not X. It's Y." | Same — permitted only in live companion chat | State the positive directly |
-| "Unlock" | Transactional, wrong tone | "Explore", "continue", "go deeper" |
-| "Available" as a reach label | Implies others are unavailable | Use the approved label set above |
-| "Arc" in user-facing copy | Internal term only | "Energy exploration", "conversation" |
-| "Lead with" tied to one colour | Implies others follow | "Tends toward", "reaches for first" |
-| "Your colour is" | Assigns fixed identity | "You tend to reach for [energy] first" |
-| "A [energy] person" | Energies are verbs, not nouns | "Someone who tends toward [energy]" |
-| "She's a Flow type" | Same | "She tends to show up with Flow energy" |
-| "Can't do [energy]" | Implies unavailability | "Reaches for [energy] with more intention" |
-| "Locked" | Wrong framing for unexplored energies | "Waiting", "not yet explored" |
-| "Your dominant type" | Type implies fixed identity | "The energy you reach for most naturally" |
-| "Unlock Arc 2" | Transactional + banned "arc" | "When you're ready, that's where we go next" |
-| "Complete your profile" | Implies incompleteness as a problem | "Continue your conversation" |
-| "Don't miss out" | Urgency language, wrong tone | State the value directly, let the person decide |
-| "Burnout" / "depression" / clinical states | Hue never names clinical states | Name the observable behaviour instead |
+*Now fully covered in `hue-voice-v1.md` section 7 (expanded list with additional entries). See that document for the complete banned list.*
 
 ---
 
-## 5. The Word "Arc" — Internal Use Only
+## 5. The Word "Arc"
 
-Arc is the internal name for each energy exploration conversation. It never appears in user-facing copy.
-
-| Internal term | User-facing equivalent |
-|---------------|----------------------|
-| Arc 1 | Your first energy conversation / exploring your instinctive energy |
-| Arc 1 complete | You've explored your [energy] |
-| Arc 1 result | Your [energy] profile |
-| All four arcs | All four energy conversations |
-| You've completed 2 arcs | You've explored 2 of your 4 energies |
-| Arc 2 | Your next energy conversation |
+*Covered in `hue-voice-v1.md` section 7. "Arc" is internal only — never in user-facing copy.*
 
 ---
 
 ## 6. Trial and Subscription Language
 
-The trial is not a "free trial" in promotional copy — it is simply "14 days to explore Hue". The word "free" is accurate but positions Hue as a promotional product rather than a serious tool.
-
-| Use | Never use |
-|-----|-----------|
-| 14 days to explore | Free trial |
-| Your trial ends on [date] | Your free period expires |
-| Subscribe to continue | Upgrade |
-| Your profile is saved | Don't lose your profile |
-| Pick up exactly where you left off | Start again |
-
-**Post-trial gate copy (the hard stop screen):**
-> Your trial has ended. Subscribe to continue.
-> Your Hue profile is saved — everything you've explored is here when you're ready.
-> [Subscribe — £9.99/month or £79/year]
-
-No guilt. No countdown imagery. No "you'll lose everything". The reassurance is the sell.
+*Now covered in `hue-voice-v1.md` sections 4 and 6. Trial expired screen updated to: "Your profile is still here. Pick up exactly where you left off." with "Keep going" CTAs.*
 
 ---
 
@@ -216,26 +167,9 @@ Hue must never describe itself as a psychometric test in clinical or regulatory 
 
 ---
 
-## 11. Tone Reference — What Hue Sounds Like
+## 11. Tone, Voice, and Accessibility
 
-Hue is warm, precise, and curious. It never performs warmth — it is warm because it is genuinely interested in the person. It never performs precision — it is precise because it has something specific to say.
-
-**Hue sounds like:** A trusted friend who has been paying close attention.
-
-**Hue does not sound like:**
-- A corporate wellness tool ("maximise your potential")
-- A therapist ("how does that make you feel")
-- An assessment report ("your score indicates")
-- A life coach ("here's what you should do")
-- An AI assistant ("I'd be happy to help with that")
-
-**Test for any piece of copy:** Read it aloud. Does it sound like something a warm, intelligent human being would actually say to someone they respect? If not, rewrite it.
-
----
-
-## The accessibility test
-
-Before any piece of UI copy is finalised, apply this test: would someone on their very first day, who knows nothing about Hue, understand this immediately? If not, rewrite it. The app should work for a first-time visitor and still feel right for someone who has been using it for six months. Framework vocabulary (flex crossings, misreads, arc) is never used in navigation, buttons, prompts, or helper text — only in observations and companion responses where context has already been established.
+*Now fully covered in `hue-voice-v1.md` sections 1 and 3. That document is the master reference for what Hue sounds like, the accessibility test, and all voice/tone decisions.*
 
 ---
 

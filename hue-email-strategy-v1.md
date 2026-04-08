@@ -29,7 +29,7 @@ Every Hue user is always in exactly one of these states. The tag drives everythi
 
 ## Individual Trial Email Sequence (Days 1–14)
 
-Trial clock starts at sign-up. All emails are personalised to the individual's energy profile as it develops. Emails reference their energy by name once known. Subject lines must never use "unlock", "exclusive", or urgency language. Tone throughout: warm, curious, autonomy-respecting.
+Trial clock starts at sign-up. All emails are personalised to the individual's energy profile as it develops. Emails reference their energy by name once known. **All email copy follows `hue-voice-v1.md`** — see that document for voice, banned phrasing, subject line rules, and email-specific guidance (section 6).
 
 ---
 
@@ -47,25 +47,31 @@ Content: Welcome to Hue. Brief what to expect over 14 days. Invite them to start
 
 ### Day 3 — First energy reflection
 
-**Trigger:** 3 days since sign-up. By now most users have completed at least their first energy conversation.
-**Subject:** What we're starting to understand about you
-**Purpose:** Reflect back what the conversation has revealed. Make the insight feel real and specific.
+**Trigger:** 3 days since sign-up. By now most users have completed their assessment and seen all four energies.
+**Subject:** Your [dominant energy] energy — and what the other three are telling us
+**Purpose:** Reflect the full four-energy picture back to them. Make it feel specific, not generic. Give them something concrete to notice.
 
-Content: Reference their dominant energy by name. One specific observation drawn from what Hue now knows — not generic, pulled from their actual profile. Frame the other three energies as waiting, not locked. "There's more here when you're ready."
+Content: Name their dominant energy and acknowledge what the assessment revealed about it — one specific, concrete thing drawn from their actual profile. Then name their Developing (4th) energy and reframe it clearly: not a gap, not something to fix, but the energy where deliberate practice produces the most visible change. Reference the results screen directly — they've already seen all four — so the email lands as a reflection of something they've experienced, not a tease of something ahead.
 
-**Personalisation required:** Dominant energy name + one profile-specific observation.
+Tone: Precise and warm. Never vague. If the email could be sent to anyone, rewrite it until it couldn't.
+
+**Personalisation required:** Dominant energy name + Developing energy name. Both must be named specifically — never "your lowest energy" or similar generic phrasing.
 
 ---
 
-### Day 5 — The second energy hook
+### Day 5 — The second energy
 
 **Trigger:** 5 days since sign-up.
-**Subject:** The energy that shapes how your [dominant energy] shows up
-**Purpose:** Create genuine curiosity about the second energy without manufactured urgency.
+**Subject:** The [second energy] in your profile — here's what makes it interesting
+**Purpose:** Draw attention to the Fluent (2nd) energy specifically. Make the case that this energy is worth looking at directly — not because it's hidden, but because most people underestimate what their second energy actually does.
 
-Content: Explain that the dominant energy looks and feels different depending on what sits next to it. The second energy is the one that shapes it most. Reference something specific from their Day 3 assessment conversation that hints at their second energy. "This is worth looking at directly." Link to continue the conversation.
+Content: Name their second energy. Explain what specifically it adds to their profile — not in generic terms, but in terms of the combination. A person whose instinctive energy is Spark and whose second is Tend shows up differently from a Spark whose second is Flow — and that difference is real and worth knowing. The email should name that combination specifically and describe what it tends to produce. One concrete observation about what their second energy makes possible that their instinctive energy alone couldn't.
 
-**Personalisation required:** Dominant energy name + conversation-derived hint about second energy.
+Tone: Direct and curious. Not "here's something else to explore" — more "here's something specific worth noticing about what you've already seen."
+
+Note for copywriter: do not frame the second energy as something the user needs to go back to the app to discover. They've already seen it. This email is pointing at something in a picture they already have — like someone saying "did you notice this detail?"
+
+**Personalisation required:** Dominant energy name + second (Fluent) energy name. The email should name the specific combination — not just "your second energy".
 
 ---
 
@@ -103,7 +109,9 @@ Content: Name what happens on Day 14 — trial ends, product gates. Be completel
 
 Content: A brief testimonial or case study from a real user — ideally someone whose dominant energy matches the recipient's. Specific, not generic. What changed for them. What they do differently now. How the companion helped. One or two sentences from them directly. Then: "Your trial ends in two days. [Subscribe] to keep going."
 
-**Note for content team:** Build a testimonial library indexed by dominant energy. Each energy needs at least 3 testimonials before launch. Capture these actively during beta — prompt users at 30 and 90 days with a specific question: "What's one thing you do differently since starting Hue?"
+**Placeholder testimonials for beta launch:** See Testimonial Library section below. Use the placeholder matching the recipient's dominant energy until real beta testimonials are collected. Replace placeholders as real ones come in — target 3 per energy before full launch.
+
+**Capturing real testimonials:** Prompt users at 30 and 90 days with: "What's one thing you do differently since starting Hue?" Index responses by dominant energy.
 
 ---
 
@@ -206,6 +214,52 @@ Subject: [specific to today's content — never generic]
 ```
 
 **Testimonial cadence:** At least 1 in 7 subscriber emails includes a brief testimonial or case study. These should be real, specific, and attributed (first name + energy profile). Captured actively via in-app feedback prompts at 30 and 90 days.
+
+---
+
+## Testimonial Library
+
+Testimonials are indexed by dominant energy. The Day 12 trial email and the Week 2 post-trial nurture email both draw from this library — use the testimonial matching the recipient's dominant energy. The Day 12 subject line should use the testimonial name: "What [name] noticed."
+
+These are placeholder testimonials for beta launch. Replace with real ones as they come in. Target: 3 per energy before full public launch.
+
+---
+
+### Spark — Rachel
+
+*"I did it because a friend wouldn't stop going on about it. Expected to get told I'm bossy and impatient, which, fair enough. But there was this bit about how I move fastest when I can already see how everything fits together — and that's so specifically true it was a bit irritating. Showed my husband. He just laughed and said 'well yeah.'"*
+
+— Rachel, Spark energy
+
+---
+
+### Glow — Dom
+
+*"I thought it would be a bit woo. It wasn't really. It just had this way of describing stuff I do without making it sound like a flaw or a superpower — just, this is how you are. There was a line about bringing warmth without holding things up that I've thought about quite a bit since. I don't fully know why it landed but it did."*
+
+— Dom, Glow energy
+
+---
+
+### Tend — Priya
+
+*"The conversation took about 20 minutes and I nearly didn't finish it. Glad I did. It said something about commitments I've never walked away from even when it would've been easier — which is true and I'd never really clocked that about myself before. My mum would say I've always been like that. She's probably right."*
+
+— Priya, Tend energy
+
+---
+
+### Flow — Kiran
+
+*"I've spent a lot of my career being told I overthink things. Hue basically said — no, you're checking whether the question is even the right one. Which is different. I don't know if that makes me feel better or just more aware of it, but either way it's more useful than being told to trust my gut."*
+
+— Kiran, Flow energy
+
+---
+
+**Tone guidance for all testimonials:** Conversational, slightly unresolved, specific to the experience — not a marketing quote. Real people don't wrap things up neatly. Avoid anything that sounds like it was written to persuade. The goal is recognition, not enthusiasm.
+
+**What to avoid:** Phrases that imply the full product suite has been used (teams, dashboard, org features). Testimonials should be grounded in the individual conversation and the observation it produced — nothing more than that at this stage.
 
 ---
 
