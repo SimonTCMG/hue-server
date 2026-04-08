@@ -30,7 +30,8 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - `<EnergyWord>` component: renders Spark, Glow, Tend, Flow in their energy colours throughout the app
 - `colorize()` helper: auto-wraps energy names in EnergyWord within any text string
 - Voice input: browser-native Speech Recognition (Web Speech API) on both assessment and companion chat. Microphone button next to send, pulses red while listening, input field shows "Listening..." placeholder. No backend, no API keys, no cost. Falls back gracefully if unsupported. Works in Chrome and Safari.
-- Companion chat: profile-aware, coaching register, colour energy in coaching, conversation memory (summaries), anniversary sentence, pre/post situation practice. Response length rules enforced in system prompt: max 2 sentences of observation before a question, one question per response, no affirmation openers ("That's a really interesting reflection..."), match the person's energy/length
+- Companion chat: profile-aware, coaching register, colour energy in coaching, conversation memory (summaries), anniversary sentence, pre/post situation practice. Response length rules enforced in system prompt: max 2 sentences of observation before a question, one question per response, no affirmation openers ("That's a really interesting reflection..."), match the person's energy/length. Fixed-position fullscreen layout with pinned header (Home icon always visible), 680px centred card on desktop, full width on mobile.
+- Assessment chat: same fixed-position layout as companion — pinned header with Home icon, centred card on desktop, full width on mobile
 - User accounts: email registration, login, session cookies, user states
 - Stripe integration: checkout sessions, 14-day trial with card at sign-up, webhook handling (checkout.session.completed, invoice.paid, customer.subscription.deleted, invoice.payment_failed), billing portal
 - Trial email sequence: days 1, 3, 5, 7, 10, 12, 13, 14 via MailerSend, cron at 9am UK. Day 12 uses testimonial library matched to recipient's dominant energy (Spark→Rachel, Glow→Dom, Tend→Priya, Flow→Kiran). Blockquote border colour matches energy.
@@ -43,7 +44,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Org member onboarding emails: 4-email sequence via MailerSend. Email 1 (Welcome, immediate on registration), Email 2 (First insight, Day 3 — personalised by dominant/developing energy), Email 3 (Team context, Day 7 — what employer sees), Email 4 (Companion intro, Day 14). Cron at 9:15am UK for Days 3/7/14. Tracked in `org_emails` table. Org members never receive trial emails (suppressed by state).
 - Invite email: language-guide-compliant, explains what Hue is, states data ownership, links to `/register-org`. Uses proper email HTML template.
 - Returning user flow: shows last result, offers retake after 90 days
-- Beta user state: `beta-user` — full access, no trial clock, no Stripe, suppressed from trial emails, beta welcome email only. `BETA_EMAILS` env var in Railway controls who gets beta status on registration.
+- Beta user state: `beta-user` — full access, no trial clock, no Stripe, suppressed from trial emails, beta welcome email only. `BETA_EMAILS` env var in Railway controls who gets beta status on registration. Beta users skip the payment/plan screen entirely on registration (frontend checks userState and calls onRegistered directly).
 - Account settings screen: accessible from welcome screen, shows current email/name/account type, email change flow
 - Email change flow: authenticated session initiates, confirmation via new email only (24h token), old email gets notification (informational, bounce harmless), MailerLite atomic sync on change. Account settings accessible regardless of subscription state.
 - Returning user branch on `/register-org`: recognises existing accounts, attaches team membership without creating duplicate, handles state transitions (subscription pause, email sequence switching), sends welcome-back email instead of 4-email onboarding for users with existing profiles
@@ -88,6 +89,10 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Auto-promotion: simon@thechangemakergroup.com automatically gets org-admin role on registration via either route
 - Invite flow tested end-to-end: invite email → registration → assessment → team dashboard update → onboarding emails
 - Invite email sent from hello@myhue.co (sender name: "Hue"), subject: "[Name] has invited you to Hue"
+- Invite URL bug fixed: trailing slash on APP_URL no longer produces double-slash (`//register-org`) in invite links
+- Invitations table: tracks pending invitations, visible on both org admin and team dashboard. Invited-but-not-registered members show as "Invited" with pending styling
+- Temp admin delete endpoint: `DELETE /api/admin/delete-user/:email` (authenticated via SESSION_SECRET header) — used for beta testing cleanup, to be removed post-beta
+- Beta tester flow tested: simon@simesco.co.uk registered as beta-user, skipped payment screen, received welcome email, completed assessment
 
 ### Production environment — complete
 - Stripe env vars live in Railway ✓
