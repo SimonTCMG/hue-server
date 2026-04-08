@@ -50,11 +50,12 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 
 ### Team dashboard — UI built
 - Team dashboard overview at `/team/:teamId`: four energy band bars (all full colour — visual weight from bar length, not opacity), member count, member list with initials in instinctive energy colour, subtle tinted card backgrounds per member. Band labels have hover tooltips ("The team reaches for this without thinking" / "The team brings this deliberately when it's needed" / "This energy is available — the team is still building its reach here")
-- Member list: shows all four energy band dots per person (not just instinctive colour) — reinforces that everyone has access to all four energies. Legend in header row explains dot styles (full = Naturally present, partial = Intentionally present, hollow = Developing)
+- Member list: shows all four energy band dots per person (not just instinctive colour) — reinforces that everyone has access to all four energies. Legend in header row explains dot styles (full = Naturally present, partial = Intentionally present, hollow = Developing). Status indicators: green tick for profile complete, sand "Not yet started" pill for pending members. Names dimmed when incomplete.
 - 32-dimension functional panel: four quadrants (Spark/Glow/Tend/Flow), each showing 8 confirmed dimensions as dots. Qualifying text per quadrant based on relative ranking — energies ranked against each other so the team always sees contrast (strongest, present-but-deliberate, growth frontier). Legend in header row. Spark: Purpose/Vision/Decision/Transformation/Momentum/Courage/Ambition/Challenge. Glow: Collaboration/Communication/Environment/Team Meetings/Celebration/Inclusion/Belonging/Energy. Tend: Trust/Accountability/Commitment/Diversity/Wellbeing/Consistency/Loyalty/Memory. Flow: Planning/Processes/Roles & Skills/Reflection/Clarity/Evidence/Learning/Systems.
 - Team constellation view: SVG spatial layout using consistent X/Y axis mapping — X: Spark (right) vs Tend (left), Y: Flow (top) vs Glow (bottom). Same energy bands = same position. Overlap nudging prevents stacking. No connection lines (removed — "shared energy affinity" was undefined and meaningless). Ambient float animation, quadrant glow, Fraunces labels at edges. Initials only on nodes, full name on hover. List/table alternative for teams of 10+.
 - Cultural prompt inline above visibility toggle — exact copy from strategy doc. Toggle only for team-lead/org-admin. Green when full_team, sand when leader_only.
 - Restricted view for members when leader_only visibility is set
+- Dashboard reveal gate: dashboard hidden from members until team lead reveals it. Team lead sees the full live dashboard with a reveal banner at top (progress bar, "X of Y profiles complete", reveal button). Members see only a progress screen ("Your team's energy picture is being built"). When all profiles are in, prompt changes to "Everyone's in. Ready to share the team picture?" Once revealed, permanently visible — future team changes reflected organically. `dashboard_revealed` column on teams table, PUT `/api/team/:teamId/reveal` endpoint.
 - Observations threshold notice: below 8 members, shows progress message
 
 ### Team data model and architecture
@@ -258,6 +259,8 @@ Individual behavioural patterns (overstretch, check-ins, longitudinal observatio
 
 **Team dashboard — default visibility is full team.** Every member sees the same dashboard. Aligned with lovingworkplace.org OD principles — the dashboard is a shared team resource, not a management report. Team leads can switch to leader-only visibility, but only after encountering a deliberate prompt that asks them to consider the cultural implications of that choice. The friction before the toggle is intentional — it is itself an OD intervention.
 
+**Team dashboard — reveal gate:** Dashboard is hidden from members until the team lead explicitly reveals it. The team lead sees the full live dashboard as it builds (with a reveal banner at the top showing progress). Members see only a progress screen until reveal. This turns the dashboard into a team moment — an exciting reveal once everyone has their profile. Once revealed, permanently visible. Future team changes (new members, retakes) are reflected organically with no second gate. The team lead can reveal early if they choose.
+
 **Team dashboard — minimum threshold:** Below 8 members, behavioural observations are suppressed. Banding alone protects anonymity at small team sizes.
 
 **Team dashboard — sub-teams:** Fully supported. One person can belong to multiple teams; their profile contributes independently to each aggregate. Org admins see all teams; team leads see only their team; members see the team dashboard (by default) but no individual data beyond their own.
@@ -373,7 +376,8 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 34. ✅ Voice input — Web Speech API on assessment and companion chat, mic button, no backend changes
 35. ✅ Observation truncation — long observations in energy cards truncated at sentence boundary, Read more/less inline, bespoke obs always full
 36. ✅ hue-voice-v1.md integrated — master voice reference, redundant sections in language guide and email strategy replaced with pointers
-37. Write `hue-launch-checklist.md`
+37. ✅ Dashboard reveal gate — hidden from members until team lead reveals, team lead sees live dashboard with banner, permanent once revealed
+38. Write `hue-launch-checklist.md`
 36. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
 
 ---
