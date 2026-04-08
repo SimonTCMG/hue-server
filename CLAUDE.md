@@ -21,7 +21,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 ### Working and live
 - Full assessment conversation flow (AI-conducted, 6–8 exchanges, six scoring dimensions in system prompt)
 - Four energy scores generated from conversation
-- Results screen: redesigned — bespoke observation at top ("only you"), four energy cards each with position-specific celebratory framing (Instinctive/Fluent/Intentional/Developing) plus sub-labels ("This is where you go first" / "You move here easily when it helps" / "You reach for this when the situation calls for it" / "There's more here for you when you're ready"), flex and surprise cards, extended observations. Learn-more prompt uses accessible language (no framework vocabulary in navigation)
+- Results screen: redesigned — bespoke observation at top ("only you", always shown in full), four energy cards each with position-specific celebratory framing (Instinctive/Fluent/Intentional/Developing) plus sub-labels ("This is where you go first" / "You move here easily when it helps" / "You reach for this when the situation calls for it" / "There's more here for you when you're ready"), flex and surprise cards, extended observations. Long observations truncated at ~300 chars at sentence boundary with "Read more" / "Read less" inline toggle. Learn-more prompt uses accessible language (no framework vocabulary in navigation)
 - Bespoke observation: second API call generates one unrepeatable observation from the specific conversation
 - One sentence: identity-distillation sentence, shareable, with canvas download
 - Observation library: all 16 primary observations live (4 energies × 4 reach positions), plus 12 pairings, 8 misread, 4 under pressure, 4 leadership, 4 conflict, 4 relationships, 8 flex crossings, 7 near-equal, 6 profile shapes — all in companion and results
@@ -371,7 +371,9 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 32. ✅ Org registration UX — personal email label, org code hidden from invite links, Simon auto-promoted to org-admin
 33. ✅ Language and copy updates (language-brief.md) — registration subtitle, results learn-more, position sub-labels, trial expired screen, companion response length rules, band tooltips, org admin status labels, accessibility test added to language guide
 34. ✅ Voice input — Web Speech API on assessment and companion chat, mic button, no backend changes
-35. Write `hue-launch-checklist.md`
+35. ✅ Observation truncation — long observations in energy cards truncated at sentence boundary, Read more/less inline, bespoke obs always full
+36. ✅ hue-voice-v1.md integrated — master voice reference, redundant sections in language guide and email strategy replaced with pointers
+37. Write `hue-launch-checklist.md`
 36. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
 
 ---
