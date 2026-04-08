@@ -2566,6 +2566,11 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           if (!res.ok) { setError(data.error || "Something went wrong. Please try again."); return; }
           window.history.replaceState({}, "", "/");
           setUser(data.user);
+          // Beta users and org members skip the payment screen entirely
+          if (data.user.userState === "beta-user" || data.user.userState === "org-member-active") {
+            onRegistered(data.user);
+            return;
+          }
           setStep("plan");
         } catch { setError("Something went wrong. Please try again."); }
         finally { setLoading(false); }
