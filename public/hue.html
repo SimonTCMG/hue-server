@@ -3181,12 +3181,34 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         dev: aggregate[energy]["Developing"] || 0,
       })).sort((a, b) => b.nat - a.nat || (b.nat + b.int) - (a.nat + a.int));
 
-      // Top energy = Naturally present, bottom = Developing, middle = Intentionally present
+      // Assign relative labels BUT cap by actual bands present
+      // If nobody on the team is Naturally present in ANY energy, the best label is Intentionally present
+      // If nobody is even Intentionally present, cap at Developing
+      const bestActualBand = energyStrength[0].nat > 0 ? "Naturally present"
+        : energyStrength[0].int > 0 ? "Intentionally present"
+        : "Developing";
+      const secondBand = bestActualBand === "Naturally present" ? "Intentionally present"
+        : bestActualBand === "Intentionally present" ? "Intentionally present"
+        : "Developing";
+
       const energyBandMap = {};
       energyStrength.forEach((es, i) => {
-        if (i === 0) energyBandMap[es.energy] = "Naturally present";
-        else if (i === energyStrength.length - 1) energyBandMap[es.energy] = "Developing";
-        else energyBandMap[es.energy] = "Intentionally present";
+        // What would relative ranking say?
+        let relLabel;
+        if (i === 0) relLabel = "Naturally present";
+        else if (i === energyStrength.length - 1) relLabel = "Developing";
+        else relLabel = "Intentionally present";
+
+        // Cap by what actually exists in the data for THIS energy
+        const actualCap = es.nat > 0 ? "Naturally present"
+          : es.int > 0 ? "Intentionally present"
+          : "Developing";
+
+        // Use the lesser of relative label and actual cap
+        const bandOrder = ["Developing", "Intentionally present", "Naturally present"];
+        const relIdx = bandOrder.indexOf(relLabel);
+        const capIdx = bandOrder.indexOf(actualCap);
+        energyBandMap[es.energy] = bandOrder[Math.min(relIdx, capIdx)];
       });
 
       // 32-dimension panel quadrant
@@ -3202,8 +3224,10 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         const qualifier = qBand === "Naturally present"
           ? `This is where your team is strongest. ${nat} of ${total} reach for this energy instinctively \u2014 these dimensions are well covered.`
           : qBand === "Intentionally present"
-          ? `Present but not your team\u2019s instinct. ${nat + int} of ${total} bring this energy, though it takes deliberate attention to sustain.`
-          : `Your team\u2019s growth frontier. Only ${nat} of ${total} reach for this naturally \u2014 these dimensions risk going unattended.`;
+          ? nat > 0
+            ? `Present but not your team\u2019s instinct. ${nat + int} of ${total} bring this energy, though it takes deliberate attention to sustain.`
+            : `Your team reaches for this deliberately. ${int} of ${total} bring this energy when the situation calls for it.`
+          : `Your team\u2019s growth frontier. These dimensions may go unattended unless someone consciously reaches for them.`;
 
         return React.createElement("div", { style: { background: C.cream, border: `1px solid ${C.sand}`, borderRadius: 16, padding: isDesktop ? 20 : 16 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
