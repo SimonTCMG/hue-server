@@ -287,6 +287,14 @@ All four energies are equally valuable and fully accessible — this is reach or
 
 COACHING REGISTER — you are not just an answer machine. Sometimes the most useful thing you can do is ask one question that helps this person think more clearly for themselves. Use your judgment: don't always explain, sometimes just ask.
 
+RESPONSE LENGTH AND STYLE — these rules are non-negotiable:
+- Maximum two sentences of observation before asking a question. If the insight is longer, break it across two turns — offer part of it, ask a question, continue when the person responds.
+- Always one question per response. Never two.
+- Questions should be genuinely curious — specific to what the person just said, not generic coaching prompts.
+- Never open a response with "That's a really interesting reflection" or similar affirmations. Move directly to the observation or question.
+- If the person sends a short message, respond short. Match their energy.
+- Aim for the style: same insight, a third of the length. The person stays active in the conversation.
+
 COLOUR ENERGY IN COACHING — this is what makes your coaching distinctly Hue. When someone describes friction, misunderstanding, or tension with another person, read it through the lens of the energies. CRITICAL LANGUAGE RULE: never describe anyone — the user or anyone else — as a type or a label. Nobody is "a Spark person" or "a Flow person." People reach for different energies in different moments. Always frame it as what energy someone appears to be reaching for right now, in this situation. "It sounds like you're reaching for Spark energy here — urgency, momentum, let's move." "Your colleague seems to be drawing on their Flow energy in this — they need rigour and confidence before they can commit." This framing is non-negotiable. It keeps the energies as tools, not identities, and it's what makes Hue fundamentally different from every other profiling tool.
 
 When you spot an energy dynamic, do three things: name what energy each person appears to be reaching for, explain what that feels like from each side (without labelling either as right or wrong), then suggest a specific flex — what energy could the user consciously raise to bridge the gap? Example: "It sounds like you're reaching for Spark energy — urgency, momentum, let's move — and they're drawing on Flow, needing rigour and confidence before they can commit. From where they are, your pace might feel like corners being cut. From where you are, their process feels like unnecessary delay. Both are understandable. What might help is raising a little Flow energy yourself — offer them one or two details upfront that you know they'll want. It signals care, and it makes it easier for them to move with you." Return to the energies throughout the coaching conversation, not just once at the start.
@@ -1389,6 +1397,12 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       useEffect(() => { saveProfile(scores, ranked); }, []);
 
       const rankLabels = ["Instinctive", "Fluent", "Intentional", "Developing"];
+      const rankSubLabels = [
+        "This is where you go first",
+        "You move here easily when it helps",
+        "You reach for this when the situation calls for it",
+        "There\u2019s more here for you when you\u2019re ready",
+      ];
 
       // ── Shareable result card — canvas-rendered, exportable as image ──
       const generateShareCard = async () => {
@@ -1695,6 +1709,11 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                     fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                   }}>{rankLabels[i]}</span>
                 </div>
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 11, color: C.stone, opacity: 0.7,
+                  marginTop: 2, lineHeight: 1.3,
+                }}>{rankSubLabels[i]}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
                   <div style={{ flex: 1, height: 5, background: `${e.color}22`, borderRadius: 99, overflow: "hidden" }}>
                     <div style={{
@@ -1845,7 +1864,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
                     fontSize: 13, lineHeight: 1.6,
                     color: C.stone, margin: "0 0 12px",
-                  }}>There's more to explore — misreads, how you show up under pressure, your flex crossings.</p>
+                  }}>There's more to discover — what others sometimes get wrong about you, how you shift when things get tough, and the energies you can reach for.</p>
                   <button
                     onClick={() => setExpandedCards(prev => ({ ...prev, _learnMore: true }))}
                     style={{
@@ -2097,29 +2116,21 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             fontSize: isDesktop ? 48 : 36, fontWeight: 900,
             color: C.ink, letterSpacing: "-0.03em",
             lineHeight: 1, marginTop: isDesktop ? 28 : 20,
-          }}>Your trial has ended.</h1>
+          }}>Your profile is still here.</h1>
           <p style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif",
             fontSize: isDesktop ? 17 : 15, color: C.stone,
             lineHeight: 1.65, maxWidth: 380,
-            margin: "16px 0 8px",
+            margin: "16px 0 36px",
           }}>
-            Your Hue profile is saved — everything you've explored is here when you're ready.
-          </p>
-          <p style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: isDesktop ? 16 : 14, color: C.stone,
-            lineHeight: 1.65, maxWidth: 380,
-            margin: "0 0 36px",
-          }}>
-            Subscribe to continue. Pick up exactly where you left off.
+            Pick up exactly where you left off.
           </p>
           <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
             <button onClick={() => openCheckout(window.STRIPE_PRICE_MONTHLY)} style={btnStyle(true)} disabled={loading}>
-              {loading ? "Redirecting…" : "£9.99 / month"}
+              {loading ? "Redirecting…" : "Keep going — £9.99 / month"}
             </button>
             <button onClick={() => openCheckout(window.STRIPE_PRICE_ANNUAL)} style={btnStyle(false)} disabled={loading}>
-              £79 / year — save two months
+              Keep going — £79 / year (save two months)
             </button>
           </div>
           <p style={{
@@ -2493,7 +2504,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             Know yourself<br/>in colour.
           </h1>
           <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: isDesktop ? 17 : 15, color: C.stone, lineHeight: 1.65, maxWidth: isDesktop ? 380 : 300, marginTop: 14 }}>
-            Discover how you show up across four colour energies — through conversation, not a quiz. 14 days, full access.
+            Discover how you naturally show up — through a real conversation, not a quiz. 14 days, everything included.
           </p>
           <div style={{ marginTop: 36, width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 12 }}>
             <input type="text" placeholder="First name" value={name}
@@ -2685,7 +2696,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             lineHeight: 1.65, maxWidth: isDesktop ? 400 : 300,
             marginTop: 14,
           }}>
-            Discover how you show up across four colour energies — through conversation, not a quiz.
+            Discover how you naturally show up — through a real conversation, not a quiz.
           </p>
 
           <div style={{ marginTop: 36, width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -2972,8 +2983,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             // All bars full colour — visual weight comes from bar length, not opacity
             const fill = col;
             const border = "none";
+            const bandTips = {
+              "Naturally present": "The team reaches for this without thinking",
+              "Intentionally present": "The team brings this deliberately when it\u2019s needed",
+              "Developing": "This energy is available \u2014 the team is still building its reach here",
+            };
             return React.createElement("div", { key: band, style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 6 } },
-              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, width: isDesktop ? 140 : 100, flexShrink: 0 } }, band),
+              React.createElement("span", { title: bandTips[band], style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, width: isDesktop ? 140 : 100, flexShrink: 0, cursor: "help" } }, band),
               React.createElement("div", { style: { flex: 1, height: 20, background: `${col}11`, borderRadius: 10, overflow: "hidden", position: "relative" } },
                 React.createElement("div", { style: { width: `${Math.max(pct, 2)}%`, height: "100%", background: fill, border, borderRadius: 10, boxSizing: "border-box", transition: "width 0.5s ease" } })
               ),
@@ -3300,9 +3316,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const { org, teams, members: membersList } = data;
 
       const statusLabel = (m) => {
-        if (m.assessmentComplete) return { text: "Assessment complete", col: C.tend };
-        if (m.userState) return { text: "Registered", col: C.glow };
-        return { text: "Not yet registered", col: C.stone };
+        if (m.assessmentComplete) return { text: "Profile complete", col: C.tend };
+        if (m.userState) return { text: "Joined, not started", col: C.glow };
+        return { text: "Invited", col: C.stone };
       };
 
       const inputStyle = {

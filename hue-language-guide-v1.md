@@ -233,4 +233,10 @@ Hue is warm, precise, and curious. It never performs warmth — it is warm becau
 
 ---
 
+## The accessibility test
+
+Before any piece of UI copy is finalised, apply this test: would someone on their very first day, who knows nothing about Hue, understand this immediately? If not, rewrite it. The app should work for a first-time visitor and still feel right for someone who has been using it for six months. Framework vocabulary (flex crossings, misreads, arc) is never used in navigation, buttons, prompts, or helper text — only in observations and companion responses where context has already been established.
+
+---
+
 *Part of The Change Maker Group ecosystem. IP belongs to Simon Phillips.*
