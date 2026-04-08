@@ -3055,11 +3055,14 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [loading, setLoading] = useState(true);
       const [visibility, setVisibility] = useState(null);
       const [toggling, setToggling] = useState(false);
+      const [revealed, setRevealed] = useState(false);
+      const [revealing, setRevealing] = useState(false);
 
       useEffect(() => {
         fetch(`/api/team/${teamId}`).then(r => r.json()).then(d => {
           setData(d);
           setVisibility(d.team?.visibility || "full_team");
+          setRevealed(!!d.team?.dashboardRevealed);
           setLoading(false);
         }).catch(() => setLoading(false));
       }, [teamId]);
@@ -3068,9 +3071,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone } }, "Loading team dashboard...")
       );
 
-      if (!data || data.restricted) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.cream, padding: 32 } },
+      if (!data || !data.team || data.error || data.restricted) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.cream, padding: 32 } },
         React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone, textAlign: "center", maxWidth: 400 } },
-          "Your team lead has set this dashboard to leader-only visibility. Ask them about sharing the team energy picture with everyone."
+          data?.error || (data?.restricted ? "Your team lead has set this dashboard to leader-only visibility. Ask them about sharing the team energy picture with everyone." : "Unable to load this dashboard.")
         ),
         React.createElement("button", { onClick: onBack, style: { marginTop: 24, background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99, padding: "12px 28px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer", color: C.ink } }, "Back")
       );
@@ -3079,8 +3082,6 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       // ─── Dashboard reveal gate ─────────────────────────────────────────────
       // Dashboard stays hidden until team lead reveals it. Permanent once revealed.
-      const [revealed, setRevealed] = useState(team.dashboardRevealed);
-      const [revealing, setRevealing] = useState(false);
       const isLead0 = role === "team-lead" || role === "org-admin";
       const allComplete = progress && progress.completed === progress.total && progress.total > 0;
 
