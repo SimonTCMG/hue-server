@@ -16,7 +16,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 
 ## CURRENT BUILD STATUS
 
-**⚠️ Railway billing: 22 days / $4.85 remaining — Simon must top up at railway.app/account/billing before site goes offline.**
+**Railway billing: Hobby plan ($5/month). Stable. See RAILWAY BILLING section below.**
 
 ### Working and live
 - Full assessment conversation flow (AI-conducted, 6–8 exchanges, six scoring dimensions in system prompt)
@@ -432,6 +432,36 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 55. ✅ Subscription pause/resume: org join pauses active sub via Stripe API (`pause_collection`), org lapse auto-resumes. `subscription_paused_at` and `subscription_paused_reason` columns added. `/api/account/lapse-org` endpoint
 56. ✅ Email sequence logic: state transitions suppress/redirect emails correctly — trial suppressed on org join, subscriber sequence pauses while org-covered, nurture sequence for lapsed with no sub
 57. ✅ Welcome-back email: single email for returning users joining org, suppresses 4-email sequence when `assessment_completed_at` exists
+
+---
+
+## DATABASE MIGRATION — TODO (before significant user growth)
+
+Postgres is already provisioned in the humorous-sparkle Railway project alongside hue-server.
+Not yet connected. Migration required before onboarding paying users at volume.
+
+Steps when ready:
+1. Rewrite db.js — swap SQLite driver for Postgres (pg), update all placeholders from ? to $1/$2 syntax
+2. Export existing SQLite data and import into Railway Postgres
+3. Add DATABASE_URL env var to hue-server Variables tab in Railway (value from Postgres service → Variables tab)
+4. Test all flows: registration, assessment, org join, team dashboard, Stripe webhook, email triggers
+Estimated time: one focused session, 2–3 hours.
+
+## RAILWAY BILLING — RESOLVED
+
+Account is on Hobby plan ($5/month minimum usage). Billing is stable.
+artistic-reverence project deleted (was an empty stray project, no data lost).
+humorous-sparkle contains two services: hue-server (live, myhue.co) + Postgres (provisioned, empty, not yet connected).
+
+## BACKUP STATUS
+
+Code: safe — GitHub repo (github.com/SimonTCMG/hue-server) is the backup.
+User data: currently in SQLite file on Railway volume (hue-server-volume).
+At risk if Railway server is deleted. Resolved by completing Postgres migration above.
+Payments: Stripe holds independently — safe.
+Email list: MailerLite holds independently — safe.
+Email sending: MailerSend holds independently — safe.
+Domain/DNS: Cloudflare holds independently — safe.
 
 ---
 
