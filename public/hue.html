@@ -3084,23 +3084,14 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const isLead0 = role === "team-lead" || role === "org-admin";
       const allComplete = progress && progress.completed === progress.total && progress.total > 0;
 
-      if (!revealed) {
-        const handleReveal = async () => {
-          setRevealing(true);
-          try {
-            await fetch(`/api/team/${teamId}/reveal`, { method: "PUT", headers: { "Content-Type": "application/json" } });
-            setRevealed(true);
-          } catch {}
-          setRevealing(false);
-        };
-
+      // Members see progress screen until revealed; team leads see full dashboard with reveal banner
+      if (!revealed && !isLead0) {
         return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.cream, padding: 32 } },
           React.createElement(SpinMark, { size: 72, paused: true }),
           React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 900, color: C.ink, marginTop: 24, textAlign: "center" } }, team.name),
           React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 17, color: C.stone, textAlign: "center", maxWidth: 400, marginTop: 12, lineHeight: 1.6 } },
             "Your team\u2019s energy picture is being built."
           ),
-          // Progress indicator
           React.createElement("div", { style: { marginTop: 28, display: "flex", alignItems: "center", gap: 12 } },
             React.createElement("div", { style: { width: 200, height: 8, background: `${C.sand}`, borderRadius: 99, overflow: "hidden" } },
               React.createElement("div", { style: { width: `${progress ? (progress.completed / progress.total) * 100 : 0}%`, height: "100%", background: C.tend, borderRadius: 99, transition: "width 0.5s ease" } })
@@ -3112,28 +3103,22 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginTop: 8 } },
             allComplete ? "Everyone\u2019s in." : "Profiles complete"
           ),
-          // Team lead controls
-          isLead0 && React.createElement("div", { style: { marginTop: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 } },
-            allComplete && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, color: C.ink, fontWeight: 600, textAlign: "center" } },
-              "Ready to share the team picture?"
-            ),
-            React.createElement("button", {
-              onClick: handleReveal,
-              disabled: revealing,
-              style: {
-                background: C.ink, color: C.cream, border: "none", borderRadius: 99,
-                padding: "14px 32px", fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 15, fontWeight: 600, cursor: revealing ? "default" : "pointer",
-                opacity: revealing ? 0.6 : 1,
-              }
-            }, revealing ? "Revealing\u2026" : allComplete ? "Reveal the dashboard" : "Show dashboard now")
-          ),
-          !isLead0 && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginTop: 24, textAlign: "center", maxWidth: 340 } },
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginTop: 24, textAlign: "center", maxWidth: 340 } },
             "Your team lead will share the energy picture once everyone\u2019s completed their conversation."
           ),
           React.createElement("button", { onClick: onBack, style: { marginTop: 20, background: "none", border: "none", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, cursor: "pointer", textDecoration: "underline" } }, "\u2190 Back")
         );
       }
+
+      // Reveal banner for team lead (shown at top of full dashboard when not yet revealed)
+      const handleReveal = async () => {
+        setRevealing(true);
+        try {
+          await fetch(`/api/team/${teamId}/reveal`, { method: "PUT", headers: { "Content-Type": "application/json" } });
+          setRevealed(true);
+        } catch {}
+        setRevealing(false);
+      };
       const isLead = role === "team-lead" || role === "org-admin";
       const assessedMembers = members.filter(m => m.assessmentComplete);
       const pendingMembers = members.filter(m => !m.assessmentComplete);
@@ -3243,6 +3228,38 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 } },
             React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
             React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em" } }, team.name)
+          ),
+
+          // Reveal banner (team lead sees this at top of dashboard when not yet revealed to members)
+          !revealed && isLead0 && React.createElement("div", { style: {
+            background: "#fff", borderRadius: 16, padding: isDesktop ? "20px 24px" : "16px 20px",
+            border: `2px solid ${C.tend}`, marginBottom: 24,
+            display: "flex", alignItems: isDesktop ? "center" : "flex-start",
+            flexDirection: isDesktop ? "row" : "column", gap: isDesktop ? 16 : 12,
+          } },
+            React.createElement("div", { style: { flex: 1 } },
+              React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 6 } },
+                React.createElement("div", { style: { width: 120, height: 6, background: C.sand, borderRadius: 99, overflow: "hidden" } },
+                  React.createElement("div", { style: { width: `${progress ? (progress.completed / progress.total) * 100 : 0}%`, height: "100%", background: C.tend, borderRadius: 99 } })
+                ),
+                React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.ink } },
+                  `${progress?.completed || 0} of ${progress?.total || 0} profiles complete`
+                )
+              ),
+              React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, margin: 0 } },
+                allComplete ? "Everyone\u2019s in. Ready to share the team picture with everyone?" : "Only you can see this dashboard until you reveal it to the team."
+              )
+            ),
+            React.createElement("button", {
+              onClick: handleReveal,
+              disabled: revealing,
+              style: {
+                background: C.ink, color: C.cream, border: "none", borderRadius: 99,
+                padding: "10px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 13, fontWeight: 600, cursor: revealing ? "default" : "pointer",
+                opacity: revealing ? 0.6 : 1, whiteSpace: "nowrap", flexShrink: 0,
+              }
+            }, revealing ? "Revealing\u2026" : allComplete ? "Reveal to team" : "Reveal now")
           ),
 
           // Member count
