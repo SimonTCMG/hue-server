@@ -3874,6 +3874,14 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         }
       }, []);
 
+      // Lock body scroll when chat screens are active (keeps header pinned)
+      useEffect(() => {
+        const isChatScreen = screen === "chat" || screen === "companion";
+        document.body.style.overflow = isChatScreen ? "hidden" : "";
+        document.body.style.height = isChatScreen ? "100vh" : "";
+        return () => { document.body.style.overflow = ""; document.body.style.height = ""; };
+      }, [screen]);
+
       // Hook browser back button into app navigation
       useEffect(() => {
         window.history.replaceState({ screen: "welcome" }, "");
