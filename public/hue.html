@@ -1058,44 +1058,47 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       };
 
       return (
-        <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.cream, zIndex: 50 }}>
-          <div style={{
-            padding: "18px 20px 14px",
-            display: "flex", alignItems: "center", gap: 12,
-            borderBottom: `1px solid ${C.sand}`,
-            background: C.cream,
-            flexShrink: 0,
-          }}>
-            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
-              <SpinMark size={38} speed={8} />
-              <div>
-                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink }}>Hue</div>
-                <div style={{ fontSize: 11, color: C.stone, fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.04em", textTransform: "uppercase" }}>Colour Energy Assessment</div>
+        <div style={{ position: "fixed", inset: 0, display: "flex", justifyContent: "center", alignItems: "stretch", background: C.cream, zIndex: 50, padding: isDesktop ? "32px 16px" : 0 }}>
+          <div style={{ width: "100%", maxWidth: isDesktop ? 680 : "none", display: "flex", flexDirection: "column", background: C.cream, borderRadius: isDesktop ? 32 : 0, overflow: "hidden", boxShadow: isDesktop ? "0 8px 48px rgba(26,20,16,0.10)" : "none" }}>
+            <div style={{
+              padding: "18px 20px 14px",
+              display: "flex", alignItems: "center", gap: 12,
+              borderBottom: `1px solid ${C.sand}`,
+              background: C.cream,
+              flexShrink: 0,
+              borderRadius: isDesktop ? "32px 32px 0 0" : 0,
+            }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+                <SpinMark size={38} speed={8} />
+                <div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink }}>Hue</div>
+                  <div style={{ fontSize: 11, color: C.stone, fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.04em", textTransform: "uppercase" }}>Colour Energy Assessment</div>
+                </div>
               </div>
+              <NavIcon type="home" onClick={onHome} />
             </div>
-            <NavIcon type="home" onClick={onHome} />
-          </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
-            {display.length === 0 && !error && (
-              <p style={{ textAlign: "center", color: C.stone, fontSize: 13, marginTop: 48, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                Starting your conversation…
-              </p>
-            )}
-            {display.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
-            {typing && <TypingIndicator />}
-            {error && (
-              <div style={{
-                background: "#FFF0ED", border: `1px solid #F06040`,
-                borderRadius: 12, padding: "12px 16px", marginTop: 8,
-                fontSize: 13, color: C.ink,
-                fontFamily: "'Plus Jakarta Sans', sans-serif", lineHeight: 1.5,
-              }}>{error}</div>
-            )}
-            <div ref={bottomRef} style={{ height: 8 }} />
-          </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
+              {display.length === 0 && !error && (
+                <p style={{ textAlign: "center", color: C.stone, fontSize: 13, marginTop: 48, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  Starting your conversation…
+                </p>
+              )}
+              {display.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
+              {typing && <TypingIndicator />}
+              {error && (
+                <div style={{
+                  background: "#FFF0ED", border: `1px solid #F06040`,
+                  borderRadius: 12, padding: "12px 16px", marginTop: 8,
+                  fontSize: 13, color: C.ink,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", lineHeight: 1.5,
+                }}>{error}</div>
+              )}
+              <div ref={bottomRef} style={{ height: 8 }} />
+            </div>
 
-          <InputBar value={input} onChange={setInput} onSend={send} disabled={typing || display.length === 0} inputRef={inputRef} />
+            <InputBar value={input} onChange={setInput} onSend={send} disabled={typing || display.length === 0} inputRef={inputRef} />
+          </div>
         </div>
       );
     }
@@ -2370,49 +2373,52 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       };
 
       return (
-        <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.cream, zIndex: 50 }}>
-          <div style={{
-            padding: "18px 20px 14px",
-            display: "flex", alignItems: "center", gap: 12,
-            borderBottom: `1px solid ${C.sand}`,
-            background: C.cream,
-            flexShrink: 0,
-          }}>
-            <SpinMark size={38} paused />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink }}>Hue</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {ranked.map(e => (
-                  <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: e.color }} />
-                    <span style={{ fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}><EnergyWord name={e.name} /></span>
-                  </div>
-                ))}
+        <div style={{ position: "fixed", inset: 0, display: "flex", justifyContent: "center", alignItems: "stretch", background: C.cream, zIndex: 50, padding: isDesktop ? "32px 16px" : 0 }}>
+          <div style={{ width: "100%", maxWidth: isDesktop ? 680 : "none", display: "flex", flexDirection: "column", background: C.cream, borderRadius: isDesktop ? 32 : 0, overflow: "hidden", boxShadow: isDesktop ? "0 8px 48px rgba(26,20,16,0.10)" : "none" }}>
+            <div style={{
+              padding: "18px 20px 14px",
+              display: "flex", alignItems: "center", gap: 12,
+              borderBottom: `1px solid ${C.sand}`,
+              background: C.cream,
+              flexShrink: 0,
+              borderRadius: isDesktop ? "32px 32px 0 0" : 0,
+            }}>
+              <SpinMark size={38} paused />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink }}>Hue</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {ranked.map(e => (
+                    <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: e.color }} />
+                      <span style={{ fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}><EnergyWord name={e.name} /></span>
+                    </div>
+                  ))}
+                </div>
               </div>
+              <NavIcon type="home" onClick={() => {
+                if (history.length >= 2) summariseConversation(history);
+                onHome();
+              }} />
             </div>
-            <NavIcon type="home" onClick={() => {
-              if (history.length >= 2) summariseConversation(history);
-              onHome();
-            }} />
-          </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
-            {display.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
-            {typing && <TypingIndicator />}
-            <div ref={bottomRef} style={{ height: 8 }} />
-          </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
+              {display.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
+              {typing && <TypingIndicator />}
+              <div ref={bottomRef} style={{ height: 8 }} />
+            </div>
 
-          {!hasSentMessage && (
-            <SuggestedQuestions
-              questions={suggestions}
-              onSelect={q => {
-                setInput(q);
-                inputRef.current?.focus();
-              }}
-              isDesktop={isDesktop}
-            />
-          )}
-          <InputBar value={input} onChange={setInput} onSend={send} disabled={typing} placeholder="Ask Hue anything…" inputRef={inputRef} />
+            {!hasSentMessage && (
+              <SuggestedQuestions
+                questions={suggestions}
+                onSelect={q => {
+                  setInput(q);
+                  inputRef.current?.focus();
+                }}
+                isDesktop={isDesktop}
+              />
+            )}
+            <InputBar value={input} onChange={setInput} onSend={send} disabled={typing} placeholder="Ask Hue anything…" inputRef={inputRef} />
+          </div>
         </div>
       );
     }
