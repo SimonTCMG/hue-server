@@ -1789,17 +1789,17 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       }
 
       // Truncate text at a sentence boundary near maxChars
-      function truncateAtSentence(text, maxChars = 300) {
-        if (!text || text.length <= maxChars) return { short: text, full: null };
+      function truncateAtSentence(text, maxChars = 200) {
+        if (!text || text.length <= maxChars + 20) return { short: text, full: null };
         // Find sentence ends (. ! ?) within the range
         const candidates = [];
-        for (let i = 0; i < text.length && i < maxChars + 80; i++) {
+        for (let i = 0; i < text.length && i < maxChars + 60; i++) {
           if (".!?".includes(text[i]) && (i + 1 >= text.length || text[i + 1] === " " || text[i + 1] === "\n")) {
             candidates.push(i + 1);
           }
         }
-        // Pick the last sentence break at or near maxChars
-        const cut = candidates.filter(c => c >= 60).find(c => c >= maxChars - 80) ||
+        // Pick a sentence break near maxChars (180–220 range preferred)
+        const cut = candidates.filter(c => c >= 40).find(c => c >= maxChars - 20) ||
                     candidates[candidates.length - 1] || maxChars;
         if (cut >= text.length - 20) return { short: text, full: null }; // not worth truncating
         return { short: text.slice(0, cut).trim(), full: text };
