@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 8 April 2026.*
+*Master brief for all Claude sessions. Last updated: 8 April 2026 (admin architecture session).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -78,7 +78,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Organisation "The Change Maker Group" created on production (ID: `tcmg-org-001`)
 - Team "TCMG" created (ID: `tcmg-team-001`)
 - Simon registered as org-admin with simon@thechangemakergroup.com
-- Auto-promotion: simon@thechangemakergroup.com automatically gets org-admin role on registration via either route
+- Auto-promotion: simon@thechangemakergroup.com automatically gets org-admin role on registration via either route. If registered via individual route, state is switched to `org-member-active`, trial clock cleared, and org email sequence triggered (not trial sequence). Backfill on server start ensures Day 0 is marked sent.
 - Invite flow tested end-to-end: invite email → registration → assessment → team dashboard update → onboarding emails
 - Invite email sent from hello@myhue.co (sender name: "Hue"), subject: "[Name] has invited you to Hue"
 
@@ -93,6 +93,20 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Gamification / mini missions layer
 - AI help layer
 - @search for team members
+
+### Admin architecture — not yet built (decisions made 8 April 2026)
+- Platform super-admin role and UI (`/admin` route, env-gated, separate credential from user roles)
+- Facilitator role and portfolio dashboard
+- Facilitator org creation flow (facilitators create client orgs directly)
+- Seat overflow detection and notification system
+- Research data layer (anonymised aggregate pipeline, opt-in consent, 30-day lag)
+- See full spec below under ADMIN ARCHITECTURE
+
+### Internal notifications — not yet built (decisions made 8 April 2026)
+- Team lead threshold emails (50% complete, all complete / reveal prompt)
+- Org admin weekly in-app digest (aggregate completion rates, no email)
+- Member reminder emails (org-admin controlled toggle, Hue sends direct to member)
+- See full spec below under INTERNAL NOTIFICATIONS
 
 ---
 
@@ -378,7 +392,163 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 36. ✅ hue-voice-v1.md integrated — master voice reference, redundant sections in language guide and email strategy replaced with pointers
 37. ✅ Dashboard reveal gate — hidden from members until team lead reveals, team lead sees live dashboard with banner, permanent once revealed
 38. Write `hue-launch-checklist.md`
-36. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
+39. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
+
+**Admin architecture — not started:**
+
+40. ⬜ Platform super-admin: `/admin` route, env-gated, separate credential, audit log table (`platform_admin_log`)
+41. ⬜ Facilitator role: `facilitators` table, portfolio dashboard, org creation flow
+42. ⬜ Data model: add `facilitator_id` and `contracted_seats` / `active_seats` to `organisations` table
+43. ⬜ Seat overflow: detection logic, facilitator email notification, org-admin in-app notice, overflow flag in platform admin view
+44. ⬜ Research data layer: third pipeline, opt-in consent checkbox in onboarding, 30-day lag, anonymised aggregate only — required for Nigel Evans validation study
+
+**Internal notifications — not started:**
+
+45. ⬜ Team lead threshold emails: 50% profiles complete (informational) + all profiles complete ("Everyone's in — ready to reveal?") — no individual attribution in either
+46. ⬜ Org admin weekly digest: in-app only (not email) — aggregate completion rates per team, no individual names
+47. ⬜ Member reminder emails: opt-in per org, controlled by org admin — org admin sets deadline, toggles Hue-sent reminders on/off, Hue sends direct to member (not via org admin), no individual data shared with org admin
+
+---
+
+## ADMIN ARCHITECTURE (decisions made 8 April 2026 — not yet built)
+
+### Role hierarchy
+
+```
+Hue Platform Admin (us)
+    │
+    ├── Facilitator (reseller — owns one or more client orgs)
+    │       │
+    │       └── Org Admin (owns one org — assigned by facilitator or self-registers)
+    │               │
+    │               └── Team Lead
+    │                       │
+    │                       └── Member
+    │
+    └── Individual subscriber (no org)
+```
+
+### Platform super-admin
+
+- Route: `/admin` — env-gated (separate credential, not just a role flag on the users table)
+- Set up by us only. Facilitators are never elevated to platform admin.
+- **What it can do:** View all organisations (name, seat count, billing status, creation date, facilitator attribution), create orgs and set org codes, manually assign org-admins, trigger system actions (resend invites, reset trial clocks, fix broken onboarding), update `contracted_seats` on any org to resolve seat overflow
+- **What it can never do:** Access individual profile data, access companion conversation history, impersonate a user without their knowledge, view team dashboard data for orgs without explicit access
+- Every platform admin action writes to an immutable audit log: who, what, when, why (free-text reason field — required, not optional)
+
+### Facilitator role
+
+- Facilitators are set up by us (platform admin grants facilitator role — no self-serve registration path at this stage)
+- A facilitator account is distinct from any individual subscriber account — a facilitator who also uses Hue personally has two separate accounts
+- **What a facilitator can do:** Create client organisations, create teams within those orgs, invite members into those teams, assign org-admins within client orgs (handing control to the client), view all their client orgs in a portfolio dashboard (status, seat count, overflow flags), view team dashboards for their client orgs
+- **What a facilitator cannot do:** Access individual profile data (share link consent model applies — clients initiate), access other facilitators' client portfolios, modify billing directly
+
+### Facilitator creates client orgs
+
+- Facilitators have the information first-hand and create client orgs themselves via their portfolio dashboard
+- On org creation: facilitator sets org name, contracted seat count, and the email of the org-admin contact (who then gets auto-promoted on registration)
+- Billing attribution: org records carry a `facilitator_id` (nullable) — null = direct Hue client, populated = facilitator-owned. Partner seat rate (£5/seat/month) applied automatically for facilitator-owned orgs. Facilitator earns 20% ongoing commission.
+- Facilitator always retains portfolio visibility of their client orgs unless explicitly removed
+
+### Seat overflow — soft overflow model (decided)
+
+- **Hard stops are rejected.** Inviting beyond contracted seats is allowed — Hue does not block the action.
+- When active members exceed `contracted_seats`:
+  - **Immediate:** Facilitator receives an email — "[Org Name] has added a member beyond their current contract (X contracted, X+1 active). You may want to get in touch."
+  - **In-app:** Org-admin sees a soft notice — "Your team is growing — your facilitator may be in touch about your subscription." Non-alarming, not a blocker.
+  - **Platform admin view:** Overflow flag visible on any org where active members exceed contracted seats, with overflow count
+- New user's access is unrestricted during overflow — the commercial conversation is between Hue, facilitator, and org-admin, not with the end user
+- Resolution: platform admin updates `contracted_seats` on the org record once the commercial conversation is complete
+
+### Data model changes required
+
+- `organisations` table: add `facilitator_id` (nullable FK), `contracted_seats` (integer), `active_seats` (derived or maintained counter)
+- New `facilitators` table: `id`, `user_id`, `company_name`, `billing_rate`, `commission_pct`, `created_at`
+- New `platform_admin_log` table: `id`, `admin_user_id`, `action`, `target_type`, `target_id`, `reason`, `created_at` — immutable, append-only
+- User roles: add `platform-admin` and `facilitator` to existing `org-admin` / `team-lead` / `member` set
+
+### Research data layer (third pipeline — not yet built)
+
+- Sits alongside the existing team and personal companion pipelines — architecturally separate from both
+- **What it contains:** Anonymised aggregate patterns only — no individual identifiable data, no conversation content, no companion history
+- **Governed by:** Explicit opt-in consent at onboarding ("Help us improve Hue — your anonymised data may contribute to our research into how people grow") — opt-in, not opt-out
+- **30-day lag** before any data enters the research pool
+- **Access:** Purpose-built research dashboard, separate from operational admin. Not part of the `/admin` route.
+- **What it enables:** The eight research data points defined in `hue-psychology-foundations-v1.md` Section 4 — required for the Nigel Evans validation study
+- Research layer consent checkbox to be added to the onboarding consent conversation (existing `hue-consent-conversation-v1.md` flow)
+
+### What platform admin can never do (non-negotiable)
+
+- Access individual assessment scores or raw profile data
+- Access companion conversation history
+- View team dashboard data for orgs not explicitly assigned
+- Impersonate a user without their knowledge
+- These are architectural barriers, not policy — build them that way
+
+
+---
+
+## INTERNAL NOTIFICATIONS (decisions made 8 April 2026 — not yet built)
+
+### Principles
+
+- Notifications about profile completion must never attribute individual completion status to anyone other than the individual themselves
+- Team leads and org admins receive aggregate state only — never "Alex has completed their profile"
+- Hue acts as the intermediary for member reminders — the org admin never sends chasers on Hue's behalf
+- No notification is ever triggered by companion activity — companion pipeline is private, always
+
+### Team lead notifications
+
+**Trigger: 50% of team profiles complete**
+- Channel: email
+- Recipient: team lead only
+- Content: aggregate only — "Half your team's profiles are in. The picture is starting to take shape." No individual names, no list of who has or hasn't completed.
+- Timing: fires once, at the moment the 50% threshold is crossed
+- Pre-reveal only: once the dashboard is revealed, this trigger is retired for that team
+
+**Trigger: all team profiles complete**
+- Channel: email
+- Recipient: team lead only (not org admin — this is an action prompt, not an FYI)
+- Content: reveal prompt — "Everyone's in. Your team's energy picture is ready to share whenever you are." CTA links directly to the team dashboard reveal banner.
+- Timing: fires once, at the moment the final profile completes
+- Framing: the reveal is the team lead's choice — the email prompts, never pressures. No countdown, no urgency language.
+- If the team lead has already revealed (early reveal): this email is suppressed — no point prompting a reveal that's already happened
+
+**Post-reveal: new member completes**
+- Channel: in-app notification only (not email)
+- Recipient: team lead
+- Content: "Your team picture has updated." No individual name.
+- Rationale: lightweight signal that the dashboard has changed; team lead can visit when ready
+
+### Org admin notifications
+
+- **No profile completion emails.** The in-app org admin dashboard already shows per-member status (Profile complete / Joined, not started / Invited). That is sufficient.
+- **Weekly in-app digest** (not email): shown on the org admin dashboard — aggregate completion rates per team. Format: "Team A: 8 of 10 profiles complete. Team B: 3 of 8 profiles complete." No individual names in the digest.
+- Org admin can see individual status by visiting the dashboard — that data is available in-app in context, but Hue never pushes it to them via email where it could be forwarded or misread.
+
+### Member reminder emails (org admin controlled)
+
+- Org admin sets a completion deadline when setting up a team (optional field — not required)
+- Org admin toggles "Send Hue reminders to members who haven't completed" on/off per team
+- When toggled on: Hue sends a reminder email directly to the non-completing member — not via the org admin, not cc'd to the org admin
+- Reminder email is sent from Hue (hello@myhue.co), not from the org admin. Framing is warm and member-focused: "Your team's energy picture is almost complete — your profile would make it richer." No urgency, no mention of the org admin or deadline.
+- Reminder cadence: one email at 3 days before deadline, one on deadline day. Maximum two reminders per member per team. No further reminders after that.
+- Org admin sees completion status update in their dashboard when a member completes — they do not receive a notification that the reminder was sent or that it worked.
+
+### What notifications never contain
+
+- An individual's name linked to completion or non-completion (in any email to team lead or org admin)
+- Any content about what someone's profile contains
+- Anything triggered by companion conversation activity
+- A list of non-completers pushed to the org admin via email
+
+### Data model additions required
+
+- `teams` table: add `reminder_enabled` (boolean), `completion_deadline` (date, nullable)
+- `team_notification_log` table: `id`, `team_id`, `notification_type` (enum: fifty_percent, all_complete, post_reveal_update, member_reminder), `sent_at`, `suppressed` (boolean + reason) — prevents duplicate sends
+- New cron job: daily check for deadline-proximate member reminders (runs at 9am UK alongside existing email cron)
+- 50% and all-complete triggers fire from the auto-sync function that runs when assessment completion pushes bands to teams
+
 
 ---
 
