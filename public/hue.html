@@ -631,7 +631,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── Welcome screen ───────────────────────────────────────────────────────
-    function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn, teams = [] }) {
+    function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn, onSettings, teams = [] }) {
       const isDesktop = useIsDesktop();
       const primaryEnergy = savedProfile
         ? ENERGIES.find(e => e.id === savedProfile.rankedIds[0])
@@ -801,6 +801,14 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   fontSize: 12, color: C.stone,
                   textDecoration: "underline", textUnderlineOffset: 3,
                 }}>Manage organisation</a>
+              )}
+              {onSettings && (
+                <button onClick={onSettings} style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 12, color: C.stone,
+                  textDecoration: "underline", textUnderlineOffset: 3,
+                }}>Account settings</button>
               )}
             </div>
           )}
@@ -3693,6 +3701,102 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       );
     }
 
+    // ─── Account Settings (item 52) ─────────────────────────────────────────
+    function AccountSettingsScreen({ user, onBack, onEmailChanged }) {
+      const isDesktop = useIsDesktop();
+      const [newEmail, setNewEmail] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [message, setMessage] = useState(null);
+      const [error, setError] = useState(null);
+
+      const submit = async () => {
+        if (!newEmail.trim()) return;
+        setLoading(true); setError(null); setMessage(null);
+        try {
+          const res = await fetch("/api/account/change-email", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ newEmail: newEmail.trim() }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setError(data.error); return; }
+          setMessage("Check your new email for a confirmation link.");
+          setNewEmail("");
+        } catch { setError("Something went wrong."); }
+        finally { setLoading(false); }
+      };
+
+      const inputStyle = {
+        background: "#fff", border: `1.5px solid ${C.sand}`,
+        borderRadius: 12, padding: "14px 18px",
+        fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
+        color: C.ink, outline: "none", width: "100%", boxSizing: "border-box",
+      };
+
+      return React.createElement("div", {
+        style: { minHeight: "100vh", background: C.cream, padding: isDesktop ? "64px 32px" : "48px 24px" }
+      },
+        React.createElement("div", { style: { maxWidth: 480, margin: "0 auto" } },
+          React.createElement("button", {
+            onClick: onBack,
+            style: { background: "none", border: "none", cursor: "pointer", fontSize: 15, color: C.stone, fontFamily: "'Plus Jakarta Sans', sans-serif", marginBottom: 24 }
+          }, "\u2190 Back"),
+          React.createElement("h1", {
+            style: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: C.ink, marginBottom: 32 }
+          }, "Account settings"),
+          React.createElement("div", {
+            style: { background: "#fff", borderRadius: 16, padding: 24, marginBottom: 20, border: `1px solid ${C.sand}40` }
+          },
+            React.createElement("p", {
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 4px" }
+            }, "Current email"),
+            React.createElement("p", {
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.ink, fontWeight: 600, margin: "0 0 20px" }
+            }, user?.email || "—"),
+            React.createElement("p", {
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 8px" }
+            }, "Change email"),
+            React.createElement("input", {
+              type: "email", placeholder: "New email address", value: newEmail,
+              onChange: e => setNewEmail(e.target.value),
+              onKeyDown: e => e.key === "Enter" && submit(),
+              style: { ...inputStyle, marginBottom: 12 },
+            }),
+            error && React.createElement("p", { style: { fontSize: 13, color: C.spark, margin: "0 0 8px", fontFamily: "'Plus Jakarta Sans', sans-serif" } }, error),
+            message && React.createElement("p", { style: { fontSize: 13, color: C.tend, margin: "0 0 8px", fontFamily: "'Plus Jakarta Sans', sans-serif" } }, message),
+            React.createElement("button", {
+              onClick: submit, disabled: loading || !newEmail.trim(),
+              style: {
+                background: newEmail.trim() && !loading ? C.ink : C.sand,
+                color: newEmail.trim() && !loading ? C.cream : C.stone,
+                border: "none", borderRadius: 99, padding: "12px 24px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 14,
+                cursor: newEmail.trim() && !loading ? "pointer" : "default",
+              }
+            }, loading ? "Sending..." : "Send confirmation")
+          ),
+          React.createElement("div", {
+            style: { background: "#fff", borderRadius: 16, padding: 24, border: `1px solid ${C.sand}40` }
+          },
+            React.createElement("p", {
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 4px" }
+            }, "Name"),
+            React.createElement("p", {
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.ink, fontWeight: 600, margin: 0 }
+            }, user?.name || "—"),
+            React.createElement("p", {
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "16px 0 4px" }
+            }, "Account type"),
+            React.createElement("p", {
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.ink, fontWeight: 600, margin: 0 }
+            }, user?.userState === "beta-user" ? "Beta tester" :
+               user?.userState === "org-member-active" ? "Team member" :
+               user?.userState === "individual-subscriber" ? "Subscriber" :
+               user?.userState === "individual-trial-active" ? "Free trial" : "—")
+          )
+        )
+      );
+    }
+
     // ─── App ──────────────────────────────────────────────────────────────────
     function App() {
       const [screen, setScreen] = useState("welcome");
@@ -3917,6 +4021,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   onChat={handleChat}
                   savedProfile={savedProfile}
                   onSignIn={() => navigate("sign-in")}
+                  onSettings={() => navigate("settings")}
                   teams={userTeams}
                 />
               )}
@@ -3951,6 +4056,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               )}
               {screen === "companion" && ranked && (
                 <CompanionScreen ranked={ranked} onHome={() => navigate("welcome")} returning={returningToChat} />
+              )}
+              {screen === "settings" && (
+                <AccountSettingsScreen
+                  user={betaUser}
+                  onBack={() => navigate("welcome")}
+                  onEmailChanged={() => window.location.reload()}
+                />
               )}
             </>
           )}

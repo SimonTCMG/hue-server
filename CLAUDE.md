@@ -43,6 +43,13 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Org member onboarding emails: 4-email sequence via MailerSend. Email 1 (Welcome, immediate on registration), Email 2 (First insight, Day 3 — personalised by dominant/developing energy), Email 3 (Team context, Day 7 — what employer sees), Email 4 (Companion intro, Day 14). Cron at 9:15am UK for Days 3/7/14. Tracked in `org_emails` table. Org members never receive trial emails (suppressed by state).
 - Invite email: language-guide-compliant, explains what Hue is, states data ownership, links to `/register-org`. Uses proper email HTML template.
 - Returning user flow: shows last result, offers retake after 90 days
+- Beta user state: `beta-user` — full access, no trial clock, no Stripe, suppressed from trial emails, beta welcome email only. `BETA_EMAILS` env var in Railway controls who gets beta status on registration.
+- Account settings screen: accessible from welcome screen, shows current email/name/account type, email change flow
+- Email change flow: authenticated session initiates, confirmation via new email only (24h token), old email gets notification (informational, bounce harmless), MailerLite atomic sync on change. Account settings accessible regardless of subscription state.
+- Returning user branch on `/register-org`: recognises existing accounts, attaches team membership without creating duplicate, handles state transitions (subscription pause, email sequence switching), sends welcome-back email instead of 4-email onboarding for users with existing profiles
+- Stripe customer creation on-demand: users without Stripe records (beta, org members) get customer created at point of first subscription, not at registration
+- Subscription pause/resume: org join pauses active individual subscription (billing stops, record preserved), org lapse auto-resumes paused subscription seamlessly. `subscription_paused_at` and `subscription_paused_reason` tracked per user.
+- Welcome-back email: single email for returning users joining new org — acknowledges they know Hue, names the team, reminds of data ownership. Suppresses standard 4-email sequence.
 - Maintenance mode: `MAINTENANCE_MODE` env var closes site instantly (Stripe webhook still passes through)
 - Tend rename: complete throughout codebase (tokens, variables, stored data, migration for old profiles)
 - Static SVG favicon, PWA manifest
@@ -78,7 +85,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Organisation "The Change Maker Group" created on production (ID: `tcmg-org-001`)
 - Team "TCMG" created (ID: `tcmg-team-001`)
 - Simon registered as org-admin with simon@thechangemakergroup.com
-- Auto-promotion: simon@thechangemakergroup.com automatically gets org-admin role on registration via either route. If registered via individual route, state is switched to `org-member-active`, trial clock cleared, and org email sequence triggered (not trial sequence). Backfill on server start ensures Day 0 is marked sent.
+- Auto-promotion: simon@thechangemakergroup.com automatically gets org-admin role on registration via either route
 - Invite flow tested end-to-end: invite email → registration → assessment → team dashboard update → onboarding emails
 - Invite email sent from hello@myhue.co (sender name: "Hue"), subject: "[Name] has invited you to Hue"
 
@@ -408,6 +415,19 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 46. ⬜ Org admin weekly digest: in-app only (not email) — aggregate completion rates per team, no individual names
 47. ⬜ Member reminder emails: opt-in per org, controlled by org admin — org admin sets deadline, toggles Hue-sent reminders on/off, Hue sends direct to member (not via org admin), no individual data shared with org admin
 
+**Beta launch + account continuity — COMPLETE:**
+
+48. ✅ Beta user state: `beta-user` in permitted access states, trial email suppression, daily email whitelist
+49. ✅ BETA_EMAILS env var: matching email sets state to `beta-user` on registration
+50. ✅ Beta welcome email: `sendBetaWelcomeEmail()` — warm, honest, no clock, feedback invite
+51. ✅ Team Hue Demo: second team in TCMG org (`hue-demo-team-001`), Simon auto-added as org-admin
+52. ✅ Email change flow: AccountSettingsScreen, POST `/api/account/change-email`, GET `/api/account/confirm-email/:token`, 24h token expiry, MailerLite atomic sync (delete old + create new), old email notification
+53. ✅ Returning user branch on `/register-org`: existing users get team membership attached, state transitions handled, welcome-back email if profile exists, standard onboarding if new
+54. ✅ Stripe customer creation: `/api/create-checkout` creates Stripe customer on-demand for users without one (beta users, etc.)
+55. ✅ Subscription pause/resume: org join pauses active sub via Stripe API (`pause_collection`), org lapse auto-resumes. `subscription_paused_at` and `subscription_paused_reason` columns added. `/api/account/lapse-org` endpoint
+56. ✅ Email sequence logic: state transitions suppress/redirect emails correctly — trial suppressed on org join, subscriber sequence pauses while org-covered, nurture sequence for lapsed with no sub
+57. ✅ Welcome-back email: single email for returning users joining org, suppresses 4-email sequence when `assessment_completed_at` exists
+
 ---
 
 ## ADMIN ARCHITECTURE (decisions made 8 April 2026 — not yet built)
@@ -548,6 +568,182 @@ Hue Platform Admin (us)
 - `team_notification_log` table: `id`, `team_id`, `notification_type` (enum: fifty_percent, all_complete, post_reveal_update, member_reminder), `sent_at`, `suppressed` (boolean + reason) — prevents duplicate sends
 - New cron job: daily check for deadline-proximate member reminders (runs at 9am UK alongside existing email cron)
 - 50% and all-complete triggers fire from the auto-sync function that runs when assessment completion pushes bands to teams
+
+
+---
+
+## BETA LAUNCH + ACCOUNT CONTINUITY (decisions made 8 April 2026 — DO THIS NEXT)
+
+---
+
+### Message to Code
+
+The next build session has two jobs that are tightly connected: getting beta testers into the product today, and laying the foundations for account continuity that every future user will depend on. Read this section in full before starting. The beta setup is fast. The account continuity work takes longer but must be designed correctly from the start — it cannot be retrofitted cleanly later.
+
+Items 48–51 get beta live. Items 52–57 are the continuity model — build them in order, do not skip ahead.
+
+---
+
+### Core principle — One person. One profile. One account. Forever.
+
+This is not a product feature. It is the foundational identity commitment that everything else is built on.
+
+A Hue profile is the person. Not the company they work for. Not the subscription they currently hold. Not the email address they registered with three jobs ago. The profile travels with them through every employment change, every subscription lapse, every org join and leave. It accumulates over a lifetime. It is never lost, never reassigned, never fragmented across duplicate accounts.
+
+Everything in this section exists to make that principle technically real.
+
+**What this means in practice:**
+- One email address = one account = one profile. Always.
+- Organisations attach to the person's account — the person does not attach to the organisation
+- Subscriptions are the current payment arrangement — they do not define the account
+- Email addresses are changeable — the account and profile are not
+- A user who has been on Hue for five years, worked at three companies, lapsed twice, and rejoined twice still has one profile with a continuous history
+
+---
+
+### Beta setup — what to build (items 48–51)
+
+**Beta user state (`beta-user`)**
+
+New state in the users table alongside existing states. Access logic: wherever the code checks `individual-trial-active` or `individual-subscriber` to permit AI calls, add `beta-user` and confirm `org-member-active` is also in the permitted set.
+
+`beta-user` accounts:
+- Full access — all AI calls permitted
+- No trial clock — no expiry cron touches them
+- No Stripe record created at registration
+- Suppressed from all trial email sequences (days 1–14)
+- Receive beta welcome email only (see below)
+- MailerLite tag: `beta-user`
+
+**BETA_EMAILS env var**
+
+Add `BETA_EMAILS=email@domain.com,email2@domain.com` to Railway env vars. On registration, if the submitted email matches any address in this list (case-insensitive), set state to `beta-user` automatically. No new registration route, no separate flow — existing registration screen, same UX, different state on completion.
+
+Simon manages this list directly in Railway. To invite a new beta tester, add their email to the env var and send them the standard myhue.co registration link.
+
+**Beta welcome email**
+
+Single email via MailerSend, triggered on registration when state = `beta-user`. No subsequent automated sequence — any follow-up with beta testers is manual from Simon.
+
+Content guidelines (follow `hue-voice-v1.md`):
+- Warm, personal, direct
+- Honest that this is an early version — trust is built by naming it, not hiding it
+- States clearly: no clock on their access, it's theirs to explore at their pace
+- Invites candid feedback — what works, what surprises them, what feels off
+- Single CTA: start your first conversation
+- No mention of pricing, no trial language, no conversion pressure
+
+**Team Hue Demo**
+
+Create as a second team within the existing TCMG org (ID: `tcmg-org-001`). Simon is already org-admin. Invite inner circle members via the existing org invite flow at `/org/tcmg-org-001`. They register via `/register-org` as normal org members — no new flow needed.
+
+Team Hue Demo exists to:
+- Generate real team dashboard data from a trusted inner circle
+- Serve as a live demo asset alongside TCMG
+- Let Simon show the team experience (constellation, 32-dimension panel, band bars) during sales conversations and facilitator pitches
+- The dashboard reveal gate applies — Simon never hits reveal unless actively demoing. Members see the progress screen. The dashboard is Simon's to show, not theirs to discover unsupervised.
+
+**What beta testers are NOT:**
+- Beta individuals (Hue You) are not in any org or team — they are standalone individual accounts. No org structure, no team dashboard for this cohort.
+- TCMG is the primary demo org. Team Hue Demo is the secondary demo asset within TCMG. There is no "Hue You Demo" team — this was considered and rejected as adding complexity without value.
+
+---
+
+### Account continuity — what to build (items 52–57)
+
+**Email change flow (item 52)**
+
+Email is the account identifier but must be changeable at any time, by the user, from account settings.
+
+Rules:
+- Change is initiated from within an authenticated session — the login session is the proof of identity, not the old email
+- New email receives a confirmation link — confirms ownership of the new address
+- Old email receives a notification only — "your Hue email address has been updated." This is informational. If the old address is dead (e.g. former work email), the notification bounces harmlessly. The change is not blocked or reversed by a bounce.
+- Change completes on new email confirmation alone. No dependency on the old email at any point.
+- Account settings screen is accessible regardless of subscription state — a lapsed or expired user can still update their email. The product is gated. The account is not.
+- On email change: update users table, then atomically update MailerLite subscriber record (old email out, new email in, all tags and custom fields preserved) and MailerSend contact record. If either external call fails, retry with exponential backoff. Log failures. Do not leave a partial state.
+- Team memberships are stored against `user_id` — confirm this is the case. If any membership logic references email directly, fix it. Memberships must follow the account, not the address.
+
+**Returning user branch on `/register-org` (item 53)**
+
+Currently the org registration flow assumes a new user. It must handle returning users cleanly.
+
+When an org invite link is clicked:
+- If the user is not logged in: show login option prominently alongside registration. "Already have a Hue account? Log in to connect this invitation to your existing profile."
+- If the user logs in: attach the team membership to their existing account. Do not create a new account. Do not prompt re-assessment.
+- If the user registers as new: standard flow, new account created.
+- The invite token is the membership grant — it is claimed by whoever authenticates, regardless of which email the invite was originally sent to. This handles the case where someone's work email has changed since the invite was issued.
+- On returning user joining org: if they have an existing profile, suppress the full 4-email onboarding sequence. Send a single welcome-back email instead: warm, acknowledges they already know Hue, frames the team context briefly.
+- Profile immediately contributes to the new team's dashboard on join — no settling period for returning users. The 30-day settling period applies only to users new to Hue.
+
+**Stripe customer creation for existing users (item 54)**
+
+Beta users and any future users who enter via a non-payment route have no Stripe customer record. When they choose to subscribe individually, the system must handle "create Stripe customer for existing user" as a distinct case from "create Stripe customer on registration."
+
+- On subscription initiation for a user with no Stripe customer ID: create Stripe customer, attach to user record, then proceed to checkout session as normal
+- This must be checked before any Stripe call that assumes a customer ID exists
+
+**Subscription pause/resume (item 55)**
+
+When a user with an active individual subscription joins an org:
+- Call Stripe pause on their subscription — billing stops, subscription record preserved, no cancellation
+- Update user state to `org-member-active`
+- Log the pause in user record: `subscription_paused_at`, `subscription_paused_reason: org_join`
+
+When a user's org membership lapses (`org-member-lapsed`):
+- Check for paused individual subscription — `subscription_paused_reason: org_join`
+- If found: call Stripe resume automatically — billing restarts, access continues without interruption, no user action required
+- If not found: notify user that org access has ended, offer individual subscription
+- Update user state accordingly
+
+The user should experience this as seamless. They are never asked to re-enter card details. They are never shown a payment screen they've already been through. Their access continues or resumes without a gap where possible.
+
+**Email sequence logic on org join (item 56)**
+
+When state transitions to `org-member-active`:
+- If previously `individual-trial-active`: suppress remaining trial emails, send org welcome (or welcome-back if returning user)
+- If previously `individual-subscriber`: pause subscriber email sequence while org-covered. Resume on reactivation.
+- If previously `individual-trial-expired`: suppress nurture sequence. Send org onboarding (or welcome-back if returning user). Full access restored.
+- If previously `beta-user`: no active sequence to suppress. Send org welcome-back.
+
+On reversion from `org-member-lapsed` to individual:
+- If subscription resumes (paused → active): resume subscriber email sequence. Never restart trial sequence.
+- If no subscription: move to `individual-trial-expired` nurture sequence (they have seen the product — treat them as lapsed, not new)
+
+**Welcome-back email for returning org members (item 57)**
+
+A user with an existing Hue profile joining a new org should not receive the standard 4-email onboarding sequence — it is written for people new to Hue and will feel wrong to someone who already knows the product.
+
+Trigger: org member registration where `profile_complete = true` on the user record.
+
+Content:
+- Acknowledges they already know Hue
+- Briefly names the team context — "you're now part of [team name]'s energy picture"
+- Reminds them their profile is theirs — unchanged, still private, still portable
+- Single CTA: visit your profile or continue a companion conversation
+- No explanation of what Hue is, no assessment prompt if profile already exists
+
+---
+
+### The full user journey — state map
+
+| Situation | State | Access | Emails | Stripe |
+|-----------|-------|--------|--------|--------|
+| Beta tester | `beta-user` | Full | Beta welcome only | None |
+| Individual trial | `individual-trial-active` | Full | Trial sequence days 1–14 | Customer + subscription |
+| Individual subscriber | `individual-subscriber` | Full | Subscriber sequence | Active subscription |
+| Trial expired | `individual-trial-expired` | Gated | Nurture sequence | Cancelled/failed |
+| Org member (new to Hue) | `org-member-active` | Full | Org onboarding 4-email | None |
+| Org member (returning) | `org-member-active` | Full | Welcome-back single email | Paused if previously subscriber |
+| Org member lapsed, sub resumes | `individual-subscriber` | Full | Subscriber sequence resumes | Resumed from pause |
+| Org member lapsed, no sub | `individual-trial-expired` | Gated | Nurture sequence | None |
+
+Access priority rule (checked in this order):
+1. Active org membership → full access
+2. Active individual subscription → full access
+3. Paused subscription + no org → gated, one-click reactivation
+4. Expired trial + no org + no sub → gated, full subscription flow
+5. No account → registration
 
 
 ---

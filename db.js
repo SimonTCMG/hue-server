@@ -88,7 +88,10 @@ export function createUser({ id, name, email, registered_at, trial_started_at = 
   ).run({ id, name, email, registered_at, trial_started_at, user_state });
 }
 
-export function updateUserState(id, user_state) {
+export function updateUserState(id, user_state, previousState) {
+  if (previousState !== undefined) {
+    return db.prepare("UPDATE users SET user_state = ?, previous_state = ? WHERE id = ?").run(user_state, previousState, id);
+  }
   return db.prepare("UPDATE users SET user_state = ? WHERE id = ?").run(user_state, id);
 }
 
@@ -112,9 +115,9 @@ export function updateLastEmailSent(id, ts) {
 }
 
 export function getUsersForDailyEmail() {
-  // Send daily emails to subscribers, org members, and legacy beta users (null state)
+  // Send daily emails to subscribers, org members, beta users, and legacy beta users (null state)
   return db.prepare(
-    "SELECT * FROM users WHERE assessment_completed_at IS NOT NULL AND (user_state IN ('individual-subscriber', 'org-member-active') OR user_state IS NULL)"
+    "SELECT * FROM users WHERE assessment_completed_at IS NOT NULL AND (user_state IN ('individual-subscriber', 'org-member-active', 'beta-user') OR user_state IS NULL)"
   ).all();
 }
 
@@ -516,6 +519,55 @@ export function isOrgAdmin(userId, orgId) {
      LIMIT 1`
   ).get(userId, orgId);
   return !!row;
+}
+
+// ─── Email change tokens ─────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS email_change_tokens (
+    token      TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    new_email  TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    consumed   INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )
+`);
+
+export function createEmailChangeToken(token, userId, newEmail) {
+  return db.prepare(
+    "INSERT INTO email_change_tokens (token, user_id, new_email, created_at) VALUES (?, ?, ?, ?)"
+  ).run(token, userId, newEmail.toLowerCase().trim(), Date.now());
+}
+
+export function getEmailChangeToken(token) {
+  return db.prepare(
+    "SELECT * FROM email_change_tokens WHERE token = ? AND consumed = 0"
+  ).get(token);
+}
+
+export function consumeEmailChangeToken(token) {
+  return db.prepare("UPDATE email_change_tokens SET consumed = 1 WHERE token = ?").run(token);
+}
+
+export function updateUserEmail(userId, newEmail) {
+  return db.prepare("UPDATE users SET email = ? WHERE id = ?").run(newEmail.toLowerCase().trim(), userId);
+}
+
+// ─── Subscription pause/resume columns ───────────────────────────────────
+try { db.exec(`ALTER TABLE users ADD COLUMN subscription_paused_at INTEGER`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN subscription_paused_reason TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN previous_state TEXT`); } catch {}
+
+export function pauseSubscription(userId, reason) {
+  return db.prepare(
+    "UPDATE users SET subscription_paused_at = ?, subscription_paused_reason = ? WHERE id = ?"
+  ).run(Date.now(), reason, userId);
+}
+
+export function clearSubscriptionPause(userId) {
+  return db.prepare(
+    "UPDATE users SET subscription_paused_at = NULL, subscription_paused_reason = NULL WHERE id = ?"
+  ).run(userId);
 }
 
 export default db;

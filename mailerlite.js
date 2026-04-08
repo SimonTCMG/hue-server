@@ -101,6 +101,20 @@ export async function sendTransactional({ to, toName, subject, html }) {
   return res.ok;
 }
 
+// ─── Delete subscriber (for email change) ────────────────────────────────
+
+export async function deleteSubscriber(email) {
+  if (!process.env.MAILERLITE_API_KEY) return false;
+  // MailerLite API uses subscriber ID — look up by email first
+  const lookupRes = await mlFetch(`/subscribers/${encodeURIComponent(email.toLowerCase().trim())}`);
+  if (!lookupRes.ok) return false;
+  const data = await lookupRes.json();
+  const subscriberId = data?.data?.id;
+  if (!subscriberId) return false;
+  const delRes = await mlFetch(`/subscribers/${subscriberId}`, "DELETE");
+  return delRes.ok;
+}
+
 // ─── Group helpers ────────────────────────────────────────────────────────
 
 async function getOrCreateGroup(name) {

@@ -58,6 +58,12 @@ import db, {
   markInvitationRegistered,
   getInvitationsForOrg,
   getInvitationsForTeam,
+  createEmailChangeToken,
+  getEmailChangeToken,
+  consumeEmailChangeToken,
+  updateUserEmail,
+  pauseSubscription,
+  clearSubscriptionPause,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -162,6 +168,25 @@ app.get("/org/:orgId", sendApp);
   }
 }
 
+// ─── Team Hue Demo bootstrap (idempotent — runs once on first deploy) ────
+{
+  const HUE_DEMO_TEAM_ID = "hue-demo-team-001";
+  const existingDemo = getTeam(HUE_DEMO_TEAM_ID);
+  if (!existingDemo) {
+    createTeam(HUE_DEMO_TEAM_ID, "tcmg-org-001", "Team Hue Demo");
+    console.log("Team Hue Demo created within TCMG org");
+  }
+  // If Simon has already registered, ensure he is on this team too
+  const simon = getUserByEmail("simon@thechangemakergroup.com");
+  if (simon) {
+    const role = getUserRole(simon.id, HUE_DEMO_TEAM_ID);
+    if (!role) {
+      addTeamMember(simon.id, HUE_DEMO_TEAM_ID, "org-admin");
+      console.log("Simon added as org-admin on Team Hue Demo");
+    }
+  }
+}
+
 // ─── Session helper ────────────────────────────────────────────────────────
 
 function getUserFromCookie(req) {
@@ -182,6 +207,8 @@ function setUserCookie(res, userId) {
 function resolveUserState(user) {
   // Beta users (no user_state set) keep full access during the beta period
   if (!user.user_state) return "beta";
+  // Explicit beta-user state — full access, no trial check
+  if (user.user_state === "beta-user") return "beta-user";
   // If trial active, check whether it has expired
   if (user.user_state === "individual-trial-active") {
     const started = user.trial_started_at || user.registered_at;
@@ -241,11 +268,21 @@ app.post("/api/register", async (req, res) => {
     return res.json({ user: formatUserResponse(existing), alreadyRegistered: true });
   }
 
+  // Check if this email is in the BETA_EMAILS list (case-insensitive)
+  const betaEmails = (process.env.BETA_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+  const isBetaUser = betaEmails.includes(normalised);
+
   const id  = uuidv4();
   const now = Date.now();
   try {
-    createUser({ id, name: name.trim(), email: normalised, registered_at: now,
-                 trial_started_at: now, user_state: "individual-trial-active" });
+    createUser({
+      id,
+      name: name.trim(),
+      email: normalised,
+      registered_at: now,
+      trial_started_at: isBetaUser ? null : now,
+      user_state: isBetaUser ? "beta-user" : "individual-trial-active",
+    });
   } catch (err) {
     console.error("DB error on register:", err);
     return res.status(500).json({ error: "Could not create your account. Please try again." });
@@ -265,9 +302,10 @@ app.post("/api/register", async (req, res) => {
   }
 
   // Add to MailerLite (non-blocking)
-  upsertSubscriber({ name: name.trim(), email: normalised, userState: isOrgAutoPromoted ? "org-member-active" : "individual-trial-active" }).catch(console.error);
+  const mlState = isOrgAutoPromoted ? "org-member-active" : (isBetaUser ? "beta-user" : "individual-trial-active");
+  upsertSubscriber({ name: name.trim(), email: normalised, userState: mlState }).catch(console.error);
 
-  // Send welcome email — org welcome if auto-promoted, trial day 1 otherwise
+  // Send welcome email — org welcome if auto-promoted, beta welcome if beta, trial day 1 otherwise
   const firstName = name.trim().split(" ")[0];
   if (isOrgAutoPromoted) {
     sendEmail({
@@ -287,6 +325,11 @@ app.post("/api/register", async (req, res) => {
       recordOrgEmailSent(id, 0);
       console.log(`Org welcome email sent to ${normalised} (auto-promoted path)`);
     }).catch(err => console.error("Org welcome email failed:", err));
+  } else if (isBetaUser) {
+    // Beta welcome email — no trial sequence, no Stripe checkout
+    sendBetaWelcomeEmail(normalised, firstName).catch(err =>
+      console.error("Beta welcome email failed:", err)
+    );
   } else {
     const day1 = buildTrialEmail(1, { name: name.trim(), dominant_energy: null, assessment_completed_at: null });
     if (day1) {
@@ -324,21 +367,74 @@ app.post("/api/register-org", async (req, res) => {
   const existing = getUserByEmail(normalised);
 
   if (existing) {
-    // Auto-add to team if teamId provided and not already a member
-    if (teamId) {
-      const role = getUserRole(existing.id, teamId);
+    // Item 53: Returning user branch — attach to team, handle state transition
+    const targetTeam = teamId || getTeamsForOrg(orgCode.trim())[0]?.id;
+    if (targetTeam) {
+      const role = getUserRole(existing.id, targetTeam);
       if (!role) {
-        addTeamMember(existing.id, teamId, "member");
+        addTeamMember(existing.id, targetTeam, "member");
         if (existing.energy_scores) {
           try {
             const scores = JSON.parse(existing.energy_scores);
-            upsertTeamEnergyBands(existing.id, teamId, calculateBands(scores));
+            upsertTeamEnergyBands(existing.id, targetTeam, calculateBands(scores));
           } catch {}
         }
       }
     }
+    markInvitationRegistered(existing.email, orgCode.trim());
+
+    // State transition to org-member-active if not already
+    const previousState = existing.user_state;
+    const isReturningUser = !!existing.assessment_completed_at;
+    if (previousState !== "org-member-active") {
+      // Pause individual subscription if active (item 55)
+      if (previousState === "individual-subscriber" && stripe && existing.stripe_customer_id) {
+        try {
+          const subs = await stripe.subscriptions.list({ customer: existing.stripe_customer_id, status: "active", limit: 1 });
+          if (subs.data.length > 0) {
+            await stripe.subscriptions.update(subs.data[0].id, { pause_collection: { behavior: "void" } });
+            pauseSubscription(existing.id, "org_join");
+          }
+        } catch (err) { console.error("Sub pause on org register:", err); }
+      }
+      updateUserState(existing.id, "org-member-active", previousState);
+      upsertSubscriber({ name: existing.name, email: existing.email, userState: "org-member-active" }).catch(console.error);
+    }
+
+    // Email: welcome-back if returning, standard welcome if new (items 56-57)
+    const firstName = (existing.name || "").split(" ")[0];
+    const team = targetTeam ? getTeam(targetTeam) : null;
+    const teamName = team?.name || "your new team";
+    if (isReturningUser) {
+      sendEmail({
+        to: existing.email, toName: firstName,
+        subject: `Welcome back — you're now part of ${teamName}`,
+        html: orgOnboardingEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">You already know Hue — so we'll keep this short. You've been added to ${teamName}'s energy picture.</p>
+<p style="margin:0 0 16px">Your profile is exactly as you left it. Nothing has changed — it's still yours, still private. Your team sees only the aggregate energy picture, never your individual result.</p>`,
+          ctaText: "Visit your profile", ctaUrl: APP_URL,
+        }),
+      }).catch(err => console.error("Welcome-back email failed:", err));
+    } else if (!hasOrgEmailBeenSent(existing.id, 0)) {
+      sendEmail({
+        to: existing.email, toName: firstName,
+        subject: "Welcome to Hue — your profile is yours",
+        html: orgOnboardingEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you — an ongoing companion that helps you understand your own patterns over time.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you — not your employer. They see the team picture, never your individual result.</strong></p>
+<p style="margin:0 0 16px">When you're ready, start your first conversation. It takes about five minutes. There are no right or wrong answers — just honest ones.</p>`,
+          ctaText: "Start your first conversation", ctaUrl: APP_URL,
+        }),
+      }).then(() => recordOrgEmailSent(existing.id, 0)).catch(err => console.error("Org welcome failed:", err));
+    }
+
     setUserCookie(res, existing.id);
-    return res.json({ user: formatUserResponse(existing), alreadyRegistered: true });
+    const updatedUser = getUser(existing.id);
+    return res.json({ user: formatUserResponse(updatedUser), alreadyRegistered: true, returning: isReturningUser });
   }
 
   const id  = uuidv4();
@@ -407,6 +503,244 @@ app.post("/api/login", (req, res) => {
   return res.json({ user: formatUserResponse(user) });
 });
 
+// ─── Account continuity routes ──────────────────────────────────────────────
+
+// POST /api/account/change-email — initiate email change (item 52)
+app.post("/api/account/change-email", async (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+  const { newEmail } = req.body;
+  if (!newEmail?.trim()) return res.status(400).json({ error: "Please enter a new email address." });
+  const normalised = newEmail.toLowerCase().trim();
+  if (normalised === user.email) return res.status(400).json({ error: "That's already your current email." });
+  const existing = getUserByEmail(normalised);
+  if (existing) return res.status(400).json({ error: "That email is already in use." });
+
+  const token = uuidv4();
+  createEmailChangeToken(token, user.id, normalised);
+
+  const confirmUrl = `${APP_URL}/confirm-email/${token}`;
+  const firstName = (user.name || "").split(" ")[0] || "there";
+
+  // Send confirmation to new email
+  await sendEmail({
+    to: normalised,
+    toName: firstName,
+    subject: "Confirm your new Hue email",
+    html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#3D3630;padding:40px 20px">
+<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">You asked to change your Hue email address. Click below to confirm this is your new address.</p>
+<p style="margin:24px 0;text-align:center"><a href="${confirmUrl}" style="background:#3D3630;color:#FAF6F0;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:16px;display:inline-block">Confirm email change</a></p>
+<p style="margin:0 0 16px;color:#9B9080;font-size:14px">If you didn't request this, you can safely ignore this email.</p>
+</div>`,
+  });
+
+  // Send notification to old email (informational only — bounce is harmless)
+  sendEmail({
+    to: user.email,
+    toName: firstName,
+    subject: "Your Hue email address is being updated",
+    html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#3D3630;padding:40px 20px">
+<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">A request has been made to change your Hue email address. If this was you, no action is needed — the change completes when you confirm from your new address.</p>
+<p style="margin:0 0 16px">If this wasn't you, please sign in to your Hue account to secure it.</p>
+</div>`,
+  }).catch(() => {}); // Old email may bounce — that's fine
+
+  res.json({ ok: true, message: "Confirmation email sent to your new address." });
+});
+
+// GET /api/account/confirm-email/:token — complete email change (item 52)
+app.get("/api/account/confirm-email/:token", async (req, res) => {
+  const record = getEmailChangeToken(req.params.token);
+  if (!record) return res.redirect("/?email_change=invalid");
+
+  // Check token is less than 24h old
+  if (Date.now() - record.created_at > 24 * 60 * 60 * 1000) {
+    return res.redirect("/?email_change=expired");
+  }
+
+  const user = getUser(record.user_id);
+  if (!user) return res.redirect("/?email_change=invalid");
+
+  const oldEmail = user.email;
+  const newEmail = record.new_email;
+
+  // Update DB
+  updateUserEmail(user.id, newEmail);
+  consumeEmailChangeToken(req.params.token);
+
+  // Sync MailerLite — remove old, add new with all tags
+  try {
+    const { deleteSubscriber } = await import("./mailerlite.js");
+    await deleteSubscriber(oldEmail);
+    await upsertSubscriber({
+      name: user.name,
+      email: newEmail,
+      userState: user.user_state,
+      dominantEnergy: user.dominant_energy,
+      scores: user.energy_scores ? JSON.parse(user.energy_scores) : null,
+    });
+  } catch (err) {
+    console.error("MailerLite sync failed on email change:", err);
+  }
+
+  console.log(`Email changed for user ${user.id}: ${oldEmail} -> ${newEmail}`);
+  res.redirect("/?email_change=success");
+});
+
+// POST /api/account/join-org — returning user joins org team (item 53)
+// Called when a logged-in user claims an org invite
+app.post("/api/account/join-org", async (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+  const { orgCode, teamId } = req.body;
+  if (!orgCode) return res.status(400).json({ error: "Organisation code required." });
+
+  const org = getOrganisation(orgCode);
+  if (!org) return res.status(400).json({ error: "Organisation not found." });
+
+  const targetTeamId = teamId || getTeamsForOrg(orgCode)[0]?.id;
+  if (!targetTeamId) return res.status(400).json({ error: "No team found in this organisation." });
+
+  // Add to team if not already a member
+  const existingRole = getUserRole(user.id, targetTeamId);
+  if (!existingRole) {
+    addTeamMember(user.id, targetTeamId, "member");
+    // Push bands to team if profile exists
+    if (user.energy_scores) {
+      try {
+        const scores = JSON.parse(user.energy_scores);
+        upsertTeamEnergyBands(user.id, targetTeamId, calculateBands(scores));
+      } catch {}
+    }
+  }
+
+  markInvitationRegistered(user.email, orgCode);
+
+  // State transition — handle subscription pause (item 55) and email logic (item 56)
+  const previousState = user.user_state;
+  const isReturningUser = !!user.assessment_completed_at;
+
+  // Pause individual subscription if active (item 55)
+  if (previousState === "individual-subscriber" && stripe && user.stripe_customer_id) {
+    try {
+      const subs = await stripe.subscriptions.list({ customer: user.stripe_customer_id, status: "active", limit: 1 });
+      if (subs.data.length > 0) {
+        await stripe.subscriptions.update(subs.data[0].id, { pause_collection: { behavior: "void" } });
+        pauseSubscription(user.id, "org_join");
+        console.log(`Paused subscription for user ${user.id} on org join`);
+      }
+    } catch (err) {
+      console.error("Failed to pause subscription on org join:", err);
+    }
+  }
+
+  // Update state to org-member-active
+  updateUserState(user.id, "org-member-active", previousState);
+
+  // Email logic on state transition (item 56)
+  const firstName = (user.name || "").split(" ")[0];
+  const team = getTeam(targetTeamId);
+  const teamName = team?.name || "your new team";
+
+  if (isReturningUser) {
+    // Item 57 — welcome-back email (single, not 4-email sequence)
+    sendEmail({
+      to: user.email,
+      toName: firstName,
+      subject: `Welcome back — you're now part of ${teamName}`,
+      html: orgOnboardingEmailHtml({
+        firstName,
+        body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">You already know Hue — so we'll keep this short. You've been added to ${teamName}'s energy picture.</p>
+<p style="margin:0 0 16px">Your profile is exactly as you left it. Nothing has changed — it's still yours, still private. Your team sees only the aggregate energy picture, never your individual result.</p>
+<p style="margin:0 0 16px">If you haven't been back in a while, your companion remembers where you left off.</p>`,
+        ctaText: "Visit your profile",
+        ctaUrl: APP_URL,
+      }),
+    }).catch(err => console.error("Welcome-back email failed:", err));
+  } else {
+    // New to Hue — send standard org onboarding Email 1
+    sendEmail({
+      to: user.email,
+      toName: firstName,
+      subject: "Welcome to Hue — your profile is yours",
+      html: orgOnboardingEmailHtml({
+        firstName,
+        body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you — an ongoing companion that helps you understand your own patterns over time.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you — not your employer. They see the team picture, never your individual result.</strong></p>
+<p style="margin:0 0 16px">When you're ready, start your first conversation. It takes about five minutes. There are no right or wrong answers — just honest ones.</p>`,
+        ctaText: "Start your first conversation",
+        ctaUrl: APP_URL,
+      }),
+    }).then(() => {
+      recordOrgEmailSent(user.id, 0);
+    }).catch(err => console.error("Org welcome email failed:", err));
+  }
+
+  // Suppress trial emails if they were running (item 56)
+  // No action needed — the state change to org-member-active means the trial email cron
+  // already skips this user (it checks user_state !== "individual-trial-active")
+
+  // Sync MailerLite with new state
+  upsertSubscriber({ name: user.name, email: user.email, userState: "org-member-active" }).catch(console.error);
+
+  const updatedUser = getUser(user.id);
+  res.json({ user: formatUserResponse(updatedUser), joined: true });
+});
+
+// POST /api/account/lapse-org — handle org membership lapse (item 55 reverse)
+app.post("/api/account/lapse-org", async (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+
+  const previousState = user.user_state;
+  if (previousState !== "org-member-active") {
+    return res.status(400).json({ error: "User is not an active org member." });
+  }
+
+  // Check for paused subscription to resume (item 55)
+  if (user.subscription_paused_reason === "org_join" && stripe && user.stripe_customer_id) {
+    try {
+      const subs = await stripe.subscriptions.list({ customer: user.stripe_customer_id, status: "paused", limit: 1 });
+      if (subs.data.length > 0) {
+        await stripe.subscriptions.update(subs.data[0].id, { pause_collection: "" });
+        clearSubscriptionPause(user.id);
+        updateUserState(user.id, "individual-subscriber", previousState);
+        upsertSubscriber({ name: user.name, email: user.email, userState: "individual-subscriber" }).catch(console.error);
+        console.log(`Resumed subscription for user ${user.id} on org lapse`);
+        const updatedUser = getUser(user.id);
+        return res.json({ user: formatUserResponse(updatedUser), resumed: true });
+      }
+    } catch (err) {
+      console.error("Failed to resume subscription on org lapse:", err);
+    }
+  }
+
+  // No subscription to resume — move to trial-expired (they've seen the product)
+  updateUserState(user.id, "individual-trial-expired", previousState);
+  upsertSubscriber({ name: user.name, email: user.email, userState: "individual-trial-expired" }).catch(console.error);
+
+  // Send notification email
+  const firstName = (user.name || "").split(" ")[0];
+  sendEmail({
+    to: user.email,
+    toName: firstName,
+    subject: "Your team access has ended — your profile is still here",
+    html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#3D3630;padding:40px 20px">
+<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Your access through your team has ended, but your Hue profile is exactly where you left it — nothing is lost.</p>
+<p style="margin:0 0 16px">To keep going with your companion and your profile, you can subscribe individually. Everything you've explored carries forward.</p>
+<p style="margin:24px 0;text-align:center"><a href="${APP_URL}?subscribe=1" style="background:#3D3630;color:#FAF6F0;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:16px;display:inline-block">Keep going — £9.99/month</a></p>
+</div>`,
+  }).catch(err => console.error("Org lapse email failed:", err));
+
+  const updatedUser = getUser(user.id);
+  res.json({ user: formatUserResponse(updatedUser), lapsed: true });
+});
+
 // ─── Stripe routes ──────────────────────────────────────────────────────────
 
 // POST /api/create-checkout — creates a Stripe Checkout session (14-day trial, card required)
@@ -421,9 +755,21 @@ app.post("/api/create-checkout", async (req, res) => {
     || process.env.STRIPE_PRICE_MONTHLY;
   if (!priceId) return res.status(400).json({ error: "No Stripe price configured." });
   try {
+    // Item 54: Create Stripe customer for users without one (beta users, etc.)
+    let customerId = user.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name,
+        metadata: { hue_user_id: user.id },
+      });
+      customerId = customer.id;
+      updateStripeCustomer(user.id, customerId);
+      console.log(`Created Stripe customer ${customerId} for existing user ${user.id}`);
+    }
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      customer_email: user.email,
+      customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { trial_period_days: TRIAL_DAYS },
       success_url: `${process.env.APP_URL || "https://myhue.co"}/?checkout=success`,
@@ -1354,6 +1700,33 @@ function trialEmailHtml({ firstName, body, ctaText, ctaUrl }) {
 // Org onboarding emails use the same HTML wrapper as trial emails
 const orgOnboardingEmailHtml = trialEmailHtml;
 
+// ─── Beta welcome email ───────────────────────────────────────────────────
+
+async function sendBetaWelcomeEmail(email, firstName) {
+  const html = trialEmailHtml({
+    firstName,
+    body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Thank you for being one of the first people to try Hue. This is an early version \u2014 you are seeing it before almost anyone else, and that matters to us.</p>
+<p style="margin:0 0 16px">Hue discovers how you naturally show up across four colour energies \u2014 through a real conversation, not a quiz. It takes about five minutes. There are no right or wrong answers, just honest ones.</p>
+<p style="margin:0 0 16px">There is no time limit on your access. Explore at your own pace, come back whenever you like.</p>
+<p style="margin:0 0 16px">One thing we would genuinely value: your honest reaction. What feels right, what surprises you, what feels off \u2014 all of it helps. You can reply directly to this email any time.</p>`,
+    ctaText: "Start your first conversation",
+    ctaUrl: APP_URL,
+  });
+
+  const sent = await sendEmail({
+    to: email,
+    toName: firstName,
+    subject: `Welcome to Hue, ${firstName}`,
+    html: html.replace("{{EMAIL}}", email),
+  });
+
+  if (sent) {
+    console.log(`Beta welcome email sent to ${email}`);
+  }
+  return sent;
+}
+
 // ─── Org member onboarding email builder ──────────────────────────────────
 
 const ORG_EMAIL_DAYS = [3, 7, 14]; // Day 0 (welcome) is sent immediately at registration
@@ -1636,8 +2009,8 @@ async function sendTrialEmails() {
   const users = getUsersForTrialEmails();
 
   for (const user of users) {
-    // Skip beta users (no user_state) and already-converted/expired users
-    if (!user.user_state || user.user_state === "individual-subscriber" || user.user_state === "org-member-active") continue;
+    // Skip beta users (no user_state or explicit beta-user) and already-converted/expired users
+    if (!user.user_state || user.user_state === "beta-user" || user.user_state === "individual-subscriber" || user.user_state === "org-member-active") continue;
 
     const trialStart = user.trial_started_at || user.registered_at;
     if (!trialStart) continue;
