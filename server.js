@@ -146,6 +146,26 @@ app.get("/register-org", sendApp);
 app.get("/shared/:token", sendApp);
 app.get("/team/:teamId", sendApp);
 app.get("/org/:orgId", sendApp);
+app.get("/account-settings", sendApp);
+
+// ─── Temporary admin: delete user by email (remove after beta setup) ────────
+app.delete("/api/admin/delete-user/:email", (req, res) => {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== process.env.SESSION_SECRET) return res.status(403).json({ error: "Forbidden" });
+  const email = decodeURIComponent(req.params.email).toLowerCase().trim();
+  const user = getUserByEmail(email);
+  if (!user) return res.status(404).json({ error: "User not found" });
+  // Delete from all related tables
+  db.prepare("DELETE FROM team_energy_bands WHERE user_id = ?").run(user.id);
+  db.prepare("DELETE FROM team_members WHERE user_id = ?").run(user.id);
+  db.prepare("DELETE FROM conversation_summaries WHERE user_id = ?").run(user.id);
+  db.prepare("DELETE FROM one_sentences WHERE user_id = ?").run(user.id);
+  db.prepare("DELETE FROM trial_emails WHERE user_id = ?").run(user.id);
+  db.prepare("DELETE FROM org_emails WHERE user_id = ?").run(user.id);
+  db.prepare("DELETE FROM shared_profiles WHERE user_id = ?").run(user.id);
+  db.prepare("DELETE FROM users WHERE id = ?").run(user.id);
+  res.json({ ok: true, deleted: email });
+});
 
 // ─── TCMG org bootstrap (idempotent — runs once on first deploy) ──────────
 {
