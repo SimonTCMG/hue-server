@@ -283,9 +283,13 @@ db.exec(`
     name       TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     visibility TEXT DEFAULT 'full_team',
+    dashboard_revealed INTEGER DEFAULT 0,
     FOREIGN KEY (org_id) REFERENCES organisations(id)
   )
 `);
+
+// Migration: add dashboard_revealed if missing (existing DBs)
+try { db.exec("ALTER TABLE teams ADD COLUMN dashboard_revealed INTEGER DEFAULT 0"); } catch(e) { /* already exists */ }
 
 // A user can belong to multiple teams. Role per team.
 // Roles: org-admin (all teams in org), team-lead (their teams), member
@@ -396,6 +400,10 @@ export function getTeamsForUser(userId) {
 
 export function updateTeamVisibility(teamId, visibility) {
   return db.prepare("UPDATE teams SET visibility = ? WHERE id = ?").run(visibility, teamId);
+}
+
+export function revealDashboard(teamId) {
+  return db.prepare("UPDATE teams SET dashboard_revealed = 1 WHERE id = ?").run(teamId);
 }
 
 // ─── Pipeline 1: team energy bands ────────────────────────────────────────

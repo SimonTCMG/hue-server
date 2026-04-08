@@ -42,6 +42,7 @@ import db, {
   getTeam,
   getTeamsForOrg,
   updateTeamVisibility,
+  revealDashboard,
   addTeamMember,
   getTeamMembers,
   getTeamEnergyBands,
@@ -1053,11 +1054,15 @@ app.get("/api/team/:teamId", (req, res) => {
     };
   });
 
+  const totalMembers = members.length;
+  const completedMembers = memberList.filter(m => m.assessmentComplete).length;
+
   res.json({
-    team: { id: team.id, name: team.name, visibility: team.visibility, orgId: team.org_id },
+    team: { id: team.id, name: team.name, visibility: team.visibility, orgId: team.org_id, dashboardRevealed: !!team.dashboard_revealed },
     role,
     aggregate,
     members: memberList,
+    progress: { total: totalMembers, completed: completedMembers },
   });
 });
 
@@ -1079,6 +1084,21 @@ app.put("/api/team/:teamId/visibility", (req, res) => {
 
   updateTeamVisibility(teamId, visibility);
   res.json({ ok: true, visibility });
+});
+
+// Reveal team dashboard (team-lead or org-admin only) — permanent, cannot be undone
+app.put("/api/team/:teamId/reveal", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId } = req.params;
+  const role = getUserRole(user.id, teamId);
+  if (!role || role === "member") {
+    return res.status(403).json({ error: "Only team leads and org admins can reveal the dashboard" });
+  }
+
+  revealDashboard(teamId);
+  res.json({ ok: true, dashboardRevealed: true });
 });
 
 // ─── Org admin endpoints ─────────────────────────────────────────────────────
