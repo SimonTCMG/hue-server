@@ -1327,7 +1327,7 @@ app.put("/api/org/:orgId/team/:teamId/lead", (req, res) => {
 
 // ─── Trial email sequence ────────────────────────────────────────────────────
 
-const APP_URL = process.env.APP_URL || "https://myhue.co";
+const APP_URL = (process.env.APP_URL || "https://myhue.co").replace(/\/+$/, "");
 const TRIAL_EMAIL_DAYS = [1, 3, 5, 7, 10, 12, 13, 14];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
