@@ -1772,6 +1772,22 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [expandedCards, setExpandedCards] = useState({});
       const toggleCard = (id) => setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
 
+      // Reusable truncated text component for observation cards
+      function TruncatedObs({ text, maxChars = 300, color = C.stone, fontSize }) {
+        const [expanded, setExpanded] = useState(false);
+        const t = truncateAtSentence(text, maxChars);
+        const needs = t.full !== null;
+        return React.createElement(React.Fragment, null,
+          React.createElement("p", {
+            style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: fontSize || 14, lineHeight: 1.7, color: C.ink, margin: 0, whiteSpace: "pre-line" }
+          }, colorize(expanded || !needs ? text : t.short)),
+          needs && React.createElement("button", {
+            onClick: (ev) => { ev.stopPropagation(); setExpanded(e => !e); },
+            style: { background: "none", border: "none", padding: 0, marginTop: 8, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px" }
+          }, expanded ? "Read less" : "Read more")
+        );
+      }
+
       // Truncate text at a sentence boundary near maxChars
       function truncateAtSentence(text, maxChars = 300) {
         if (!text || text.length <= maxChars) return { short: text, full: null };
@@ -2020,11 +2036,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                         letterSpacing: "0.08em", textTransform: "uppercase",
                         color: primary.color, margin: "0 0 10px",
                       }}>When you reach for <EnergyWord name={obs.flexEnergy} /> energy</p>
-                      <p style={{
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
-                        color: C.ink, margin: 0,
-                      }}>{colorize(obs.flex)}</p>
+                      <TruncatedObs text={obs.flex} color={primary.color} fontSize={isDesktop ? 15 : 14} />
                     </div>
                     <div style={{
                       background: "#fff", borderRadius: 20,
@@ -2038,11 +2050,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                         letterSpacing: "0.08em", textTransform: "uppercase",
                         color: primary.color, margin: "0 0 10px",
                       }}>You might surprise people</p>
-                      <p style={{
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
-                        color: C.ink, margin: 0,
-                      }}>{colorize(obs.surprise)}</p>
+                      <TruncatedObs text={obs.surprise} color={primary.color} fontSize={isDesktop ? 15 : 14} />
                     </div>
                   </div>
 
@@ -2067,11 +2075,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                            card.type === "nearEqual"    ? card.label :
                            "Your profile shape"}
                         </p>
-                        <p style={{
-                          fontFamily: "'Plus Jakarta Sans', sans-serif",
-                          fontSize: isDesktop ? 15 : 14, lineHeight: 1.7,
-                          color: C.ink, margin: 0, whiteSpace: "pre-line",
-                        }}>{colorize(card.text)}</p>
+                        <TruncatedObs text={card.text} color={card.type === "misread" ? primary.color : C.stone} fontSize={isDesktop ? 15 : 14} />
                       </div>
                     </div>
                   ))}
