@@ -54,6 +54,10 @@ import db, {
   hasOrgEmailBeenSent,
   recordOrgEmailSent,
   getOrgMembersForEmails,
+  recordInvitation,
+  markInvitationRegistered,
+  getInvitationsForOrg,
+  getInvitationsForTeam,
 } from "./db.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
@@ -331,6 +335,7 @@ app.post("/api/register-org", async (req, res) => {
     const team = getTeam(teamId);
     if (team && team.org_id === orgCode.trim()) {
       addTeamMember(id, teamId, assignRole);
+      markInvitationRegistered(normalised, orgCode.trim());
     }
   } else {
     // No specific team — add to first team in the org
@@ -1054,7 +1059,12 @@ app.get("/api/team/:teamId", (req, res) => {
     };
   });
 
-  const totalMembers = members.length;
+  // Include pending invitations for this team
+  const pendingInvites = getInvitationsForTeam(teamId)
+    .filter(inv => inv.status === "invited")
+    .filter(inv => !memberList.some(m => m.name && members.find(mm => mm.email === inv.email)));
+
+  const totalExpected = members.length + pendingInvites.length;
   const completedMembers = memberList.filter(m => m.assessmentComplete).length;
 
   res.json({
@@ -1062,7 +1072,8 @@ app.get("/api/team/:teamId", (req, res) => {
     role,
     aggregate,
     members: memberList,
-    progress: { total: totalMembers, completed: completedMembers },
+    pendingInvitations: pendingInvites.map(inv => ({ email: inv.email, invitedAt: inv.invited_at })),
+    progress: { total: totalExpected, completed: completedMembers, registered: members.length, invited: pendingInvites.length },
   });
 });
 
@@ -1180,10 +1191,16 @@ app.get("/api/org/:orgId", (req, res) => {
     memberMap[m.id].teams.push({ teamId: m.team_id, teamName: m.team_name, role: m.role });
   }
 
+  // Get pending invitations (not yet registered)
+  const invitations = getInvitationsForOrg(orgId)
+    .filter(inv => inv.status === "invited")
+    .filter(inv => !Object.values(memberMap).some(m => m.email === inv.email));
+
   res.json({
     org: { id: org.id, name: org.name },
     teams: teams.map(t => ({ id: t.id, name: t.name, visibility: t.visibility })),
     members: Object.values(memberMap),
+    pendingInvitations: invitations.map(inv => ({ email: inv.email, teamId: inv.team_id, invitedAt: inv.invited_at })),
   });
 });
 
@@ -1241,6 +1258,9 @@ app.post("/api/org/:orgId/invite", (req, res) => {
       ctaUrl: inviteUrl,
     }),
   }).catch(err => console.error("Invite email failed:", err));
+
+  // Track the invitation
+  recordInvitation(email, orgId, teamId, user.id);
 
   res.json({ ok: true, status: "invited" });
 });

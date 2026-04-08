@@ -322,6 +322,46 @@ db.exec(`
   )
 `);
 
+// ─── Invitations tracking ─────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS invitations (
+    email      TEXT NOT NULL,
+    org_id     TEXT NOT NULL,
+    team_id    TEXT NOT NULL,
+    invited_by TEXT NOT NULL,
+    invited_at INTEGER NOT NULL,
+    status     TEXT DEFAULT 'invited',
+    PRIMARY KEY (email, org_id),
+    FOREIGN KEY (org_id) REFERENCES organisations(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+  )
+`);
+
+export function recordInvitation(email, orgId, teamId, invitedBy) {
+  return db.prepare(
+    `INSERT OR REPLACE INTO invitations (email, org_id, team_id, invited_by, invited_at, status)
+     VALUES (?, ?, ?, ?, ?, 'invited')`
+  ).run(email.toLowerCase().trim(), orgId, teamId, invitedBy, Date.now());
+}
+
+export function markInvitationRegistered(email, orgId) {
+  return db.prepare(
+    "UPDATE invitations SET status = 'registered' WHERE email = ? AND org_id = ?"
+  ).run(email.toLowerCase().trim(), orgId);
+}
+
+export function getInvitationsForOrg(orgId) {
+  return db.prepare(
+    "SELECT * FROM invitations WHERE org_id = ? ORDER BY invited_at DESC"
+  ).all(orgId);
+}
+
+export function getInvitationsForTeam(teamId) {
+  return db.prepare(
+    "SELECT * FROM invitations WHERE team_id = ? ORDER BY invited_at DESC"
+  ).all(teamId);
+}
+
 // ─── Band calculation ─────────────────────────────────────────────────────
 // Input: raw scores object { spark: N, glow: N, tend: N, flow: N }
 // Output: bands object { spark: "label", glow: "label", tend: "label", flow: "label" }

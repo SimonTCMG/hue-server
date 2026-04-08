@@ -3078,7 +3078,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         React.createElement("button", { onClick: onBack, style: { marginTop: 24, background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99, padding: "12px 28px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer", color: C.ink } }, "Back")
       );
 
-      const { team, role, aggregate, members, progress } = data;
+      const { team, role, aggregate, members, progress, pendingInvitations = [] } = data;
 
       // ─── Dashboard reveal gate ─────────────────────────────────────────────
       // Dashboard stays hidden until team lead reveals it. Permanent once revealed.
@@ -3372,7 +3372,15 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   ),
                   m.role !== "member" && React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}44`, padding: "3px 10px", borderRadius: 99, flexShrink: 0 } }, m.role === "org-admin" ? "Admin" : "Lead")
                 );
-              })
+              }),
+              // Pending invitations on team dashboard (visible to team lead)
+              isLead && pendingInvitations.length > 0 && React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.sand}` } },
+                React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.stone, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 } }, "Invited \u2014 not yet registered"),
+                pendingInvitations.map(inv => React.createElement("div", { key: inv.email, style: { display: "flex", alignItems: "center", gap: 12, padding: "6px 0" } },
+                  React.createElement("div", { style: { width: 36, height: 36, borderRadius: "50%", background: `${C.sand}33`, border: `2px dashed ${C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.stone, flexShrink: 0 } }, "\u2709"),
+                  React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone } }, inv.email)
+                ))
+              )
             )
           ),
 
@@ -3525,7 +3533,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         React.createElement("button", { onClick: onBack, style: { marginTop: 16, background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99, padding: "12px 28px", cursor: "pointer" } }, "Back")
       );
 
-      const { org, teams, members: membersList } = data;
+      const { org, teams, members: membersList, pendingInvitations = [] } = data;
 
       const statusLabel = (m) => {
         if (m.assessmentComplete) return { text: "Profile complete", col: C.tend };
@@ -3620,7 +3628,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           // ─── Member list ───
           React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}` } },
             React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 20 } },
-              `All members (${membersList.length})`
+              `All members (${membersList.length})${pendingInvitations.length > 0 ? ` \u00B7 ${pendingInvitations.length} invited` : ""}`
             ),
             membersList.length === 0
               ? React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, fontStyle: "italic" } }, "No members yet. Use the invite form above to add people.")
@@ -3642,7 +3650,20 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                       React.createElement("button", { onClick: () => handleRemoveMember(m.userId), style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, cursor: "pointer", padding: "6px 10px" } }, "Remove")
                     );
                   })
-                )
+                ),
+            // Pending invitations
+            pendingInvitations.length > 0 && React.createElement("div", { style: { marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.sand}` } },
+              React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.stone, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 } }, "Invited \u2014 not yet registered"),
+              React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+                pendingInvitations.map(inv => React.createElement("div", { key: inv.email, style: { display: "flex", alignItems: "center", gap: 12, padding: "8px 0" } },
+                  React.createElement("div", { style: { width: 36, height: 36, borderRadius: "50%", background: `${C.sand}33`, border: `2px dashed ${C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.stone } }, "\u2709"),
+                  React.createElement("div", { style: { flex: 1 } },
+                    React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone } }, inv.email),
+                    React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.sand } }, "Invited " + new Date(inv.invitedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }))
+                  )
+                ))
+              )
+            )
           )
         )
       );
