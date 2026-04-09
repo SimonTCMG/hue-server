@@ -1302,9 +1302,9 @@ async function generateEmailContent(user) {
   const contentType = CONTENT_TYPES[new Date().getDay() % CONTENT_TYPES.length];
 
   const contentInstruction = {
-    "A thought for today":    "Write a single observation or insight — something concrete worth noticing today.",
-    "A question to sit with": "Write a single question for them to sit with today. No answer needed.",
-    "A small experiment":     "Suggest one small, specific thing to try today. Make it concrete and doable.",
+    "A thought for today":    "Write a single observation worth noticing today. Concrete, specific to their profile, not generic.",
+    "A question to sit with": "Write a single question for them to sit with today. Specific to their profile. No answer needed, no follow-up.",
+    "A small experiment":     "Name one small, specific thing they might notice today about how they naturally show up. Frame as an observation to look out for, never as advice or a prescription.",
   }[contentType];
 
   const system = `You are Hue — a trusted friend who has been paying very close attention. You are writing 1–3 sentences for a daily email.
@@ -1793,7 +1793,7 @@ function buildOrgEmail(dayNumber, user) {
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
 <p style="margin:0 0 16px">You tend to reach for ${energy} first. It\u2019s where you go without thinking \u2014 the thing that shows up before anyone asks.</p>
-<p style="margin:0 0 16px">${developingEnergy ? `${developingEnergy} sits somewhere different for you. Not absent \u2014 just reached for with more intention. When you bring it deliberately, people notice.` : "The energy you reach for least has more room to surprise you than any of the others."}</p>
+<p style="margin:0 0 16px">${developingEnergy ? `${developingEnergy} sits somewhere different for you. You reach for it with more intention, and when you bring it deliberately, people notice.` : "The energy you reach for least has more room to surprise you than any of the others."}</p>
 <p style="margin:0 0 16px">When you\u2019re ready, bring something real to the companion. It knows your profile and remembers what you\u2019ve explored.</p>`,
           ctaText: "Continue your conversation",
           ctaUrl: appUrl,
@@ -1822,7 +1822,7 @@ function buildOrgEmail(dayNumber, user) {
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
 <p style="margin:0 0 16px">You\u2019ve had your profile for two weeks. The companion is where Hue gets interesting \u2014 it knows your energy picture and remembers what you\u2019ve talked about.</p>
-<p style="margin:0 0 16px">Not therapy. Not coaching. Just a specific, informed conversation that gets more useful the more you use it.</p>
+<p style="margin:0 0 16px">A specific, informed conversation that gets more useful the more you use it.</p>
 <p style="margin:0 0 16px">${energy ? `Try bringing something real \u2014 a situation, a decision, something you\u2019re mulling over. See what your ${energy} energy looks like in context.` : "Try bringing something real \u2014 a situation, a decision, something you\u2019re mulling over."}</p>`,
           ctaText: "Continue your conversation",
           ctaUrl: appUrl,
@@ -1902,16 +1902,16 @@ function buildTrialEmail(dayNumber, user) {
 
     case 3:
       return {
-        subject: "What we're starting to understand about you",
+        subject: energy ? `A first reflection on your ${energy} energy` : "A first reflection on your colour energy",
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">By now, something is starting to take shape. ${energy
-  ? `You tend to reach for ${energy} energy naturally — it shows up in how you described the situations that matter most to you.`
-  : "The conversations so far are starting to reveal how you show up."}</p>
-<p style="margin:0 0 16px">There are more conversations waiting. Each one adds something different — a fuller picture of you across different contexts, pressures, and relationships.</p>
-<p style="margin:0 0 16px">No rush. Your 14 days are running from when you signed up.</p>`,
-          ctaText: "Continue exploring",
+<p style="margin:0 0 16px">${energy
+  ? `You tend to reach for ${energy} first — it's where you go without thinking.`
+  : "Something is starting to take shape in how you show up."}</p>
+<p style="margin:0 0 16px">There's more waiting whenever you want it. Each conversation adds something different — how you show up across contexts, pressures, and relationships.</p>
+<p style="margin:0 0 16px">No rush. Your 14 days run from when you signed up.</p>`,
+          ctaText: "Continue your conversation",
           ctaUrl: appUrl,
         }),
       };
@@ -1933,15 +1933,15 @@ function buildTrialEmail(dayNumber, user) {
 
     case 7:
       return {
-        subject: "Halfway. Here's what's taking shape.",
+        subject: "Halfway through",
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
 <p style="margin:0 0 16px">You're halfway through your 14 days.</p>
 ${user.assessment_completed_at
-  ? `<p style="margin:0 0 16px">You've built a picture of yourself that most people never have — specific, grounded in how you actually behave, not how you think you should. That's rare.</p>
-<p style="margin:0 0 16px">The companion is here to keep working with what you've found. Come back whenever something's on your mind.</p>`
-  : `<p style="margin:0 0 16px">The conversation is still here, waiting. There's no pressure to rush — but what you'd find in the next hour is worth more than most things on your calendar today.</p>`}`,
+  ? `<p style="margin:0 0 16px">You've got a picture of yourself that's grounded in how you actually behave — not how you think you should. The companion is here to keep working with what you've found.</p>
+<p style="margin:0 0 16px">Come back whenever something's on your mind.</p>`
+  : `<p style="margin:0 0 16px">The conversation is still here whenever you want it. Takes about five minutes. No rush.</p>`}`,
           ctaText: "Open Hue",
           ctaUrl: appUrl,
         }),
@@ -1949,12 +1949,12 @@ ${user.assessment_completed_at
 
     case 10:
       return {
-        subject: "Four days left \u2014 something worth knowing",
+        subject: "Four days left",
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
 <p style="margin:0 0 16px">Four days to go. On day 14 the app pauses \u2014 but your profile stays put. Nothing goes anywhere.</p>
-<p style="margin:0 0 16px">The companion gets more useful the longer it runs. What it can do at six months isn\u2019t what it can do at 14 days \u2014 it gets sharper, more specific to you.</p>
+<p style="margin:0 0 16px">The companion gets sharper the longer it runs. It learns your shape, remembers what you\u2019ve explored, and meets you where you are next time.</p>
 <p style="margin:0 0 16px"><strong>\u00a39.99 a month, or \u00a379 for the year.</strong> Subscribe now or wait until day 14 \u2014 either is fine.</p>`,
           ctaText: "Subscribe to continue",
           ctaUrl: `${appUrl}?subscribe=1`,
@@ -1997,7 +1997,7 @@ ${user.assessment_completed_at
   "${t.quote}"
 </blockquote>
 <p style="margin:0 0 12px;font-weight:600;color:#3D3630">\u2014 ${t.name}</p>
-<p style="margin:0 0 16px">That\u2019s what the companion does over time. Not more insight \u2014 sharper language for what you already know about yourself.</p>
+<p style="margin:0 0 16px">That\u2019s what the companion does over time. It gives you sharper language for what you already know about yourself.</p>
 <p style="margin:0 0 16px">Your trial ends in two days. Subscribe to keep going.</p>`,
           ctaText: "Subscribe \u2014 \u00A39.99/month",
           ctaUrl: `${appUrl}?subscribe=1`,
