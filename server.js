@@ -1444,21 +1444,27 @@ app.get("/api/team/:teamId", (req, res) => {
   const bands = getTeamEnergyBands(teamId);
 
   // Build member list with initials and instinctive energy colour (never raw scores)
+  // Instinctive energy resolution order:
+  //   1. u.dominant_energy (stored label from assessment — always present for completed users)
+  //   2. band-derived fallback: first "Naturally present" → first "Intentionally present" → first "Developing"
+  // Both paths stay within the team-layer pipeline rule (band/label data, not raw scores).
+  const BAND_RANK = { "Naturally present": 3, "Intentionally present": 2, "Developing": 1 };
+  const ENERGY_ORDER = ["spark", "glow", "tend", "flow"];
   const memberList = members.map(m => {
     const band = bands.find(b => b.user_id === m.user_id);
+    let instinctive = m.dominant_energy || null;
+    if (!instinctive && band) {
+      instinctive = ENERGY_ORDER
+        .map(e => ({ e, r: BAND_RANK[band[`${e}_band`]] || 0 }))
+        .sort((a, b) => b.r - a.r)[0].e;
+    }
     return {
       userId: m.user_id,
       name: m.name,
       initials: m.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2),
       role: m.role,
       assessmentComplete: !!band,
-      // Instinctive energy = the one with "Naturally present" band (or first if multiple)
-      instinctiveEnergy: band ? (
-        band.spark_band === "Naturally present" ? "spark" :
-        band.glow_band === "Naturally present" ? "glow" :
-        band.tend_band === "Naturally present" ? "tend" :
-        band.flow_band === "Naturally present" ? "flow" : null
-      ) : null,
+      instinctiveEnergy: band ? instinctive : null,
       bands: band ? {
         spark: band.spark_band,
         glow: band.glow_band,

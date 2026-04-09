@@ -423,7 +423,7 @@ export function addTeamMember(userId, teamId, role = "member") {
 
 export function getTeamMembers(teamId) {
   return db.prepare(
-    `SELECT tm.user_id, tm.role, tm.added_at, u.name, u.email
+    `SELECT tm.user_id, tm.role, tm.added_at, u.name, u.email, u.dominant_energy
      FROM team_members tm
      JOIN users u ON u.id = tm.user_id
      WHERE tm.team_id = ?
