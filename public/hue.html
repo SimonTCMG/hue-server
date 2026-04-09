@@ -2336,7 +2336,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         } else {
           // First visit, no history — simple hardcoded opener, no API call needed
           const primary = ranked[0];
-          setDisplay([{ from: "hue", text: `Your full colour profile is here. You tend to reach for ${primary.name} first — your Instinctive energy. What would you like to explore?` }]);
+          setDisplay([{ from: "hue", text: `I've got your colours. What's on your mind?` }]);
         }
       }, [summaries]);
 
@@ -3627,6 +3627,25 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 8 } }, "Invite members"),
             React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, margin: "0 0 16px", lineHeight: 1.5 } },
               "Enter one email address, or paste several separated by commas, semicolons, or one per line. Maximum 50 at a time."
+            ),
+            // ─── Manual invite link (copy and send yourself) ───
+            React.createElement("div", { style: { background: `${C.sand}22`, borderRadius: 12, padding: "12px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+              React.createElement("div", { style: { flex: 1, minWidth: 200 } },
+                React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.ink, margin: "0 0 2px" } }, "Or share the link yourself"),
+                React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, margin: 0, lineHeight: 1.4 } }, "Useful if an invite lands in spam. The link is the same for everyone joining this team.")
+              ),
+              React.createElement("button", {
+                onClick: () => {
+                  const link = `${window.location.origin}/register-org?org=${orgId}&team=${inviteTeamId || (teams[0] && teams[0].id)}`;
+                  navigator.clipboard.writeText(link).then(() => {
+                    setInviteMsg({ type: "success", text: "Invite link copied to clipboard" });
+                    setTimeout(() => setInviteMsg(null), 3000);
+                  }).catch(() => {
+                    setInviteMsg({ type: "error", text: "Could not copy. Link: " + link });
+                  });
+                },
+                style: { background: "none", border: `1.5px solid ${C.ink}`, color: C.ink, borderRadius: 99, padding: "8px 16px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }
+              }, "Copy invite link")
             ),
             !inviteConfirmList && React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" } },
               React.createElement("div", { style: { flex: 1, minWidth: 200 } },
