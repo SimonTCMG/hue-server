@@ -219,6 +219,21 @@ Hue speaks to someone who already knows themselves. The observation confirms, it
 - **"Arc"** in anything user-facing
 - **"Lead with"** as a verb tied to one colour — implies others follow or are lesser
 
+### Reserved words — spark, glow, tend, flow
+These four words are the names of the Hue energies. They must not appear as plain English verbs, nouns, or adjectives anywhere in Hue-authored text. Using them in any other sense risks confusing users who will read them as energy names.
+
+**Never write:**
+- "you tend to reach for…" (use: you often / you naturally / you frequently)
+- "that could spark something interesting" (use: ignite / trigger / open up)
+- "the conversation has a natural flow" (use: rhythm / momentum / ease)
+- "there's a warm glow to how you show up" (rewrite the sentence)
+- "you tend toward your Tend energy" (same word in two senses — never)
+- "things flow well when you reach for Flow" (plain and energy-name in one sentence — never)
+
+**Exception:** If a user uses one of these words in their own message, the companion may echo it back once within that response as natural conversation. The companion must not then build further sentences that continue using the word in its plain sense.
+
+Full rules and alternatives table: `hue-language-guide-v1.md` section 1a.
+
 ### Approved reach label set (energy position labels)
 | Position | Label |
 |----------|-------|
@@ -432,6 +447,15 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 55. ✅ Subscription pause/resume: org join pauses active sub via Stripe API (`pause_collection`), org lapse auto-resumes. `subscription_paused_at` and `subscription_paused_reason` columns added. `/api/account/lapse-org` endpoint
 56. ✅ Email sequence logic: state transitions suppress/redirect emails correctly — trial suppressed on org join, subscriber sequence pauses while org-covered, nurture sequence for lapsed with no sub
 57. ✅ Welcome-back email: single email for returning users joining org, suppresses 4-email sequence when `assessment_completed_at` exists
+
+**Polish and voice pass (9 April morning):**
+
+58. ✅ Member list mobile fix: Admin/Lead pill wrapped with name row instead of end-of-row, energy band dots allowed to wrap, no more overlap on narrow screens
+59. ✅ Daily email copy: "your profile is right here whenever you want to explore this further" → "whenever you want to pick this up, I'm here" (voice-aligned, not misleading about destination)
+60. ✅ Companion opener: "Your full colour profile is here. You tend to reach for X first — your Instinctive energy. What would you like to explore?" → "I've got your colours. What's on your mind?" (chattier, no reserved-word collision, no overpromise about what the companion shows)
+61. ✅ Copy invite link button: org admin can grab the team invite link and send it manually via any channel (Slack, WhatsApp, direct email) — fallback for when automated invites go to spam
+62. ✅ Reserved words rule enforced in all three AI system prompts in server.js (assessment, companion, daily email generation): spark / glow / tend / flow are energy names only, with replacement table
+63. ✅ Dashboard reveal gate verified on production: TCMG team confirmed `dashboardRevealed: false`, visibility toggle correctly hidden from org admin until reveal (by design — reveal is the gate, visibility is the post-reveal cultural choice)
 
 ---
 
