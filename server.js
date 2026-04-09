@@ -330,13 +330,13 @@ app.post("/api/register", async (req, res) => {
     sendEmail({
       to: normalised,
       toName: firstName,
-      subject: "Welcome to Hue \u2014 your profile is yours",
+      subject: "You\u2019re in. Here\u2019s where to start.",
       html: orgOnboardingEmailHtml({
         firstName,
         body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you \u2014 an ongoing companion that helps you understand your own patterns over time.</p>
-<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
-<p style="margin:0 0 16px">When you\u2019re ready, start your first conversation. It takes about five minutes. There are no right or wrong answers \u2014 just honest ones.</p>`,
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation \u2014 not a quiz \u2014 you\u2019ll discover how you naturally show up across four colour energies. Then Hue stays with you as an ongoing companion.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
+<p style="margin:0 0 16px">Takes about five minutes. No right or wrong answers \u2014 just honest ones.</p>`,
         ctaText: "Start your first conversation",
         ctaUrl: APP_URL,
       }),
@@ -427,25 +427,25 @@ app.post("/api/register-org", async (req, res) => {
     if (isReturningUser) {
       sendEmail({
         to: existing.email, toName: firstName,
-        subject: `Welcome back — you're now part of ${teamName}`,
+        subject: `Welcome back \u2014 you're now part of ${teamName}`,
         html: orgOnboardingEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">You already know Hue — so we'll keep this short. You've been added to ${teamName}'s energy picture.</p>
-<p style="margin:0 0 16px">Your profile is exactly as you left it. Nothing has changed — it's still yours, still private. Your team sees only the aggregate energy picture, never your individual result.</p>`,
-          ctaText: "Visit your profile", ctaUrl: APP_URL,
+<p style="margin:0 0 16px">You already know Hue \u2014 so we\u2019ll keep this short. You\u2019re now part of ${teamName}\u2019s energy picture.</p>
+<p style="margin:0 0 16px">Your profile is exactly as you left it. Still yours, still private. Your team sees only the aggregate \u2014 never your individual result.</p>`,
+          ctaText: "Continue your conversation", ctaUrl: APP_URL,
         }),
       }).catch(err => console.error("Welcome-back email failed:", err));
     } else if (!hasOrgEmailBeenSent(existing.id, 0)) {
       sendEmail({
         to: existing.email, toName: firstName,
-        subject: "Welcome to Hue — your profile is yours",
+        subject: "You\u2019re in. Here\u2019s where to start.",
         html: orgOnboardingEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you — an ongoing companion that helps you understand your own patterns over time.</p>
-<p style="margin:0 0 16px"><strong>Your profile belongs to you — not your employer. They see the team picture, never your individual result.</strong></p>
-<p style="margin:0 0 16px">When you're ready, start your first conversation. It takes about five minutes. There are no right or wrong answers — just honest ones.</p>`,
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation \u2014 not a quiz \u2014 you\u2019ll discover how you naturally show up across four colour energies. Then Hue stays with you as an ongoing companion.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
+<p style="margin:0 0 16px">Takes about five minutes. No right or wrong answers \u2014 just honest ones.</p>`,
           ctaText: "Start your first conversation", ctaUrl: APP_URL,
         }),
       }).then(() => recordOrgEmailSent(existing.id, 0)).catch(err => console.error("Org welcome failed:", err));
@@ -492,13 +492,13 @@ app.post("/api/register-org", async (req, res) => {
   sendEmail({
     to: normalised,
     toName: firstName,
-    subject: "Welcome to Hue \u2014 your profile is yours",
+    subject: "You\u2019re in. Here\u2019s where to start.",
     html: orgOnboardingEmailHtml({
       firstName,
       body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you \u2014 an ongoing companion that helps you understand your own patterns over time.</p>
-<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
-<p style="margin:0 0 16px">When you\u2019re ready, start your first conversation. It takes about five minutes. There are no right or wrong answers \u2014 just honest ones.</p>`,
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation \u2014 not a quiz \u2014 you\u2019ll discover how you naturally show up across four colour energies. Then Hue stays with you as an ongoing companion.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
+<p style="margin:0 0 16px">Takes about five minutes. No right or wrong answers \u2014 just honest ones.</p>`,
       ctaText: "Start your first conversation",
       ctaUrl: APP_URL,
     }),
@@ -668,14 +668,14 @@ app.post("/api/account/join-org", async (req, res) => {
     sendEmail({
       to: user.email,
       toName: firstName,
-      subject: `Welcome back — you're now part of ${teamName}`,
+      subject: `Welcome back \u2014 you're now part of ${teamName}`,
       html: orgOnboardingEmailHtml({
         firstName,
         body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">You already know Hue — so we'll keep this short. You've been added to ${teamName}'s energy picture.</p>
-<p style="margin:0 0 16px">Your profile is exactly as you left it. Nothing has changed — it's still yours, still private. Your team sees only the aggregate energy picture, never your individual result.</p>
-<p style="margin:0 0 16px">If you haven't been back in a while, your companion remembers where you left off.</p>`,
-        ctaText: "Visit your profile",
+<p style="margin:0 0 16px">You already know Hue \u2014 so we\u2019ll keep this short. You\u2019re now part of ${teamName}\u2019s energy picture.</p>
+<p style="margin:0 0 16px">Your profile is exactly as you left it. Still yours, still private. Your team sees only the aggregate \u2014 never your individual result.</p>
+<p style="margin:0 0 16px">If it\u2019s been a while, your companion remembers where you left off.</p>`,
+        ctaText: "Continue your conversation",
         ctaUrl: APP_URL,
       }),
     }).catch(err => console.error("Welcome-back email failed:", err));
@@ -684,13 +684,13 @@ app.post("/api/account/join-org", async (req, res) => {
     sendEmail({
       to: user.email,
       toName: firstName,
-      subject: "Welcome to Hue — your profile is yours",
+      subject: "You\u2019re in. Here\u2019s where to start.",
       html: orgOnboardingEmailHtml({
         firstName,
         body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation, Hue identifies how you tend to show up across four colour energy dimensions. Then it stays with you — an ongoing companion that helps you understand your own patterns over time.</p>
-<p style="margin:0 0 16px"><strong>Your profile belongs to you — not your employer. They see the team picture, never your individual result.</strong></p>
-<p style="margin:0 0 16px">When you're ready, start your first conversation. It takes about five minutes. There are no right or wrong answers — just honest ones.</p>`,
+<p style="margin:0 0 16px">Welcome to Hue. Through a short conversation \u2014 not a quiz \u2014 you\u2019ll discover how you naturally show up across four colour energies. Then Hue stays with you as an ongoing companion.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
+<p style="margin:0 0 16px">Takes about five minutes. No right or wrong answers \u2014 just honest ones.</p>`,
         ctaText: "Start your first conversation",
         ctaUrl: APP_URL,
       }),
@@ -747,12 +747,12 @@ app.post("/api/account/lapse-org", async (req, res) => {
   sendEmail({
     to: user.email,
     toName: firstName,
-    subject: "Your team access has ended — your profile is still here",
+    subject: "Your profile is still here",
     html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#3D3630;padding:40px 20px">
 <p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Your access through your team has ended, but your Hue profile is exactly where you left it — nothing is lost.</p>
-<p style="margin:0 0 16px">To keep going with your companion and your profile, you can subscribe individually. Everything you've explored carries forward.</p>
-<p style="margin:24px 0;text-align:center"><a href="${APP_URL}?subscribe=1" style="background:#3D3630;color:#FAF6F0;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:16px;display:inline-block">Keep going — £9.99/month</a></p>
+<p style="margin:0 0 16px">Your team access has ended \u2014 but your profile is exactly where you left it. Nothing is lost.</p>
+<p style="margin:0 0 16px">If you want to keep going with your companion, you can pick up individually. Everything you\u2019ve explored carries forward.</p>
+<p style="margin:24px 0;text-align:center"><a href="${APP_URL}?subscribe=1" style="background:#3D3630;color:#FAF6F0;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:16px;display:inline-block">Keep going \u2014 \u00a39.99/month</a></p>
 </div>`,
   }).catch(err => console.error("Org lapse email failed:", err));
 
@@ -1016,7 +1016,7 @@ app.post("/api/one-sentence", async (req, res) => {
     .map(m => m.content)
     .join("\n");
 
-  const system = `You are Hue. Based on this assessment conversation, write one sentence — one only — that distils who this person is at their energetic core.
+  const system = `You are Hue — a trusted friend who has been paying very close attention. Based on this assessment conversation, write one sentence — one only — that distils who this person is at their energetic core.
 
 This is the sentence they will screenshot and share. It must be:
 - One sentence. Not two. Not a sentence with a semicolon or em dash hiding a second thought.
@@ -1024,6 +1024,13 @@ This is the sentence they will screenshot and share. It must be:
 - Second person (you, your)
 - Something that would feel uncanny to read back — specific enough that they think "how did it know that?"
 - Designed to be read aloud and felt, not just understood
+
+Voice rules (non-negotiable — follow hue-voice-v1.md):
+- Never use "This isn't X, it's Y" — banned AI construction
+- Never "unlock", "dominant", "a [energy] person"
+- Energies are verbs: "tends toward", "reaches for" — never fixed identity
+- Autonomy voice: confirm something they already sensed, don't define them
+- Read it aloud: does it sound like something a warm, intelligent person would actually say to someone they respect? If not, rewrite it.
 
 This is not a summary. Not a profile description. A recognition of something true about this specific person.
 
@@ -1086,17 +1093,21 @@ app.post("/api/bespoke-observation", async (req, res) => {
     .map(m => `${m.role === "user" ? "Person" : "Hue"}: ${m.content}`)
     .join("\n\n");
 
-  const system = `You are Hue. Based on this assessment conversation and colour energy scores, write one observation about this specific person that could only be written about them — drawn from something concrete in what they said: a specific moment, situation, phrase, or pattern that emerged in the conversation.
+  const system = `You are Hue — a trusted friend who has been paying very close attention. Based on this assessment conversation and colour energy scores, write one observation about this specific person that could only be written about them — drawn from something concrete in what they said: a specific moment, situation, phrase, or pattern that emerged in the conversation.
 
-This is the "only you" moment in their profile. It should feel weirdly specific — not a description of their energy in general, but something that references what they actually said.
+This is the "only you" moment in their profile. It should feel weirdly specific — not a description of their energy in general, but something that references what they actually said. It should land like: "how did it know that?"
 
-Rules:
+Voice rules (non-negotiable — follow hue-voice-v1.md):
 - 2–3 sentences only
 - Second person (you, your)
-- Warm and precise — not clinical
-- Do not name an energy directly
-- Do not use "This isn't X, it's Y" or "That's not X, it's Y"
-- Draw from a specific detail in the conversation — not a generic observation that could apply to anyone with this profile
+- Warm and precise — conversational, not clinical, not formal
+- Read it aloud: does it sound like something a warm, intelligent person would actually say to someone they respect? If not, rewrite it.
+- Never open with affirmation
+- Never use "This isn't X, it's Y" or "That's not X, it's Y" — banned AI construction
+- Never "unlock", "arc", "dominant", "a [energy] person"
+- Autonomy voice: confirm something they already sensed, don't tell them who they are. Offer the mirror, not the interpretation.
+- Do not name an energy directly — the observation should feel human, not clinical
+- Draw from a specific detail in the conversation — not a generic observation that could apply to anyone
 - Plain prose only`;
 
   const prompt = `Their colour energy profile (ranked):\n${ranked.map((e, i) => `${i + 1}. ${e.name}: ${e.pct}%`).join("\n")}\n\nThe assessment conversation:\n${transcript}\n\nWrite the observation.`;
@@ -1296,18 +1307,23 @@ async function generateEmailContent(user) {
     "A small experiment":     "Suggest one small, specific thing to try today. Make it concrete and doable.",
   }[contentType];
 
-  const system = `You are Hue, a warm and curious colour energy companion. You are writing 1–3 sentences for a daily email.
+  const system = `You are Hue — a trusted friend who has been paying very close attention. You are writing 1–3 sentences for a daily email.
 
 ${contentInstruction}
 
 This person's colour energy profile (ranked by preference):
 ${ranked.map(e => `- ${e.name}: ${e.label} (${e.pct}%)`).join("\n")}
 
-Rules:
-- 1–3 sentences only — nothing more
-- Warm and human, never corporate or clinical
-- Always "tends toward", "naturally reaches for" — never "you are a [energy] person"
-- Draw on their specific profile in a concrete, surprising way
+Voice rules (non-negotiable — follow hue-voice-v1.md):
+- Read it aloud test: does it sound like something a warm, intelligent person would actually say to someone they respect? If not, rewrite it.
+- 1–3 sentences only — chatty, not formal. Plain English, not jargon.
+- Never open with affirmation ("That's interesting", "Great question", "What a lovely reflection")
+- Never advise, prescribe, or tell them what to do — notice, reflect, ask, step back
+- Never "This isn't X. It's Y." — this is banned AI construction
+- Never "unlock", "arc", "dominant type", "a [energy] person", "lead with", "complete your profile"
+- Energies are verbs: "tends toward", "naturally reaches for", "shows up with" — never "you are a [energy] person" or "your dominant energy is"
+- Celebrate all four energies equally — never frame Developing as a weakness or gap
+- Draw on something specific from their profile — if it could be sent to anyone, rewrite it
 - No sign-off, no salutation, no subject line
 - Plain prose only`;
 
@@ -1640,9 +1656,9 @@ app.post("/api/org/:orgId/invite", (req, res) => {
     html: trialEmailHtml({
       firstName: email.split("@")[0],
       body: `<p style="margin:0 0 16px">${user.name} has invited you to join <strong>${team.name}</strong> on Hue.</p>
-<p style="margin:0 0 16px">Hue is a short conversation that identifies how you tend to show up across four colour energy dimensions. It takes about five minutes, and there are no right or wrong answers. Afterwards, you get a profile with specific observations about your energy patterns \u2014 and an ongoing companion that helps you make sense of them over time.</p>
-<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
-<p style="margin:0 0 16px">Your individual scores, observations, and companion conversations are completely private. The team dashboard shows only the aggregate energy picture \u2014 which energies the team tends to reach for collectively.</p>`,
+<p style="margin:0 0 16px">Hue is a short conversation \u2014 not a quiz \u2014 that discovers how you naturally show up across four colour energies. Takes about five minutes. No right or wrong answers. Afterwards you get a profile with observations specific to you, plus an ongoing companion that helps you make sense of them.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
+<p style="margin:0 0 16px">Your scores, observations, and companion conversations are completely private. Your team sees only the aggregate \u2014 which energies the team tends to reach for together.</p>`,
       ctaText: `Join ${team.name}`,
       ctaUrl: inviteUrl,
     }),
@@ -1725,10 +1741,10 @@ async function sendBetaWelcomeEmail(email, firstName) {
   const html = trialEmailHtml({
     firstName,
     body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Thank you for being one of the first people to try Hue. This is an early version \u2014 you are seeing it before almost anyone else, and that matters to us.</p>
-<p style="margin:0 0 16px">Hue discovers how you naturally show up across four colour energies \u2014 through a real conversation, not a quiz. It takes about five minutes. There are no right or wrong answers, just honest ones.</p>
-<p style="margin:0 0 16px">There is no time limit on your access. Explore at your own pace, come back whenever you like.</p>
-<p style="margin:0 0 16px">One thing we would genuinely value: your honest reaction. What feels right, what surprises you, what feels off \u2014 all of it helps. You can reply directly to this email any time.</p>`,
+<p style="margin:0 0 16px">Thanks for being one of the first. You\u2019re seeing Hue before almost anyone else \u2014 and that really does matter to us.</p>
+<p style="margin:0 0 16px">Hue discovers how you naturally show up across four colour energies, through a real conversation rather than a quiz. Takes about five minutes. No right or wrong answers \u2014 just honest ones.</p>
+<p style="margin:0 0 16px">No clock on your access. Come back whenever you like, explore at your own pace.</p>
+<p style="margin:0 0 16px">One ask: tell us what you think. What feels right, what surprises you, what feels off. Just reply to this email any time \u2014 we read every one.</p>`,
     ctaText: "Start your first conversation",
     ctaUrl: APP_URL,
   });
@@ -1772,43 +1788,43 @@ function buildOrgEmail(dayNumber, user) {
     case 3:
       if (!energy) return null; // Can't send personalised email without assessment
       return {
-        subject: `Your ${energy} energy \u2014 and what the other three are telling us`,
+        subject: `A first reflection on your ${energy} energy`,
         html: orgOnboardingEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Your conversation with Hue revealed something worth sitting with. You tend to reach for ${energy} energy first \u2014 it\u2019s where you go naturally, often without thinking about it.</p>
-<p style="margin:0 0 16px">${developingEnergy ? `Your ${developingEnergy} energy sits in a different place. Not absent \u2014 but not instinctive. This is where deliberate practice produces the most visible change. When you consciously reach for ${developingEnergy}, people notice.` : "The energy you reach for least isn\u2019t missing \u2014 it\u2019s where deliberate practice produces the most visible change."}</p>
-<p style="margin:0 0 16px">The companion knows your profile. Bring it a real situation and see what it reflects back.</p>`,
-          ctaText: "Talk to the companion",
+<p style="margin:0 0 16px">You tend to reach for ${energy} first. It\u2019s where you go without thinking \u2014 the thing that shows up before anyone asks.</p>
+<p style="margin:0 0 16px">${developingEnergy ? `${developingEnergy} sits somewhere different for you. Not absent \u2014 just reached for with more intention. When you bring it deliberately, people notice.` : "The energy you reach for least has more room to surprise you than any of the others."}</p>
+<p style="margin:0 0 16px">When you\u2019re ready, bring something real to the companion. It knows your profile and remembers what you\u2019ve explored.</p>`,
+          ctaText: "Continue your conversation",
           ctaUrl: appUrl,
         }),
       };
 
     case 7:
       return {
-        subject: "What your employer sees \u2014 and what they don\u2019t",
+        subject: "What your team sees \u2014 and what they don\u2019t",
         html: orgOnboardingEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">You might be wondering what your employer can see. Here\u2019s the short answer: the team picture, never your individual result.</p>
-<p style="margin:0 0 16px">Your employer sees an aggregate \u2014 which energies the team tends to reach for collectively. They never see your individual scores, your personal observations, or anything from your companion conversations. Those are yours.</p>
-<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer. They see the team picture, never your individual result.</strong></p>
-<p style="margin:0 0 16px">The companion is completely private. Whatever you bring to it stays between you and Hue.</p>`,
-          ctaText: "Continue the conversation",
+<p style="margin:0 0 16px">Quick note about what\u2019s shared and what isn\u2019t.</p>
+<p style="margin:0 0 16px">Your team sees the aggregate picture \u2014 which energies the team tends to reach for together. They never see your individual scores, your observations, or anything from your companion conversations.</p>
+<p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
+<p style="margin:0 0 16px">Whatever you bring to the companion stays between you and Hue.</p>`,
+          ctaText: "Continue your conversation",
           ctaUrl: appUrl,
         }),
       };
 
     case 14:
       return {
-        subject: "Two weeks in \u2014 here\u2019s what Hue can do from here",
+        subject: "Two weeks in \u2014 what the companion can do from here",
         html: orgOnboardingEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">You\u2019ve had your profile for two weeks now. The companion is the part of Hue that continues the conversation \u2014 it knows your energy picture, remembers what you\u2019ve talked about, and can help you think through real situations using the lens of your profile.</p>
-<p style="margin:0 0 16px">It\u2019s not therapy. It\u2019s not coaching. It\u2019s a specific, informed conversation that gets more useful the more you use it.</p>
-<p style="margin:0 0 16px">${energy ? `Try bringing something real \u2014 a situation you\u2019re navigating, a relationship you\u2019re thinking about, a decision you\u2019re weighing. See what your ${energy} energy looks like in context.` : "Try bringing something real \u2014 a situation you\u2019re navigating, a relationship you\u2019re thinking about, a decision you\u2019re weighing."}</p>`,
-          ctaText: "Talk to the companion",
+<p style="margin:0 0 16px">You\u2019ve had your profile for two weeks. The companion is where Hue gets interesting \u2014 it knows your energy picture and remembers what you\u2019ve talked about.</p>
+<p style="margin:0 0 16px">Not therapy. Not coaching. Just a specific, informed conversation that gets more useful the more you use it.</p>
+<p style="margin:0 0 16px">${energy ? `Try bringing something real \u2014 a situation, a decision, something you\u2019re mulling over. See what your ${energy} energy looks like in context.` : "Try bringing something real \u2014 a situation, a decision, something you\u2019re mulling over."}</p>`,
+          ctaText: "Continue your conversation",
           ctaUrl: appUrl,
         }),
       };
@@ -1902,15 +1918,15 @@ function buildTrialEmail(dayNumber, user) {
 
     case 5:
       return {
-        subject: `The energy that shapes how ${energyLine} shows up`,
+        subject: `The combinations are where it gets interesting`,
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Every energy looks and feels different depending on what sits next to it. ${energy
-  ? `The way your ${energy} energy shows up is shaped by whatever sits alongside it.`
-  : "Your instinctive energy is shaped by everything that sits alongside it."}</p>
-<p style="margin:0 0 16px">The next conversation looks at exactly that. It's worth going in directly — the combinations are where the most specific, most useful observations come from.</p>`,
-          ctaText: "Continue the conversation",
+<p style="margin:0 0 16px">${energy
+  ? `Your ${energy} energy doesn\u2019t show up in isolation. What it looks like depends on whatever sits next to it.`
+  : "The energy you reach for first doesn\u2019t show up in isolation. What it looks like depends on whatever sits next to it."}</p>
+<p style="margin:0 0 16px">The next conversation is about exactly that \u2014 how your energies combine in practice. That\u2019s where the most specific observations come from.</p>`,
+          ctaText: "Continue your conversation",
           ctaUrl: appUrl,
         }),
       };
@@ -1933,14 +1949,13 @@ ${user.assessment_completed_at
 
     case 10:
       return {
-        subject: "Four days left — and something worth knowing",
+        subject: "Four days left \u2014 something worth knowing",
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Your trial ends in four days. On day 14, the app pauses. Your profile doesn't go anywhere — it waits for you.</p>
-<p style="margin:0 0 16px">Subscribing keeps the conversation going. The companion builds a relationship with you over time — what's available at six months isn't available at 14 days. It gets more specific, more useful, the longer it runs.</p>
-<p style="margin:0 0 16px"><strong>£9.99 a month.</strong> Or £79 for the year — that's two months free.</p>
-<p style="margin:0 0 16px">One clear call to action: subscribe now, or wait until day 14. Both are fine.</p>`,
+<p style="margin:0 0 16px">Four days to go. On day 14 the app pauses \u2014 but your profile stays put. Nothing goes anywhere.</p>
+<p style="margin:0 0 16px">The companion gets more useful the longer it runs. What it can do at six months isn\u2019t what it can do at 14 days \u2014 it gets sharper, more specific to you.</p>
+<p style="margin:0 0 16px"><strong>\u00a39.99 a month, or \u00a379 for the year.</strong> Subscribe now or wait until day 14 \u2014 either is fine.</p>`,
           ctaText: "Subscribe to continue",
           ctaUrl: `${appUrl}?subscribe=1`,
         }),
@@ -1992,14 +2007,14 @@ ${user.assessment_completed_at
 
     case 13:
       return {
-        subject: "Tomorrow your trial ends — your profile is safe",
+        subject: "Your trial ends tomorrow \u2014 your profile is safe",
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Tomorrow your trial ends. The product pauses.</p>
-<p style="margin:0 0 16px">Your Hue profile — everything you've explored, every observation, your full energy picture — is saved. It isn't going anywhere. If you choose to subscribe, you pick up exactly where you left off. If you don't, your profile waits.</p>
+<p style="margin:0 0 16px">Tomorrow your trial ends and the product pauses.</p>
+<p style="margin:0 0 16px">Your profile \u2014 everything you\u2019ve explored, every observation, your full energy picture \u2014 is saved. It isn\u2019t going anywhere. Subscribe and you pick up exactly where you left off. Don\u2019t, and your profile waits.</p>
 <p style="margin:0 0 16px">Nothing is lost. Nothing expires.</p>
-<p style="margin:0 0 16px">£9.99 a month. £79 a year. One button below.</p>`,
+<p style="margin:0 0 16px">\u00a39.99 a month. \u00a379 a year. One button below.</p>`,
           ctaText: "Subscribe to continue",
           ctaUrl: `${appUrl}?subscribe=1`,
         }),
@@ -2007,14 +2022,14 @@ ${user.assessment_completed_at
 
     case 14:
       return {
-        subject: "Your trial has ended",
+        subject: "Your profile is still here",
         html: trialEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">Your 14-day trial has ended. The product is now paused — but your profile is here whenever you're ready.</p>
-<p style="margin:0 0 16px">Everything you explored is saved. Subscribing gives you back the companion, the daily practice, and the full conversation — exactly where you left off.</p>
+<p style="margin:0 0 16px">Your 14 days are up. The product is paused \u2014 but your profile is still here, exactly as you left it.</p>
+<p style="margin:0 0 16px">Subscribe and you pick up where you left off. Everything\u2019s saved \u2014 the companion, your observations, the full energy picture.</p>
 <p style="margin:0 0 16px">No pressure. The door stays open.</p>`,
-          ctaText: "Subscribe to continue",
+          ctaText: "Keep going \u2014 \u00a39.99/month",
           ctaUrl: `${appUrl}?subscribe=1`,
         }),
       };
