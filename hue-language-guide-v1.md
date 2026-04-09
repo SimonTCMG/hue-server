@@ -23,6 +23,8 @@ This is the technical vocabulary reference — energy names, hex codes, renderin
 
 **Colour-coded rendering rule:** Wherever the words Spark, Glow, Tend, and Flow appear in the web app, emails, or any digital output, they must be rendered in their energy colour. An `<EnergyWord>` component handles this in the app. Plain text documents are exempt.
 
+**Glow rendering note:** Glow text on light backgrounds uses `#C49A00` (`glowOnLight`). Brand fill colour `#F5D000` is for fills only (bars, dots, backgrounds, canvas card). This applies in the app, emails, and any digital output where Glow appears as text. The `EnergyWord` component and `colorize()` helper use `glowOnLight` for Glow.
+
 **Canonical quadrant order (clockwise from top-left):** Spark · Glow · Tend · Flow
 
 ---

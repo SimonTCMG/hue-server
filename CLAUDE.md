@@ -183,6 +183,10 @@ Every person has access to all four. The assessment measures preference — whic
 
 **Colour-coded energy words:** Wherever the words Spark, Glow, Tend, and Flow appear in the web app, emails, or any digital output, they must be rendered in their energy colour. This is a non-negotiable design standard. An `<EnergyWord>` component (or equivalent) handles this. Plain text contexts (e.g. this document) are exempt.
 
+**Glow rendering — two contexts (decided 9 April 2026):**
+`#F5D000` — fill colour only: bars, progress fills, dot/circle fills, card backgrounds, canvas result card.
+`#C49A00` (`glowOnLight`) — text and labels on light backgrounds only: `EnergyWord` component, `colorize()` helper, constellation label, companion header label, results card title, any Glow text on cream/white/glowLight surfaces. Never render Glow text in `#F5D000` on a light background. This is a system-wide standard.
+
 ---
 
 ## VOICE AND COPY
@@ -810,6 +814,8 @@ Access priority rule (checked in this order):
 ## WHAT NOT TO DO
 
 **All user-facing copy rules are in `hue-voice-v1.md`.** Read that document before writing any text a user will see. The banned phrasing list, autonomy voice rules, energy description rules, and accessibility test all live there.
+
+**Banned companion phrases (added April 2026):** "sit with", "sit with you", "sit with that", "what feels most alive", "most alive for you", "what feels most alive to talk about". Also banned: offering a topic menu (listing options and asking which the person wants to discuss). The companion picks one thread and asks about it specifically.
 
 **Architecture and code rules (not covered by voice doc):**
 - Do not call the energy Tend "Root" — Root is retired as an energy name
