@@ -27,6 +27,42 @@ This is the technical vocabulary reference — energy names, hex codes, renderin
 
 ---
 
+## 1a. Reserved Words — Spark, Glow, Tend, Flow
+
+The words **spark**, **glow**, **tend**, and **flow** are the names of the four energies. Because they are ordinary English words in common use, they carry a high risk of confusion if used in any other sense within Hue copy, UI text, companion responses, or communications. A user who reads "you tend to spark your instincts" is navigating two energy names and an unintended third meaning simultaneously.
+
+**The rule:** These four words are reserved. They must only appear as energy names — capitalised, colour-rendered where applicable, and referring specifically to the Hue energy. They must never be used as plain English verbs, nouns, or adjectives in any Hue-authored text.
+
+**Code implementation note:** This applies to all user-facing output — UI labels, companion responses, observation text, onboarding copy, emails, and any other text the product generates or displays. The rule does not apply when reflecting the user's own words back to them (see exception below).
+
+### What to avoid
+
+| ✗ Do not write | Why |
+|----------------|-----|
+| "You tend to reach for Spark energy" | "tend" used as a plain verb while also being an energy name |
+| "That idea could spark something" | "spark" used as a plain verb while also being an energy name |
+| "The conversation has a natural flow" | "flow" used as a plain noun |
+| "There's a warm glow to how you show up" | "glow" used as a descriptive noun |
+| "You tend toward your Tend energy" | same word used in two different senses in one phrase |
+| "Things flow well when you reach for Flow" | plain and energy-name uses in the same sentence |
+
+### What to use instead
+
+Replace reserved words used as plain English with alternatives that carry no energy-name risk:
+
+| Reserved word (plain use) | Alternatives |
+|--------------------------|--------------|
+| spark (verb/noun) | ignite, energy, drive, impulse — or rewrite the sentence |
+| tend (to) | often, frequently, naturally, usually, typically, characteristically |
+| flow (noun/verb) | rhythm, momentum, ease, move, progress, run |
+| glow (noun/verb) | warmth, presence, quality, radiance — or rewrite the sentence |
+
+### The one exception — reflecting the user's own words
+
+If a user says "I feel like I flow through conversations easily" or "I tend to overthink," the companion may echo their exact phrasing back to them within the same response. This is natural conversation, not a Hue-authored statement, and the brief repetition is acceptable. The companion must not then build further sentences that continue using the word in its plain sense.
+
+---
+
 ## 2. The Autonomy Voice
 
 *Now fully covered in `hue-voice-v1.md` section 2. See that document for the complete autonomy voice rules.*
@@ -38,10 +74,12 @@ This is the technical vocabulary reference — energy names, hex codes, renderin
 ### Describing energy expression
 | Use | Never use |
 |-----|-----------|
-| tends toward | is |
-| naturally reaches for | has |
+| naturally reaches for | is |
+| often draws on | has |
 | feels most at home when | always |
-| often draws on | never |
+| instinctively goes to | never |
+
+*Note: "tends toward" is banned — "tend" is a reserved word (see section 1a). Use "naturally reaches for" or "often draws on" instead.*
 | shows up with | leads with (tied to one colour) |
 | instinctively reaches for | can't |
 | their version of [energy] | their [energy] |

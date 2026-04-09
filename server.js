@@ -1028,7 +1028,8 @@ This is the sentence they will screenshot and share. It must be:
 Voice rules (non-negotiable — follow hue-voice-v1.md):
 - Never use "This isn't X, it's Y" — banned AI construction
 - Never "unlock", "dominant", "a [energy] person"
-- Energies are verbs: "tends toward", "reaches for" — never fixed identity
+- Reserved words rule: the words "spark", "glow", "tend", "flow" are energy names ONLY. Never use them as plain English verbs, nouns, or adjectives. Not "tend to", "natural flow", "could spark", "warm glow". Alternatives: tend→often/naturally/usually; spark→ignite/trigger; flow→rhythm/momentum; glow→warmth/presence.
+- Energies: say "reaches for X", "naturally reaches for X" — never "tends toward" (collides with Tend)
 - Autonomy voice: confirm something they already sensed, don't define them
 - Read it aloud: does it sound like something a warm, intelligent person would actually say to someone they respect? If not, rewrite it.
 
@@ -1105,6 +1106,7 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
 - Never open with affirmation
 - Never use "This isn't X, it's Y" or "That's not X, it's Y" — banned AI construction
 - Never "unlock", "arc", "dominant", "a [energy] person"
+- Reserved words rule: the words "spark", "glow", "tend", "flow" are energy names ONLY. Never use them as plain English verbs, nouns, or adjectives. Not "tend to", "natural flow", "could spark", "warm glow". Alternatives: tend→often/naturally/usually; spark→ignite/trigger; flow→rhythm/momentum; glow→warmth/presence.
 - Autonomy voice: confirm something they already sensed, don't tell them who they are. Offer the mirror, not the interpretation.
 - Do not name an energy directly — the observation should feel human, not clinical
 - Draw from a specific detail in the conversation — not a generic observation that could apply to anyone
@@ -1321,7 +1323,9 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
 - Never advise, prescribe, or tell them what to do — notice, reflect, ask, step back
 - Never "This isn't X. It's Y." — this is banned AI construction
 - Never "unlock", "arc", "dominant type", "a [energy] person", "lead with", "complete your profile"
-- Energies are verbs: "tends toward", "naturally reaches for", "shows up with" — never "you are a [energy] person" or "your dominant energy is"
+- Reserved words rule: the words "spark", "glow", "tend", "flow" are energy names ONLY. Never use them as plain English verbs, nouns, or adjectives. Not "tend to", "natural flow", "could spark", "warm glow". Alternatives: tend→often/naturally/usually; spark→ignite/trigger; flow→rhythm/momentum; glow→warmth/presence.
+- Energies: "reaches for", "naturally reaches for", "shows up with" — never "you are a [energy] person" or "your dominant energy is". Do not say "tends toward" — the word "tend" collides with the energy name Tend.
+- Reserved words rule: the words "spark", "glow", "tend", "flow" are energy names ONLY. Never use them as plain English verbs, nouns, or adjectives. Not "tend to", "natural flow", "could spark", "warm glow". Alternatives: tend→often/naturally/usually; spark→ignite/trigger; flow→rhythm/momentum; glow→warmth/presence.
 - Celebrate all four energies equally — never frame Developing as a weakness or gap
 - Draw on something specific from their profile — if it could be sent to anyone, rewrite it
 - No sign-off, no salutation, no subject line
@@ -1658,7 +1662,7 @@ app.post("/api/org/:orgId/invite", (req, res) => {
       body: `<p style="margin:0 0 16px">${user.name} has invited you to join <strong>${team.name}</strong> on Hue.</p>
 <p style="margin:0 0 16px">Hue is a short conversation \u2014 not a quiz \u2014 that discovers how you naturally show up across four colour energies. Takes about five minutes. No right or wrong answers. Afterwards you get a profile with observations specific to you, plus an ongoing companion that helps you make sense of them.</p>
 <p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
-<p style="margin:0 0 16px">Your scores, observations, and companion conversations are completely private. Your team sees only the aggregate \u2014 which energies the team tends to reach for together.</p>`,
+<p style="margin:0 0 16px">Your scores, observations, and companion conversations are completely private. Your team sees only the aggregate \u2014 which energies the team reaches for together.</p>`,
       ctaText: `Join ${team.name}`,
       ctaUrl: inviteUrl,
     }),
@@ -1792,7 +1796,7 @@ function buildOrgEmail(dayNumber, user) {
         html: orgOnboardingEmailHtml({
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
-<p style="margin:0 0 16px">You tend to reach for ${energy} first. It\u2019s where you go without thinking \u2014 the thing that shows up before anyone asks.</p>
+<p style="margin:0 0 16px">You reach for ${energy} first. It\u2019s where you go without thinking \u2014 the thing that shows up before anyone asks.</p>
 <p style="margin:0 0 16px">${developingEnergy ? `${developingEnergy} sits somewhere different for you. You reach for it with more intention, and when you bring it deliberately, people notice.` : "The energy you reach for least has more room to surprise you than any of the others."}</p>
 <p style="margin:0 0 16px">When you\u2019re ready, bring something real to the companion. It knows your profile and remembers what you\u2019ve explored.</p>`,
           ctaText: "Continue your conversation",
@@ -1807,7 +1811,7 @@ function buildOrgEmail(dayNumber, user) {
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
 <p style="margin:0 0 16px">Quick note about what\u2019s shared and what isn\u2019t.</p>
-<p style="margin:0 0 16px">Your team sees the aggregate picture \u2014 which energies the team tends to reach for together. They never see your individual scores, your observations, or anything from your companion conversations.</p>
+<p style="margin:0 0 16px">Your team sees the aggregate picture \u2014 which energies the team reaches for together. They never see your individual scores, your observations, or anything from your companion conversations.</p>
 <p style="margin:0 0 16px"><strong>Your profile belongs to you \u2014 not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.</strong></p>
 <p style="margin:0 0 16px">Whatever you bring to the companion stays between you and Hue.</p>`,
           ctaText: "Continue your conversation",
@@ -1907,7 +1911,7 @@ function buildTrialEmail(dayNumber, user) {
           firstName,
           body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
 <p style="margin:0 0 16px">${energy
-  ? `You tend to reach for ${energy} first — it's where you go without thinking.`
+  ? `You reach for ${energy} first — it's where you go without thinking.`
   : "Something is starting to take shape in how you show up."}</p>
 <p style="margin:0 0 16px">There's more waiting whenever you want it. Each conversation adds something different — how you show up across contexts, pressures, and relationships.</p>
 <p style="margin:0 0 16px">No rush. Your 14 days run from when you signed up.</p>`,
