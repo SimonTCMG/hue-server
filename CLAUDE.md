@@ -298,7 +298,7 @@ The results experience must celebrate all four energies with equal presence — 
 **Team dashboard — all data displayed in bands, never percentages:** The three bands are Naturally present / Intentionally present / Developing. Raw percentages exist in the data model but never surface in the UI under any circumstances. This is non-negotiable.
 
 **Team dashboard — two strict data pipelines, architecturally separate:**
-- Pipeline 1 (team layer): receives energy band per member only. Produces aggregate picture, 32-dimension panel, gap radar, constellation, new hire modeller. Never contains individual scores, behavioural patterns, or longitudinal data.
+- Pipeline 1 (team layer): receives energy band per member plus the user's stored `dominant_energy` label (both are band-level labels, never raw scores). Produces aggregate picture, 32-dimension panel, gap radar, constellation, new hire modeller. Never contains individual scores, behavioural patterns, or longitudinal data. `dominant_energy` is the canonical source for each member's instinctive energy colour on the dashboard — avatar rings, constellation nodes, member list initials. This matches what the user sees on their own results screen, and works for every profile shape including those whose top energy doesn't reach the "Naturally present" band threshold.
 - Pipeline 2 (personal companion): receives full individual profile and history. Never crosses into the team layer. Ever.
 Individual behavioural patterns (overstretch, check-ins, longitudinal observations) go only to the individual via their companion — never to the team layer or the team lead.
 
@@ -461,6 +461,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 62. ✅ Reserved words rule enforced in all three AI system prompts in server.js (assessment, companion, daily email generation): spark / glow / tend / flow are energy names only, with replacement table
 63. ✅ Dashboard reveal gate verified on production: TCMG team confirmed `dashboardRevealed: false`, visibility toggle correctly hidden from org admin until reveal (by design — reveal is the gate, visibility is the post-reveal cultural choice)
 64. ✅ Glow two-context rendering: `#F5D000` for fills/borders, `#C8960C` (glowOnLight) for text on light backgrounds — system-wide
+65. ✅ Team dashboard instinctive energy: uses stored `dominant_energy` (band-level label) with band-rank fallback — fixes faint/missing avatar colour for members whose top energy isn't "Naturally present"
 
 ---
 
