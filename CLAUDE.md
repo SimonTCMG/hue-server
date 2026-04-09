@@ -181,11 +181,11 @@ Then open `http://localhost:3001`
 
 Every person has access to all four. The assessment measures preference — which energies someone tends to reach for most naturally. Rankings reflect preference, not capability.
 
-**Colour-coded energy words:** Wherever the words Spark, Glow, Tend, and Flow appear in the web app, emails, or any digital output, they must be rendered in their energy colour. This is a non-negotiable design standard. An `<EnergyWord>` component (or equivalent) handles this. Plain text contexts (e.g. this document) are exempt.
+**Colour-coded energy words:** Wherever the words Spark, Glow, Tend, and Flow appear in the web app, emails, or any digital output, they must be rendered in their energy colour. This is a non-negotiable design standard. An `<EnergyWord>` component handles this. Plain text contexts are exempt.
 
-**Glow rendering — two contexts (decided 9 April 2026):**
-`#F5D000` — fill colour only: bars, progress fills, dot/circle fills, card backgrounds, canvas result card.
-`#C49A00` (`glowOnLight`) — text and labels on light backgrounds only: `EnergyWord` component, `colorize()` helper, constellation label, companion header label, results card title, any Glow text on cream/white/glowLight surfaces. Never render Glow text in `#F5D000` on a light background. This is a system-wide standard.
+**Glow — two rendering contexts (finalised 9 April 2026):**
+`#F5D000` (`colors.glow`) — all fills: bars, dot fills, circle fills, avatar borders, card backgrounds, canvas result card. Always full opacity, never faded.
+`#C8960C` (`colors.glowOnLight`) — all Glow text on light backgrounds: EnergyWord, colorize(), constellation label, companion header, results card title, functional dimensions header, any Glow text on cream/white/glowLight. Avatar borders always use `colors.glow`, never `glowOnLight`. This is non-negotiable and applies system-wide.
 
 ---
 
@@ -460,6 +460,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 61. ✅ Copy invite link button: org admin can grab the team invite link and send it manually via any channel (Slack, WhatsApp, direct email) — fallback for when automated invites go to spam
 62. ✅ Reserved words rule enforced in all three AI system prompts in server.js (assessment, companion, daily email generation): spark / glow / tend / flow are energy names only, with replacement table
 63. ✅ Dashboard reveal gate verified on production: TCMG team confirmed `dashboardRevealed: false`, visibility toggle correctly hidden from org admin until reveal (by design — reveal is the gate, visibility is the post-reveal cultural choice)
+64. ✅ Glow two-context rendering: `#F5D000` for fills/borders, `#C8960C` (glowOnLight) for text on light backgrounds — system-wide
 
 ---
 

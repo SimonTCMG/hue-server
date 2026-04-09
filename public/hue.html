@@ -55,7 +55,7 @@
     const C = {
       cream: "#FDFAF4", ink: "#1A1410", sand: "#E8DFC8", stone: "#9B8E7E",
       spark: "#D92010", sparkLight: "#FFF0ED",
-      glow:  "#F5D000", glowLight:  "#FEFCE8", glowOnLight: "#C49A00",
+      glow:  "#F5D000", glowLight:  "#FEFCE8", glowOnLight: "#C8960C",
       tend:  "#1A8C4E", tendLight:  "#E8F7EF",
       flow:  "#1755B8", flowLight:  "#E8F0FC",
     };
@@ -2897,10 +2897,10 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
     function BandDot({ band, energy }) {
       const col = C[energy];
-      const base = { width: 14, height: 14, minWidth: 14, minHeight: 14, maxWidth: 14, maxHeight: 14, borderRadius: "50%", flexShrink: 0, display: "inline-block", boxSizing: "border-box" };
+      const base = { width: 12, height: 12, minWidth: 12, minHeight: 12, maxWidth: 12, maxHeight: 12, borderRadius: "50%", flexShrink: 0, display: "inline-block", boxSizing: "border-box" };
       if (band === "Naturally present") return React.createElement("div", { style: { ...base, background: col } });
-      if (band === "Intentionally present") return React.createElement("div", { style: { ...base, background: `${col}55`, border: `2px solid ${col}` } });
-      return React.createElement("div", { style: { ...base, background: "transparent", border: `2px solid ${col}44` } });
+      if (band === "Intentionally present") return React.createElement("div", { style: { ...base, background: `${col}40`, border: `2px solid ${col}` } });
+      return React.createElement("div", { style: { ...base, background: "transparent", border: `2px solid ${col}73` } });
     }
 
     // ─── Team Constellation ──────────────────────────────────────────────────
@@ -3028,7 +3028,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             React.createElement("circle", { cx: m.x, cy: m.y, r: 18, fill: `${m.col}22`, stroke: m.col, strokeWidth: 2 }),
             React.createElement("text", {
               x: m.x, y: m.y + 4, textAnchor: "middle",
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, fill: m.col },
+              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, fill: m.instinctiveEnergy === "glow" ? C.glowOnLight : m.col },
             }, m.initials)
           ))
         ),
@@ -3040,7 +3040,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           border: `1px solid ${C.sand}`,
         } },
           React.createElement("strong", null, hovered.name),
-          hovered.instinctiveEnergy && React.createElement("span", { style: { marginLeft: 8, color: C[hovered.instinctiveEnergy], fontWeight: 600 } },
+          hovered.instinctiveEnergy && React.createElement("span", { style: { marginLeft: 8, color: hovered.instinctiveEnergy === "glow" ? C.glowOnLight : C[hovered.instinctiveEnergy], fontWeight: 600 } },
             ENERGIES.find(e => e.id === hovered.instinctiveEnergy)?.name
           )
         )
@@ -3052,8 +3052,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
         members.filter(m => m.assessmentComplete).map(m => {
           const col = m.instinctiveEnergy ? C[m.instinctiveEnergy] : C.sand;
+          const textCol = m.instinctiveEnergy === "glow" ? C.glowOnLight : col;
           return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.sand}22` } },
-            React.createElement("div", { style: { width: 28, height: 28, borderRadius: "50%", background: `${col}22`, border: `2px solid ${col}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: col } }, m.initials),
+            React.createElement("div", { style: { width: 28, height: 28, borderRadius: "50%", background: `${col}22`, border: `2px solid ${col}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: textCol } }, m.initials),
             React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.ink, flex: 1 } }, m.name),
             ["spark", "glow", "tend", "flow"].map(energy =>
               m.bands && React.createElement(BandDot, { key: energy, band: m.bands[energy], energy })
@@ -3261,10 +3262,10 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         );
       };
 
-      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream } },
-        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px" } },
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, overflowX: "hidden" } },
+        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px", minWidth: 0, overflowX: "hidden" } },
           // Header
-          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, minWidth: 0 } },
             React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
             React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em" } }, team.name)
           ),
@@ -3385,8 +3386,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 } },
               members.map(m => {
                 const instCol = m.instinctiveEnergy ? C[m.instinctiveEnergy] : C.sand;
+                const instTextCol = m.instinctiveEnergy === "glow" ? C.glowOnLight : instCol;
                 return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, background: m.assessmentComplete ? `${instCol}08` : "transparent", border: `1px solid ${m.assessmentComplete ? `${instCol}18` : `${C.sand}22`}`, minWidth: 0, overflow: "hidden" } },
-                  React.createElement("div", { style: { width: 36, height: 36, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instCol : C.stone, flexShrink: 0 } }, m.initials),
+                  React.createElement("div", { style: { width: 36, height: 36, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instTextCol : C.stone, flexShrink: 0 } }, m.initials),
                   React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                       React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: m.assessmentComplete ? C.ink : C.stone } }, m.name),
@@ -3593,10 +3595,10 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         background: C.ink, color: C.cream,
       };
 
-      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream } },
-        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px" } },
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, overflowX: "hidden" } },
+        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px", minWidth: 0, overflowX: "hidden" } },
           // Header
-          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, minWidth: 0 } },
             React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
             React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em" } }, org.name)
           ),
@@ -3696,8 +3698,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                     const s = statusLabel(m);
                     const initials = m.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
                     const instCol = m.dominantEnergy ? C[m.dominantEnergy] : C.sand;
+                    const instTextCol = m.dominantEnergy === "glow" ? C.glowOnLight : instCol;
                     return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: `1px solid ${C.sand}22`, minWidth: 0, overflow: "hidden", width: "100%" } },
-                      React.createElement("div", { style: { width: 36, height: 36, flexShrink: 0, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instCol : C.stone } }, initials),
+                      React.createElement("div", { style: { width: 36, height: 36, flexShrink: 0, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instTextCol : C.stone } }, initials),
                       React.createElement("div", { style: { flex: 1, minWidth: 0, overflow: "hidden" } },
                         React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", width: "100%" } }, m.name),
                         React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", width: "100%" } }, m.email),
