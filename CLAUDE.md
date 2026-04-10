@@ -183,6 +183,18 @@ Every person has access to all four. The assessment measures preference — whic
 
 **Colour-coded energy words:** Wherever the words Spark, Glow, Tend, and Flow appear in the web app, emails, or any digital output, they must be rendered in their energy colour. This is a non-negotiable design standard. An `<EnergyWord>` component handles this. Plain text contexts are exempt.
 
+**Energy icons (`<EnergyIcon>` component):**
+Each energy has a dedicated SVG line icon rendered in its energy colour, inside a rounded-square container with the energy's light background colour. Usage: `<EnergyIcon energy="spark" size={28} />`. Pass `noContainer` for the raw SVG without the background pill.
+
+| Energy | Icon | SVG description |
+|--------|------|-----------------|
+| Spark | Lightning bolt | Single path: zigzag bolt (`M13 2L5 13h7l-1 9 9-12h-7z`) |
+| Glow | Concentric circles | Two circles: outer r=9, inner r=4 — reads as a radiating sun/warmth |
+| Tend | Leaf | Two paths forming a leaf shape with a central vein, plus a short stem line |
+| Flow | Double wave | Two horizontal sine-wave paths stacked — reads as flowing water/current |
+
+Icons scale with `size` prop (default 28px). Stroke weight scales inversely — thinner at larger sizes (1.8 at 64px+, 2.2 at 28px) for visual consistency. Container has `borderRadius: size * 0.28`.
+
 **Glow — two rendering contexts (finalised 9 April 2026):**
 `#F5D000` (`colors.glow`) — all fills: bars, dot fills, circle fills, avatar borders, card backgrounds, canvas result card. Always full opacity, never faded.
 `#C8960C` (`colors.glowOnLight`) — all Glow text on light backgrounds: EnergyWord, colorize(), constellation label, companion header, results card title, functional dimensions header, any Glow text on cream/white/glowLight. Avatar borders always use `colors.glow`, never `glowOnLight`. This is non-negotiable and applies system-wide.
