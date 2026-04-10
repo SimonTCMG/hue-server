@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hue - Four energies. Infinite versions of you.</title>
+  <meta name="description" content="A conversation that figures out how you naturally show up - then a companion who helps you use that, every single day." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #FDFAF4;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #1A1410;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+    }
+    #root {
+      min-height: 100vh;
+      width: 100%;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spin-group {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const C = {
+      cream: "#FDFAF4", ink: "#1A1410", sand: "#E8DFC8", stone: "#73685A",
+      spark: "#D92010", sparkLight: "#FFF0ED",
+      glow:  "#F5D000", glowLight:  "#FEFCE8", glowOnLight: "#C8960C",
+      tend:  "#1A8C4E", tendLight:  "#E8F7EF",
+      flow:  "#1755B8", flowLight:  "#E8F0FC",
+    };
+
+    const ENERGIES = [
+      { id: "spark", color: C.spark },
+      { id: "glow",  color: C.glow },
+      { id: "tend",  color: C.tend },
+      { id: "flow",  color: C.flow },
+    ];
+
+    // ─── SpinMark ─────────────────────────────────────────────────────────────
+    function SpinMark({ size = 48, speed = 8, direction = 1, dotScale = 1, spread = 0.30, showH = true, paused = false, variant = "light" }) {
+      const cx = size / 2, cy = size / 2;
+      const r = size * spread;
+      const dotR = size * 0.158 * dotScale;
+      const angleRef = useRef(45);
+      const rafRef = useRef(null);
+      const lastRef = useRef(null);
+      const svgRef = useRef(null);
+
+      // Respect prefers-reduced-motion
+      const [reducedMotion, setReducedMotion] = useState(false);
+      useEffect(() => {
+        const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+        setReducedMotion(mq.matches);
+        const handler = (e) => setReducedMotion(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+      }, []);
+
+      const shouldPause = paused || reducedMotion;
+
+      useEffect(() => {
+        const tick = (ts) => {
+          if (!lastRef.current) lastRef.current = ts;
+          const dt = ts - lastRef.current;
+          lastRef.current = ts;
+          if (!shouldPause) angleRef.current += (dt / 1000) * (360 / speed) * direction;
+          if (svgRef.current) {
+            const g = svgRef.current.querySelector(".spin-group");
+            if (g) g.setAttribute("transform", `rotate(${angleRef.current} ${cx} ${cy})`);
+          }
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafRef.current);
+      }, [speed, direction, shouldPause, cx, cy]);
+
+      const dotAngles = [315, 45, 135, 225];
+      const bgFill = variant === "dark" ? C.ink : "#FFFFFF";
+      const hFill = variant === "dark" ? C.cream : C.ink;
+
+      const hW = size * 0.30, hH = size * 0.28;
+      const sw = size * 0.055, cbH = size * 0.055;
+      const hx = cx - hW / 2, hy = cy - hH / 2;
+
+      return (
+        <svg ref={svgRef} width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" style={{ display: "block", flexShrink: 0 }}>
+          {variant !== "float" && <circle cx={cx} cy={cy} r={size * 0.48} fill={bgFill} />}
+          <g className="spin-group">
+            {ENERGIES.map((e, i) => {
+              const a = dotAngles[i] * Math.PI / 180;
+              return <circle key={e.id} cx={cx + r * Math.cos(a)} cy={cy + r * Math.sin(a)} r={dotR} fill={e.color} />;
+            })}
+          </g>
+          {showH && (
+            <g fill={hFill}>
+              <rect x={hx} y={hy} width={sw} height={hH} rx={sw * 0.3} />
+              <rect x={hx + hW - sw} y={hy} width={sw} height={hH} rx={sw * 0.3} />
+              <rect x={hx} y={cy - cbH / 2} width={hW} height={cbH} rx={cbH * 0.3} />
+            </g>
+          )}
+        </svg>
+      );
+    }
+
+    // ─── Shared styles ──────────────────────────────────────────────────────────
+    const ctaStyle = {
+      display: "inline-block",
+      background: C.spark,
+      color: C.cream,
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
+      fontSize: 16,
+      fontWeight: 700,
+      padding: "16px 36px",
+      borderRadius: 99,
+      textDecoration: "none",
+      transition: "opacity 0.2s ease",
+    };
+
+    // ─── Chat bubble ──────────────────────────────────────────────────────────
+    function ChatBubble({ speaker, children }) {
+      const isHue = speaker === "hue";
+      return (
+        <div style={{
+          display: "flex",
+          justifyContent: isHue ? "flex-start" : "flex-end",
+          marginBottom: 16,
+        }}>
+          <div style={{
+            maxWidth: "85%",
+            background: isHue ? "#F0EBE1" : "#E4DED3",
+            borderRadius: isHue ? "18px 18px 18px 4px" : "18px 18px 4px 18px",
+            padding: "16px 20px",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: "clamp(0.9rem, 1.8vw, 1.02rem)",
+            lineHeight: 1.7,
+            color: C.ink,
+          }}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── About page ───────────────────────────────────────────────────────────
+    function AboutPage() {
+      return (
+        <div style={{ background: C.cream }}>
+
+          {/* Logo — top left, decorative only */}
+          <div style={{ position: "absolute", top: 24, left: 24, zIndex: 10 }}>
+            <SpinMark size={44} speed={10} variant="light" spread={0.32} />
+          </div>
+
+          {/* ═══ Hero ═══ */}
+          <section style={{
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "80px 24px 60px",
+            textAlign: "center",
+          }}>
+            <div style={{ marginBottom: 48 }}>
+              <SpinMark size={120} speed={6} variant="float" spread={0.32} dotScale={1} />
+            </div>
+
+            <h1 style={{
+              fontFamily: "'Fraunces', serif",
+              fontSize: "clamp(2.2rem, 5vw, 3.8rem)",
+              fontWeight: 900,
+              lineHeight: 1.15,
+              color: C.ink,
+              maxWidth: 700,
+              marginBottom: 24,
+              letterSpacing: "-0.02em",
+            }}>
+              Four energies. Infinite versions of you.
+            </h1>
+
+            <p style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: "clamp(1rem, 2.2vw, 1.2rem)",
+              fontWeight: 400,
+              lineHeight: 1.65,
+              color: C.stone,
+              maxWidth: 560,
+              marginBottom: 48,
+            }}>
+              A conversation that figures out how you naturally show up — then a companion who helps you use that, every single day.
+            </p>
+
+            <a href="/register" style={ctaStyle}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+            >
+              Start exploring — it's free for 14 days
+            </a>
+          </section>
+
+          {/* ═══ Companion section ═══ */}
+          <section style={{
+            background: "#F5F0E8",
+            padding: "clamp(80px, 10vw, 120px) 24px",
+          }}>
+            <div style={{ maxWidth: 600, margin: "0 auto" }}>
+              {/* Section label */}
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: C.stone,
+                marginBottom: 32,
+                textAlign: "center",
+              }}>
+                your companion
+              </div>
+
+              {/* Mock conversation */}
+              <ChatBubble speaker="hue">
+                You mentioned the meeting didn't go the way you hoped. What did you do when you felt it slipping away from you?
+              </ChatBubble>
+
+              <ChatBubble speaker="you">
+                I kind of went quiet. I didn't want to make it worse.
+              </ChatBubble>
+
+              <ChatBubble speaker="hue">
+                That makes a lot of sense given how you show up. You naturally reach for steadiness when things feel uncertain — which protects the room, even when it costs you the moment. Want to think about what it might look like to reach a little further next time?
+              </ChatBubble>
+
+              {/* Supporting copy */}
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(0.95rem, 2vw, 1.1rem)",
+                fontWeight: 400,
+                fontStyle: "italic",
+                lineHeight: 1.7,
+                color: C.stone,
+                textAlign: "center",
+                maxWidth: 520,
+                margin: "48px auto 0",
+              }}>
+                Whatever's on your mind. A conversation coming up. Something that didn't land. Hue helps you think it through — and reach a little further.
+              </p>
+            </div>
+          </section>
+
+          {/* ═══ How it works ═══ */}
+          <section style={{
+            padding: "clamp(80px, 10vw, 120px) 24px",
+          }}>
+            <div style={{
+              maxWidth: 960,
+              margin: "0 auto",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "clamp(40px, 5vw, 64px)",
+            }}>
+              {/* Step 1 — Spark diamond */}
+              <div>
+                <div style={{ fontSize: 18, color: C.spark, marginBottom: 14 }}>&#9670;</div>
+                <h3 style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: "clamp(1.15rem, 2.2vw, 1.35rem)",
+                  fontWeight: 700,
+                  lineHeight: 1.3,
+                  color: C.ink,
+                  marginBottom: 14,
+                }}>
+                  A conversation, not a questionnaire.
+                </h3>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(0.9rem, 1.8vw, 1rem)",
+                  lineHeight: 1.7,
+                  color: C.stone,
+                }}>
+                  Hue asks you about real situations — things you've actually done, not hypothetical preferences. It's more like talking to someone curious about you than filling in a form.
+                </p>
+              </div>
+
+              {/* Step 2 — Glow circle */}
+              <div>
+                <div style={{ fontSize: 18, color: C.glow, marginBottom: 14 }}>&#9679;</div>
+                <h3 style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: "clamp(1.15rem, 2.2vw, 1.35rem)",
+                  fontWeight: 700,
+                  lineHeight: 1.3,
+                  color: C.ink,
+                  marginBottom: 14,
+                }}>
+                  A profile that actually fits.
+                </h3>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(0.9rem, 1.8vw, 1rem)",
+                  lineHeight: 1.7,
+                  color: C.stone,
+                }}>
+                  Four energies. Your own specific combination. Observations that feel like someone finally put words to something you already knew about yourself.
+                </p>
+              </div>
+
+              {/* Step 3 — Tend triangle */}
+              <div>
+                <div style={{ fontSize: 18, color: C.tend, marginBottom: 14 }}>&#9650;</div>
+                <h3 style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: "clamp(1.15rem, 2.2vw, 1.35rem)",
+                  fontWeight: 700,
+                  lineHeight: 1.3,
+                  color: C.ink,
+                  marginBottom: 14,
+                }}>
+                  A companion who remembers.
+                </h3>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(0.9rem, 1.8vw, 1rem)",
+                  lineHeight: 1.7,
+                  color: C.stone,
+                }}>
+                  Every day, whatever's on your mind — a difficult conversation coming up, something that didn't land the way you meant — Hue helps you think it through and reach a little further.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* ═══ Social proof ═══ */}
+          <section style={{
+            background: "#F5F0E8",
+            padding: "clamp(80px, 10vw, 120px) 24px",
+          }}>
+            <div style={{
+              maxWidth: 960,
+              margin: "0 auto",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "clamp(40px, 5vw, 56px)",
+            }}>
+              {/* Testimonial 1 — profile result */}
+              <div>
+                <p style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: "clamp(1.1rem, 2.2vw, 1.3rem)",
+                  fontWeight: 400,
+                  lineHeight: 1.6,
+                  color: C.ink,
+                  marginBottom: 20,
+                }}>
+                  {/* PLACEHOLDER — replace with real beta testimonial */}
+                  I've done personality tests before and they always feel like someone else's language. This one read like my own thoughts, just clearer.
+                </p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 13,
+                  color: C.stone,
+                }}>
+                  {/* PLACEHOLDER name and descriptor */}
+                  Maya, 26 — first job, big team
+                </p>
+              </div>
+
+              {/* Testimonial 2 — companion experience */}
+              <div>
+                <p style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: "clamp(1.1rem, 2.2vw, 1.3rem)",
+                  fontWeight: 400,
+                  lineHeight: 1.6,
+                  color: C.ink,
+                  marginBottom: 20,
+                }}>
+                  {/* PLACEHOLDER — replace with real beta testimonial about companion */}
+                  I had a difficult conversation coming up with my manager. I talked it through with Hue first and walked in actually knowing what I wanted to say.
+                </p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 13,
+                  color: C.stone,
+                }}>
+                  {/* PLACEHOLDER name and descriptor */}
+                  James — been doing this work for years, still surprised me
+                </p>
+              </div>
+
+              {/* Testimonial 3 — ongoing relationship */}
+              <div>
+                <p style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: "clamp(1.1rem, 2.2vw, 1.3rem)",
+                  fontWeight: 400,
+                  lineHeight: 1.6,
+                  color: C.ink,
+                  marginBottom: 20,
+                }}>
+                  {/* PLACEHOLDER — replace with real beta testimonial */}
+                  Most tools like this give you a result and then you never look at it again. This one actually stays with you.
+                </p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 13,
+                  color: C.stone,
+                }}>
+                  {/* PLACEHOLDER name and descriptor */}
+                  Priya, team lead — sceptical at first
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* ═══ Trial reassurance ═══ */}
+          <section style={{
+            padding: "clamp(80px, 10vw, 120px) 24px",
+            textAlign: "center",
+          }}>
+            <div style={{
+              maxWidth: 520,
+              margin: "0 auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+            }}>
+              {[
+                "14 days free. No charge until day 15.",
+                "Cancel any time before then. One tap, no questions.",
+                "Your profile is yours. Nobody else sees it — not even us.",
+                "£9.99 a month after that. Less than a coffee a week.",
+              ].map((line, i) => (
+                <p key={i} style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(1rem, 2vw, 1.15rem)",
+                  fontWeight: 500,
+                  lineHeight: 1.6,
+                  color: C.ink,
+                }}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          </section>
+
+          {/* ═══ Final CTA ═══ */}
+          <section style={{
+            padding: "40px 24px clamp(80px, 10vw, 120px)",
+            textAlign: "center",
+          }}>
+            <a href="/register" style={ctaStyle}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+            >
+              Start exploring — it's free for 14 days
+            </a>
+          </section>
+
+          {/* ═══ Footer ═══ */}
+          <footer style={{
+            padding: "32px 24px",
+            textAlign: "center",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 13,
+            color: C.stone,
+          }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 24 }}>
+              <a href="/privacy" style={{ color: C.stone, textDecoration: "none" }}>Privacy</a>
+              <span style={{ color: C.sand }}>·</span>
+              <a href="/terms" style={{ color: C.stone, textDecoration: "none" }}>Terms</a>
+              <span style={{ color: C.sand }}>·</span>
+              <a href="mailto:hello@myhue.co" style={{ color: C.stone, textDecoration: "none" }}>Contact</a>
+            </div>
+          </footer>
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<AboutPage />);
+  </script>
+</body>
+</html>

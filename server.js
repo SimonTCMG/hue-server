@@ -148,6 +148,14 @@ app.get("/team/:teamId", sendApp);
 app.get("/org/:orgId", sendApp);
 app.get("/account-settings", sendApp);
 
+// Marketing page — separate static HTML, no session logic
+app.get("/about", (req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Surrogate-Control", "no-store");
+  res.sendFile(join(__dirname, "public", "about.html"));
+});
+
 // ─── Temporary admin: delete user by email (remove after beta setup) ────────
 app.delete("/api/admin/delete-user/:email", (req, res) => {
   const secret = req.headers["x-admin-secret"];
