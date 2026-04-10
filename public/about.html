@@ -26,11 +26,34 @@
       min-height: 100vh;
       width: 100%;
     }
+
+    /* Fix 1: Scroll indicator bounce */
+    @keyframes scrollBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(6px); }
+    }
+
+    /* Fix 3: Typing dots */
+    @keyframes dotPulse {
+      0%, 80%, 100% { opacity: 0.3; }
+      40% { opacity: 1; }
+    }
+
+    /* Fix 7: Scroll-reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Respect prefers-reduced-motion globally */
     @media (prefers-reduced-motion: reduce) {
-      .spin-group {
-        animation: none !important;
-        transition: none !important;
-      }
+      .spin-group { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
     }
   </style>
 </head>
@@ -38,7 +61,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef, useCallback } = React;
 
     const C = {
       cream: "#FDFAF4", ink: "#1A1410", sand: "#E8DFC8", stone: "#73685A",
@@ -49,11 +72,44 @@
     };
 
     const ENERGIES = [
-      { id: "spark", color: C.spark },
-      { id: "glow",  color: C.glow },
-      { id: "tend",  color: C.tend },
-      { id: "flow",  color: C.flow },
+      { id: "spark", color: C.spark, light: C.sparkLight },
+      { id: "glow",  color: C.glow,  light: C.glowLight },
+      { id: "tend",  color: C.tend,  light: C.tendLight },
+      { id: "flow",  color: C.flow,  light: C.flowLight },
     ];
+
+    // ─── Reduced-motion hook ──────────────────────────────────────────────────
+    function useReducedMotion() {
+      const [reduced, setReduced] = useState(false);
+      useEffect(() => {
+        const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+        setReduced(mq.matches);
+        const h = (e) => setReduced(e.matches);
+        mq.addEventListener("change", h);
+        return () => mq.removeEventListener("change", h);
+      }, []);
+      return reduced;
+    }
+
+    // ─── Scroll-reveal hook (Fix 7) ───────────────────────────────────────────
+    function useReveal(opts = {}) {
+      const ref = useRef(null);
+      const reducedMotion = useReducedMotion();
+      useEffect(() => {
+        if (reducedMotion || !ref.current) return;
+        const el = ref.current;
+        const observer = new IntersectionObserver(([entry]) => {
+          if (entry.isIntersecting) {
+            const delay = opts.delay || 0;
+            setTimeout(() => el.classList.add("visible"), delay);
+            observer.unobserve(el);
+          }
+        }, { threshold: 0.15 });
+        observer.observe(el);
+        return () => observer.disconnect();
+      }, [reducedMotion]);
+      return ref;
+    }
 
     // ─── SpinMark ─────────────────────────────────────────────────────────────
     function SpinMark({ size = 48, speed = 8, direction = 1, dotScale = 1, spread = 0.30, showH = true, paused = false, variant = "light" }) {
@@ -64,17 +120,7 @@
       const rafRef = useRef(null);
       const lastRef = useRef(null);
       const svgRef = useRef(null);
-
-      // Respect prefers-reduced-motion
-      const [reducedMotion, setReducedMotion] = useState(false);
-      useEffect(() => {
-        const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-        setReducedMotion(mq.matches);
-        const handler = (e) => setReducedMotion(e.matches);
-        mq.addEventListener("change", handler);
-        return () => mq.removeEventListener("change", handler);
-      }, []);
-
+      const reducedMotion = useReducedMotion();
       const shouldPause = paused || reducedMotion;
 
       useEffect(() => {
@@ -96,7 +142,6 @@
       const dotAngles = [315, 45, 135, 225];
       const bgFill = variant === "dark" ? C.ink : "#FFFFFF";
       const hFill = variant === "dark" ? C.cream : C.ink;
-
       const hW = size * 0.30, hH = size * 0.28;
       const sw = size * 0.055, cbH = size * 0.055;
       const hx = cx - hW / 2, hy = cy - hH / 2;
@@ -121,6 +166,55 @@
       );
     }
 
+    // ─── EnergyIcon (matching hue.html component) ─────────────────────────────
+    function EnergyIcon({ energy, size = 28, noContainer = false, variant = "default" }) {
+      const sw = size >= 64 ? 1.8 : size >= 40 ? 2.0 : size >= 28 ? 2.2 : 2.4;
+      const e = ENERGIES.find(x => x.id === energy) || ENERGIES[0];
+      // On dark backgrounds, use fill colour (not glowOnLight)
+      const strokeColor = variant === "onDark" ? e.color : e.color;
+      const svgProps = {
+        width: size * 0.65, height: size * 0.65,
+        viewBox: "0 0 24 24", fill: "none",
+        stroke: strokeColor, strokeWidth: sw,
+        strokeLinecap: "round", strokeLinejoin: "round",
+        style: { display: "block" },
+      };
+
+      const iconSvg = energy === "spark" ? (
+        React.createElement("svg", svgProps, React.createElement("path", { d: "M13 2L5 13h7l-1 9 9-12h-7z" }))
+      ) : energy === "glow" ? (
+        React.createElement("svg", svgProps,
+          React.createElement("circle", { cx: 12, cy: 12, r: 9 }),
+          React.createElement("circle", { cx: 12, cy: 12, r: 4 })
+        )
+      ) : energy === "tend" ? (
+        React.createElement("svg", svgProps,
+          React.createElement("path", { d: "M19 3 C18 6 11 5 8 9 C5 13 4 18 5 21 C6 18 13 19 16 15 C19 11 20 6 19 3 Z" }),
+          React.createElement("path", { d: "M19 3 C15 8 10 14 5 21" }),
+          React.createElement("line", { x1: 5, y1: 21, x2: 3, y2: 24 })
+        )
+      ) : (
+        React.createElement("svg", svgProps,
+          React.createElement("path", { d: "M3 9 C6 6 9 6 12 9 C15 12 18 12 21 9" }),
+          React.createElement("path", { d: "M3 15 C6 12 9 12 12 15 C15 18 18 18 21 15" })
+        )
+      );
+
+      if (noContainer) return iconSvg;
+
+      return (
+        <div style={{
+          width: size, height: size,
+          borderRadius: size * 0.28,
+          background: e.light,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          {iconSvg}
+        </div>
+      );
+    }
+
     // ─── Shared styles ──────────────────────────────────────────────────────────
     const ctaStyle = {
       display: "inline-block",
@@ -136,13 +230,14 @@
     };
 
     // ─── Chat bubble ──────────────────────────────────────────────────────────
-    function ChatBubble({ speaker, children }) {
+    function ChatBubble({ speaker, children, style: extraStyle }) {
       const isHue = speaker === "hue";
       return (
         <div style={{
           display: "flex",
           justifyContent: isHue ? "flex-start" : "flex-end",
           marginBottom: 16,
+          ...extraStyle,
         }}>
           <div style={{
             maxWidth: "85%",
@@ -160,8 +255,176 @@
       );
     }
 
+    // ─── Typing dots indicator ────────────────────────────────────────────────
+    function TypingDots() {
+      return (
+        <div style={{ display: "flex", gap: 5, padding: "4px 0" }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: C.stone,
+              animation: `dotPulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+            }} />
+          ))}
+        </div>
+      );
+    }
+
+    // ─── Typewriter text component (Fix 3) ────────────────────────────────────
+    function TypewriterText({ text, speed = 30, onComplete }) {
+      const [displayed, setDisplayed] = useState("");
+      const indexRef = useRef(0);
+      const reducedMotion = useReducedMotion();
+
+      useEffect(() => {
+        if (reducedMotion) {
+          setDisplayed(text);
+          onComplete && onComplete();
+          return;
+        }
+        indexRef.current = 0;
+        setDisplayed("");
+        const interval = setInterval(() => {
+          indexRef.current++;
+          setDisplayed(text.slice(0, indexRef.current));
+          if (indexRef.current >= text.length) {
+            clearInterval(interval);
+            onComplete && onComplete();
+          }
+        }, speed);
+        return () => clearInterval(interval);
+      }, [text, speed, reducedMotion]);
+
+      return <span>{displayed}</span>;
+    }
+
+    // ─── Animated chat sequence (Fix 3) ───────────────────────────────────────
+    function AnimatedChat() {
+      const [stage, setStage] = useState(0);
+      // 0=waiting, 1=hue1 typing, 2=hue1 done, 3=user fade, 4=typing dots,
+      // 5=hue2 typing, 6=hue2 done, 7=supporting copy
+      const sectionRef = useRef(null);
+      const hasPlayed = useRef(false);
+      const reducedMotion = useReducedMotion();
+
+      const hue1 = "You mentioned the meeting didn't go the way you hoped. What did you do when you felt it slipping away from you?";
+      const userMsg = "I kind of went quiet. I didn't want to make it worse.";
+      const hue2 = "That makes a lot of sense given how you show up. You naturally reach for steadiness when things feel uncertain \u2014 which protects the room, even when it costs you the moment. Want to think about what it might look like to reach a little further next time?";
+
+      useEffect(() => {
+        if (hasPlayed.current) return;
+        const el = sectionRef.current;
+        if (!el) return;
+        const observer = new IntersectionObserver(([entry]) => {
+          if (entry.isIntersecting && !hasPlayed.current) {
+            hasPlayed.current = true;
+            if (reducedMotion) { setStage(7); } else { setStage(1); }
+            observer.unobserve(el);
+          }
+        }, { threshold: 0.3 });
+        observer.observe(el);
+        return () => observer.disconnect();
+      }, [reducedMotion]);
+
+      const advance = useCallback((nextStage, delay) => {
+        setTimeout(() => setStage(nextStage), delay);
+      }, []);
+
+      return (
+        <div ref={sectionRef}>
+          {/* Hue bubble 1 */}
+          {stage >= 1 && (
+            <ChatBubble speaker="hue">
+              {stage === 1 ? (
+                <TypewriterText text={hue1} speed={25} onComplete={() => advance(2, 100)} />
+              ) : hue1}
+            </ChatBubble>
+          )}
+
+          {/* User bubble — fades in */}
+          {stage >= 2 && (
+            <div style={{
+              opacity: stage >= 3 ? 1 : 0,
+              transition: "opacity 0.4s ease",
+            }}>
+              {stage === 2 && <div style={{ display: "none" }}>{(() => { advance(3, 600); return null; })()}</div>}
+              <ChatBubble speaker="you">{userMsg}</ChatBubble>
+            </div>
+          )}
+
+          {/* Typing indicator then Hue bubble 2 */}
+          {stage >= 3 && stage < 5 && (
+            <div>
+              {stage === 3 && <div style={{ display: "none" }}>{(() => { advance(4, 600); return null; })()}</div>}
+              {stage === 4 && (
+                <ChatBubble speaker="hue">
+                  <TypingDots />
+                  <div style={{ display: "none" }}>{(() => { advance(5, 1200); return null; })()}</div>
+                </ChatBubble>
+              )}
+            </div>
+          )}
+
+          {stage >= 5 && (
+            <ChatBubble speaker="hue">
+              {stage === 5 ? (
+                <TypewriterText text={hue2} speed={20} onComplete={() => advance(6, 100)} />
+              ) : hue2}
+            </ChatBubble>
+          )}
+
+          {/* Trigger supporting copy */}
+          {stage === 6 && <div style={{ display: "none" }}>{(() => { advance(7, 400); return null; })()}</div>}
+
+          {/* Supporting copy */}
+          <p style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: "clamp(0.95rem, 2vw, 1.1rem)",
+            fontWeight: 400,
+            fontStyle: "italic",
+            lineHeight: 1.7,
+            color: C.stone,
+            textAlign: "center",
+            maxWidth: 520,
+            margin: "48px auto 0",
+            opacity: stage >= 7 ? 1 : 0,
+            transition: "opacity 0.6s ease",
+          }}>
+            Whatever's on your mind. A conversation coming up. Something that didn't land. Hue helps you think it through — and reach a little further.
+          </p>
+        </div>
+      );
+    }
+
     // ─── About page ───────────────────────────────────────────────────────────
     function AboutPage() {
+      const [scrolledPastHero, setScrolledPastHero] = useState(false);
+      const reducedMotion = useReducedMotion();
+
+      // Fix 1: Hide scroll indicator once scrolled
+      useEffect(() => {
+        const onScroll = () => setScrolledPastHero(window.scrollY > 100);
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+      }, []);
+
+      // Fix 7: Reveal refs
+      const wiifimRef0 = useReveal({ delay: 0 });
+      const wiifimRef1 = useReveal({ delay: 100 });
+      const wiifimRef2 = useReveal({ delay: 200 });
+      const wiifimRef3 = useReveal({ delay: 300 });
+      const howRef = useReveal();
+      const socialRef = useReveal();
+      const trialRef = useReveal();
+
+      const wiifimStatements = [
+        { energy: "spark", text: "Some conversations just work. Others don't. Hue helps you see why \u2014 and what to do differently next time." },
+        { energy: "glow",  text: "Most of us spend years wondering why we click with some people and not others. Hue puts words to something you already sensed." },
+        { energy: "tend",  text: "When something at work or at home isn't quite right, it helps to talk it through with someone who actually knows you. That's what Hue is." },
+        { energy: "flow",  text: "It's not a personality quiz. It's a conversation \u2014 one that gets more useful the more you use it." },
+      ];
+      const wiifimRefs = [wiifimRef0, wiifimRef1, wiifimRef2, wiifimRef3];
+
       return (
         <div style={{ background: C.cream }}>
 
@@ -170,15 +433,16 @@
             <SpinMark size={44} speed={10} variant="light" spread={0.32} />
           </div>
 
-          {/* ═══ Hero ═══ */}
+          {/* ═══ Hero (Fix 1: 88vh, scroll indicator) ═══ */}
           <section style={{
-            minHeight: "100vh",
+            minHeight: "88vh",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            padding: "80px 24px 60px",
+            padding: "80px 24px 40px",
             textAlign: "center",
+            position: "relative",
           }}>
             <div style={{ marginBottom: 48 }}>
               <SpinMark size={120} speed={6} variant="float" spread={0.32} dotScale={1} />
@@ -215,15 +479,66 @@
             >
               Start exploring — it's free for 14 days
             </a>
+
+            {/* Scroll indicator */}
+            <div style={{
+              position: "absolute",
+              bottom: 28,
+              left: "50%",
+              transform: "translateX(-50%)",
+              opacity: scrolledPastHero ? 0 : 0.6,
+              transition: "opacity 0.4s ease",
+              pointerEvents: "none",
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.stone}
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: reducedMotion ? "none" : "scrollBounce 1.5s ease-in-out infinite" }}>
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
           </section>
 
-          {/* ═══ Companion section ═══ */}
+          {/* ═══ WIIFM section (Fix 2) — dark background ═══ */}
+          <section style={{
+            background: C.ink,
+            padding: "clamp(72px, 9vw, 100px) 24px",
+          }}>
+            <div style={{ maxWidth: 680, margin: "0 auto" }}>
+              {wiifimStatements.map((item, i) => (
+                <div
+                  key={item.energy}
+                  ref={wiifimRefs[i]}
+                  className="reveal"
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 24,
+                    marginBottom: i < 3 ? 48 : 0,
+                  }}
+                >
+                  <div style={{ flexShrink: 0, paddingTop: 2 }}>
+                    <EnergyIcon energy={item.energy} size={48} />
+                  </div>
+                  <p style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: "clamp(1.05rem, 2.2vw, 1.25rem)",
+                    fontWeight: 500,
+                    lineHeight: 1.65,
+                    color: C.cream,
+                  }}>
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ═══ Companion section (Fix 3: animated chat) ═══ */}
           <section style={{
             background: "#F5F0E8",
             padding: "clamp(80px, 10vw, 120px) 24px",
           }}>
             <div style={{ maxWidth: 600, margin: "0 auto" }}>
-              {/* Section label */}
               <div style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: 11,
@@ -237,38 +552,12 @@
                 your companion
               </div>
 
-              {/* Mock conversation */}
-              <ChatBubble speaker="hue">
-                You mentioned the meeting didn't go the way you hoped. What did you do when you felt it slipping away from you?
-              </ChatBubble>
-
-              <ChatBubble speaker="you">
-                I kind of went quiet. I didn't want to make it worse.
-              </ChatBubble>
-
-              <ChatBubble speaker="hue">
-                That makes a lot of sense given how you show up. You naturally reach for steadiness when things feel uncertain — which protects the room, even when it costs you the moment. Want to think about what it might look like to reach a little further next time?
-              </ChatBubble>
-
-              {/* Supporting copy */}
-              <p style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: "clamp(0.95rem, 2vw, 1.1rem)",
-                fontWeight: 400,
-                fontStyle: "italic",
-                lineHeight: 1.7,
-                color: C.stone,
-                textAlign: "center",
-                maxWidth: 520,
-                margin: "48px auto 0",
-              }}>
-                Whatever's on your mind. A conversation coming up. Something that didn't land. Hue helps you think it through — and reach a little further.
-              </p>
+              <AnimatedChat />
             </div>
           </section>
 
-          {/* ═══ How it works ═══ */}
-          <section style={{
+          {/* ═══ How it works (Fix 4: scenario hooks) ═══ */}
+          <section ref={howRef} className="reveal" style={{
             padding: "clamp(80px, 10vw, 120px) 24px",
           }}>
             <div style={{
@@ -278,70 +567,91 @@
               gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: "clamp(40px, 5vw, 64px)",
             }}>
-              {/* Step 1 — Spark diamond */}
+              {/* Step 1 — Spark */}
               <div>
-                <div style={{ fontSize: 18, color: C.spark, marginBottom: 14 }}>&#9670;</div>
+                <div style={{ marginBottom: 14 }}>
+                  <EnergyIcon energy="spark" size={32} />
+                </div>
                 <h3 style={{
                   fontFamily: "'Fraunces', serif",
                   fontSize: "clamp(1.15rem, 2.2vw, 1.35rem)",
-                  fontWeight: 700,
-                  lineHeight: 1.3,
-                  color: C.ink,
-                  marginBottom: 14,
+                  fontWeight: 700, lineHeight: 1.3, color: C.ink,
+                  marginBottom: 10,
                 }}>
                   A conversation, not a questionnaire.
                 </h3>
                 <p style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(0.85rem, 1.6vw, 0.95rem)",
+                  fontStyle: "italic", lineHeight: 1.6, color: C.stone,
+                  marginBottom: 12,
+                }}>
+                  Before a difficult conversation, a job interview, or just a week that feels harder than usual...
+                </p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: "clamp(0.9rem, 1.8vw, 1rem)",
-                  lineHeight: 1.7,
-                  color: C.stone,
+                  lineHeight: 1.7, color: C.stone,
                 }}>
                   Hue asks you about real situations — things you've actually done, not hypothetical preferences. It's more like talking to someone curious about you than filling in a form.
                 </p>
               </div>
 
-              {/* Step 2 — Glow circle */}
+              {/* Step 2 — Glow */}
               <div>
-                <div style={{ fontSize: 18, color: C.glow, marginBottom: 14 }}>&#9679;</div>
+                <div style={{ marginBottom: 14 }}>
+                  <EnergyIcon energy="glow" size={32} />
+                </div>
                 <h3 style={{
                   fontFamily: "'Fraunces', serif",
                   fontSize: "clamp(1.15rem, 2.2vw, 1.35rem)",
-                  fontWeight: 700,
-                  lineHeight: 1.3,
-                  color: C.ink,
-                  marginBottom: 14,
+                  fontWeight: 700, lineHeight: 1.3, color: C.ink,
+                  marginBottom: 10,
                 }}>
                   A profile that actually fits.
                 </h3>
                 <p style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(0.85rem, 1.6vw, 0.95rem)",
+                  fontStyle: "italic", lineHeight: 1.6, color: C.stone,
+                  marginBottom: 12,
+                }}>
+                  You see yourself reflected back in a way no quiz has ever quite managed...
+                </p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: "clamp(0.9rem, 1.8vw, 1rem)",
-                  lineHeight: 1.7,
-                  color: C.stone,
+                  lineHeight: 1.7, color: C.stone,
                 }}>
                   Four energies. Your own specific combination. Observations that feel like someone finally put words to something you already knew about yourself.
                 </p>
               </div>
 
-              {/* Step 3 — Tend triangle */}
+              {/* Step 3 — Tend */}
               <div>
-                <div style={{ fontSize: 18, color: C.tend, marginBottom: 14 }}>&#9650;</div>
+                <div style={{ marginBottom: 14 }}>
+                  <EnergyIcon energy="tend" size={32} />
+                </div>
                 <h3 style={{
                   fontFamily: "'Fraunces', serif",
                   fontSize: "clamp(1.15rem, 2.2vw, 1.35rem)",
-                  fontWeight: 700,
-                  lineHeight: 1.3,
-                  color: C.ink,
-                  marginBottom: 14,
+                  fontWeight: 700, lineHeight: 1.3, color: C.ink,
+                  marginBottom: 10,
                 }}>
                   A companion who remembers.
                 </h3>
                 <p style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(0.85rem, 1.6vw, 0.95rem)",
+                  fontStyle: "italic", lineHeight: 1.6, color: C.stone,
+                  marginBottom: 12,
+                }}>
+                  Sunday evening, Monday morning, or the moment right after something didn't land the way you meant...
+                </p>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: "clamp(0.9rem, 1.8vw, 1rem)",
-                  lineHeight: 1.7,
-                  color: C.stone,
+                  lineHeight: 1.7, color: C.stone,
                 }}>
                   Every day, whatever's on your mind — a difficult conversation coming up, something that didn't land the way you meant — Hue helps you think it through and reach a little further.
                 </p>
@@ -350,7 +660,7 @@
           </section>
 
           {/* ═══ Social proof ═══ */}
-          <section style={{
+          <section ref={socialRef} className="reveal" style={{
             background: "#F5F0E8",
             padding: "clamp(80px, 10vw, 120px) 24px",
           }}>
@@ -361,25 +671,19 @@
               gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
               gap: "clamp(40px, 5vw, 56px)",
             }}>
-              {/* Testimonial 1 — profile result */}
+              {/* Testimonial 1 */}
               <div>
                 <p style={{
                   fontFamily: "'Fraunces', serif",
                   fontSize: "clamp(1.1rem, 2.2vw, 1.3rem)",
-                  fontWeight: 400,
-                  lineHeight: 1.6,
-                  color: C.ink,
+                  fontWeight: 400, lineHeight: 1.6, color: C.ink,
                   marginBottom: 20,
                 }}>
                   {/* PLACEHOLDER — replace with real beta testimonial */}
                   I've done personality tests before and they always feel like someone else's language. This one read like my own thoughts, just clearer.
                 </p>
-                <p style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 13,
-                  color: C.stone,
-                }}>
-                  {/* PLACEHOLDER name and descriptor */}
+                <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone }}>
+                  {/* PLACEHOLDER */}
                   Maya, 26 — first job, big team
                 </p>
               </div>
@@ -389,54 +693,54 @@
                 <p style={{
                   fontFamily: "'Fraunces', serif",
                   fontSize: "clamp(1.1rem, 2.2vw, 1.3rem)",
-                  fontWeight: 400,
-                  lineHeight: 1.6,
-                  color: C.ink,
+                  fontWeight: 400, lineHeight: 1.6, color: C.ink,
                   marginBottom: 20,
                 }}>
                   {/* PLACEHOLDER — replace with real beta testimonial about companion */}
                   I had a difficult conversation coming up with my manager. I talked it through with Hue first and walked in actually knowing what I wanted to say.
                 </p>
-                <p style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 13,
-                  color: C.stone,
-                }}>
-                  {/* PLACEHOLDER name and descriptor */}
+                <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone }}>
+                  {/* PLACEHOLDER */}
                   James — been doing this work for years, still surprised me
                 </p>
               </div>
 
-              {/* Testimonial 3 — ongoing relationship */}
+              {/* Testimonial 3 */}
               <div>
                 <p style={{
                   fontFamily: "'Fraunces', serif",
                   fontSize: "clamp(1.1rem, 2.2vw, 1.3rem)",
-                  fontWeight: 400,
-                  lineHeight: 1.6,
-                  color: C.ink,
+                  fontWeight: 400, lineHeight: 1.6, color: C.ink,
                   marginBottom: 20,
                 }}>
                   {/* PLACEHOLDER — replace with real beta testimonial */}
                   Most tools like this give you a result and then you never look at it again. This one actually stays with you.
                 </p>
-                <p style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 13,
-                  color: C.stone,
-                }}>
-                  {/* PLACEHOLDER name and descriptor */}
+                <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone }}>
+                  {/* PLACEHOLDER */}
                   Priya, team lead — sceptical at first
                 </p>
               </div>
             </div>
           </section>
 
-          {/* ═══ Trial reassurance ═══ */}
-          <section style={{
+          {/* ═══ Trial reassurance (Fix 5: icon row) ═══ */}
+          <section ref={trialRef} className="reveal" style={{
             padding: "clamp(80px, 10vw, 120px) 24px",
             textAlign: "center",
           }}>
+            {/* Decorative icon row */}
+            <div style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 20,
+              marginBottom: 48,
+            }}>
+              {ENERGIES.map(e => (
+                <EnergyIcon key={e.id} energy={e.id} size={40} />
+              ))}
+            </div>
+
             <div style={{
               maxWidth: 520,
               margin: "0 auto",
@@ -447,8 +751,8 @@
               {[
                 "14 days free. No charge until day 15.",
                 "Cancel any time before then. One tap, no questions.",
-                "Your profile is yours. Nobody else sees it — not even us.",
-                "£9.99 a month after that. Less than a coffee a week.",
+                "Your profile is yours. Nobody else sees it \u2014 not even us.",
+                "\u00a39.99 a month after that. Less than a coffee a week.",
               ].map((line, i) => (
                 <p key={i} style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -463,9 +767,10 @@
             </div>
           </section>
 
-          {/* ═══ Final CTA ═══ */}
+          {/* ═══ Final CTA (Fix 6: dark background) ═══ */}
           <section style={{
-            padding: "40px 24px clamp(80px, 10vw, 120px)",
+            background: C.ink,
+            padding: "clamp(72px, 9vw, 100px) 24px",
             textAlign: "center",
           }}>
             <a href="/register" style={ctaStyle}
@@ -486,9 +791,9 @@
           }}>
             <div style={{ display: "flex", justifyContent: "center", gap: 24 }}>
               <a href="/privacy" style={{ color: C.stone, textDecoration: "none" }}>Privacy</a>
-              <span style={{ color: C.sand }}>·</span>
+              <span style={{ color: C.sand }}>&middot;</span>
               <a href="/terms" style={{ color: C.stone, textDecoration: "none" }}>Terms</a>
-              <span style={{ color: C.sand }}>·</span>
+              <span style={{ color: C.sand }}>&middot;</span>
               <a href="mailto:hello@myhue.co" style={{ color: C.stone, textDecoration: "none" }}>Contact</a>
             </div>
           </footer>
