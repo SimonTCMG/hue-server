@@ -462,6 +462,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 63. ✅ Dashboard reveal gate verified on production: TCMG team confirmed `dashboardRevealed: false`, visibility toggle correctly hidden from org admin until reveal (by design — reveal is the gate, visibility is the post-reveal cultural choice)
 64. ✅ Glow two-context rendering: `#F5D000` for fills/borders, `#C8960C` (glowOnLight) for text on light backgrounds — system-wide
 65. ✅ Team dashboard instinctive energy: uses stored `dominant_energy` (band-level label) with band-rank fallback — fixes faint/missing avatar colour for members whose top energy isn't "Naturally present"
+66. ✅ Daily email: context block marked internal-only to prevent profile data leaking into email body; explicit no-markdown rule added to system prompt; `stripMarkdown()` safety net strips any residual markdown before template injection
 
 ---
 

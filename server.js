@@ -1313,8 +1313,12 @@ async function generateEmailContent(user) {
 
 ${contentInstruction}
 
+## Context (internal — never include in output)
+
 This person's colour energy profile (ranked by preference):
 ${ranked.map(e => `- ${e.name}: ${e.label} (${e.pct}%)`).join("\n")}
+
+The context block above is for your use only. Never include it, or any part of it (headings, labels, percentages, energy band descriptions), in the email you generate. The email begins with the first word of the personalised content.
 
 Voice rules (non-negotiable — follow hue-voice-v1.md):
 - Read it aloud test: does it sound like something a warm, intelligent person would actually say to someone they respect? If not, rewrite it.
@@ -1325,10 +1329,10 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
 - Never "unlock", "arc", "dominant type", "a [energy] person", "lead with", "complete your profile"
 - Reserved words rule: the words "spark", "glow", "tend", "flow" are energy names ONLY. Never use them as plain English verbs, nouns, or adjectives. Not "tend to", "natural flow", "could spark", "warm glow". Alternatives: tend→often/naturally/usually; spark→ignite/trigger; flow→rhythm/momentum; glow→warmth/presence.
 - Energies: "reaches for", "naturally reaches for", "shows up with" — never "you are a [energy] person" or "your dominant energy is". Do not say "tends toward" — the word "tend" collides with the energy name Tend.
-- Reserved words rule: the words "spark", "glow", "tend", "flow" are energy names ONLY. Never use them as plain English verbs, nouns, or adjectives. Not "tend to", "natural flow", "could spark", "warm glow". Alternatives: tend→often/naturally/usually; spark→ignite/trigger; flow→rhythm/momentum; glow→warmth/presence.
 - Celebrate all four energies equally — never frame Developing as a weakness or gap
 - Draw on something specific from their profile — if it could be sent to anyone, rewrite it
 - No sign-off, no salutation, no subject line
+- Do not use markdown in your response. No ## headings, no **bold**, no *italic*, no bullet points. Write in plain prose only. Use line breaks between paragraphs. The email is sent as HTML — formatting comes from the template, not from you.
 - Plain prose only`;
 
   const messages = [{ role: "user", content: `Write a "${contentType}" for ${user.name.split(" ")[0]}.` }];
@@ -1353,6 +1357,16 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
     console.error("Email content generation error:", err);
     return null;
   }
+}
+
+function stripMarkdown(text) {
+  return text
+    .replace(/^#{1,6}\s+/gm, '')        // remove ## headings
+    .replace(/\*\*(.*?)\*\*/g, '$1')     // remove **bold**
+    .replace(/\*(.*?)\*/g, '$1')         // remove *italic*
+    .replace(/^[-*]\s+/gm, '')           // remove bullet points
+    .replace(/\n{3,}/g, '\n\n')          // collapse excess line breaks
+    .trim();
 }
 
 async function sendDailyEmails() {
@@ -1381,7 +1395,7 @@ async function sendDailyEmails() {
         .replace(/\{\{PRIMARY_COLOR\}\}/g, ENERGY_COLORS[content.dominant.id] || "#1A1410")
         .replace(/\{\{ENERGY_NAME\}\}/g,   content.dominant.name)
         .replace(/\{\{CONTENT_TYPE\}\}/g,  content.contentType)
-        .replace(/\{\{CONTENT_TEXT\}\}/g,  content.contentText)
+        .replace(/\{\{CONTENT_TEXT\}\}/g,  stripMarkdown(content.contentText))
         .replace(/\{\{CTA_URL\}\}/g,       "https://myhue.co")
         .replace(/\{\{UNSUBSCRIBE_URL\}\}/g, `https://myhue.co/unsubscribe?id=${user.id}`);
 
