@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <!-- Container -->
+  <rect width="48" height="48" rx="13.44" fill="#E8F0FC"/>
+  <!-- Double wave icon -->
+  <svg x="8.4" y="8.4" width="31.2" height="31.2" viewBox="0 0 24 24" fill="none"
+    stroke="#1755B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 9 C6 6 9 6 12 9 C15 12 18 12 21 9"/>
+    <path d="M3 15 C6 12 9 12 12 15 C15 18 18 18 21 15"/>
+  </svg>
+</svg>

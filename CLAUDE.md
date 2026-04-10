@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 8 April 2026 (admin architecture session).*
+*Master brief for all Claude sessions. Last updated: 10 April 2026 (marketing page session).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -53,6 +53,9 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Welcome-back email: single email for returning users joining new org — acknowledges they know Hue, names the team, reminds of data ownership. Suppresses standard 4-email sequence.
 - Maintenance mode: `MAINTENANCE_MODE` env var closes site instantly (Stripe webhook still passes through)
 - Tend rename: complete throughout codebase (tokens, variables, stored data, migration for old profiles)
+- Marketing page at `/about`: standalone HTML file (`public/about.html`), fully isolated from app — no session logic, no React component tree overlap. Served via dedicated route in server.js. Sections: hero (88vh with animated SpinMark and scroll chevron), WIIFM section (ink background, EnergyIcon + statement rows with staggered scroll-reveal), companion conversation (typewriter animation triggered by IntersectionObserver — types in sequentially, plays once), how it works (three steps with EnergyIcon accents and italic scenario hooks), social proof (three placeholder testimonials in Fraunces — ready for real beta quotes), trial reassurance (decorative EnergyIcon row above four statements), final CTA (ink background, Spark-red button), minimal footer. All animations respect `prefers-reduced-motion`. WCAG AA contrast throughout — uses `#73685A` for secondary text instead of app's `#9B8E7E` stone.
+- Subscription management in account settings: "End trial early" (one-tap cancel with inline confirm) for trial-active users; interval-aware "Manage subscription" (Stripe billing portal redirect) for subscribers — shows monthly/annual plan and renewal date, displays remaining access clearly if already cancelled. Not shown to org members or beta users.
+- API endpoints: POST /api/account/cancel-trial, POST /api/account/billing-portal, GET /api/account/subscription
 - Static SVG favicon, PWA manifest
 - Deployed on Railway, auto-deploys on GitHub push
 
@@ -127,6 +130,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 | File | Purpose |
 |------|---------|
 | `public/hue.html` | Entire frontend — single HTML file, React via CDN |
+| `public/about.html` | Marketing page at `/about` — standalone, no shared state with app |
 | `server.js` | Node/Express backend, proxies Anthropic API calls, Stripe, email cron |
 | `db.js` | SQLite schema and queries — users, teams, orgs, shares, summaries, trial emails |
 | `mailerlite.js` | MailerLite subscriber sync |
@@ -436,6 +440,11 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 37. ✅ Dashboard reveal gate — hidden from members until team lead reveals, team lead sees live dashboard with banner, permanent once revealed
 38. Write `hue-launch-checklist.md`
 39. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
+
+**Marketing page — live:**
+
+67. ✅ `/about` marketing page built and deployed — hero, WIIFM, companion chat, how it works, social proof, trial reassurance, final CTA, footer
+68. ⬜ Replace placeholder testimonials in `/about` social proof section with real beta feedback (three slots, marked with PLACEHOLDER comments in `public/about.html`)
 
 **Admin architecture — not started:**
 

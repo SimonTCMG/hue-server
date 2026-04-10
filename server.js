@@ -174,6 +174,15 @@ app.delete("/api/admin/delete-user/:email", (req, res) => {
   res.json({ ok: true, deleted: email });
 });
 
+// Temp admin: mark an invitation as registered (for fixing mismatched-email invites)
+app.post("/api/admin/fix-invitation/:email", (req, res) => {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== process.env.SESSION_SECRET) return res.status(403).json({ error: "Forbidden" });
+  const email = decodeURIComponent(req.params.email).toLowerCase().trim();
+  const result = db.prepare("UPDATE invitations SET status = 'registered' WHERE email = ? AND status = 'invited'").run(email);
+  res.json({ ok: true, email, updated: result.changes });
+});
+
 // ─── TCMG org bootstrap (idempotent — runs once on first deploy) ──────────
 {
   const TCMG_ORG_ID = "tcmg-org-001";
@@ -373,7 +382,7 @@ app.post("/api/register", async (req, res) => {
 
 // POST /api/register-org — create org member account (no payment, no trial clock)
 app.post("/api/register-org", async (req, res) => {
-  const { name, email, orgCode, teamId } = req.body;
+  const { name, email, orgCode, teamId, invitedEmail } = req.body;
 
   if (!name?.trim() || !email?.trim()) {
     return res.status(400).json({ error: "Please enter your name and email." });
@@ -409,6 +418,10 @@ app.post("/api/register-org", async (req, res) => {
       }
     }
     markInvitationRegistered(existing.email, orgCode.trim());
+    // Also mark the original invitation if the person registered with a different email
+    if (invitedEmail && invitedEmail.toLowerCase().trim() !== existing.email) {
+      markInvitationRegistered(invitedEmail, orgCode.trim());
+    }
 
     // State transition to org-member-active if not already
     const previousState = existing.user_state;
@@ -483,6 +496,10 @@ app.post("/api/register-org", async (req, res) => {
     if (team && team.org_id === orgCode.trim()) {
       addTeamMember(id, teamId, assignRole);
       markInvitationRegistered(normalised, orgCode.trim());
+      // Also mark the original invitation if the person registered with a different email
+      if (invitedEmail && invitedEmail.toLowerCase().trim() !== normalised) {
+        markInvitationRegistered(invitedEmail, orgCode.trim());
+      }
     }
   } else {
     // No specific team — add to first team in the org
@@ -766,6 +783,80 @@ app.post("/api/account/lapse-org", async (req, res) => {
 
   const updatedUser = getUser(user.id);
   res.json({ user: formatUserResponse(updatedUser), lapsed: true });
+});
+
+// POST /api/account/cancel-trial — cancel trial at period end
+app.post("/api/account/cancel-trial", async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Payment not configured." });
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+  const userState = resolveUserState(user);
+  if (userState !== "individual-trial-active") {
+    return res.status(400).json({ error: "No active trial to cancel." });
+  }
+  if (!user.stripe_customer_id) {
+    return res.status(400).json({ error: "No billing account found." });
+  }
+  try {
+    const subs = await stripe.subscriptions.list({ customer: user.stripe_customer_id, status: "trialing", limit: 1 });
+    if (subs.data.length === 0) {
+      return res.status(400).json({ error: "No active trial subscription found." });
+    }
+    const subscription = await stripe.subscriptions.update(subs.data[0].id, { cancel_at_period_end: true });
+    res.json({ success: true, periodEnd: subscription.current_period_end });
+  } catch (err) {
+    console.error("Cancel trial error:", err);
+    res.status(500).json({ error: "Something went wrong." });
+  }
+});
+
+// POST /api/account/billing-portal — Stripe billing portal for subscribers
+app.post("/api/account/billing-portal", async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Payment not configured." });
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+  const userState = resolveUserState(user);
+  if (userState !== "individual-subscriber") {
+    return res.status(400).json({ error: "No active subscription." });
+  }
+  if (!user.stripe_customer_id) {
+    return res.status(400).json({ error: "No billing account found." });
+  }
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripe_customer_id,
+      return_url: APP_URL,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("Billing portal error:", err);
+    res.status(500).json({ error: "Something went wrong." });
+  }
+});
+
+// GET /api/account/subscription — fetch subscription details for subscriber UI
+app.get("/api/account/subscription", async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Payment not configured." });
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not signed in." });
+  if (!user.stripe_customer_id) {
+    return res.status(400).json({ error: "No billing account found." });
+  }
+  try {
+    const subs = await stripe.subscriptions.list({ customer: user.stripe_customer_id, limit: 1 });
+    if (subs.data.length === 0) {
+      return res.status(400).json({ error: "No subscription found." });
+    }
+    const sub = subs.data[0];
+    res.json({
+      interval: sub.items.data[0].plan.interval,
+      currentPeriodEnd: sub.current_period_end,
+      cancelAtPeriodEnd: sub.cancel_at_period_end,
+    });
+  } catch (err) {
+    console.error("Subscription fetch error:", err);
+    res.status(500).json({ error: "Something went wrong." });
+  }
 });
 
 // ─── Stripe routes ──────────────────────────────────────────────────────────
@@ -1679,7 +1770,7 @@ app.post("/api/org/:orgId/invite", (req, res) => {
   }
 
   // User doesn't exist yet — send invite email
-  const inviteUrl = `${APP_URL}/register-org?org=${orgId}&team=${teamId}`;
+  const inviteUrl = `${APP_URL}/register-org?org=${orgId}&team=${teamId}&invited=${encodeURIComponent(email.toLowerCase().trim())}`;
   const orgObj = getOrganisation(orgId);
   sendEmail({
     to: email.toLowerCase().trim(),

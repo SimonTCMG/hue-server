@@ -2771,6 +2771,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       const [teamIdFromUrl, setTeamIdFromUrl] = useState("");
       const [orgFromUrl, setOrgFromUrl] = useState(false);
+      const [invitedEmailFromUrl, setInvitedEmailFromUrl] = useState("");
 
       // Pre-fill org code and team ID from URL params if present
       useEffect(() => {
@@ -2779,6 +2780,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         if (code) { setOrgCode(code); setOrgFromUrl(true); }
         const team = params.get("team");
         if (team) setTeamIdFromUrl(team);
+        const inv = params.get("invited");
+        if (inv) setInvitedEmailFromUrl(inv);
       }, []);
 
       const inputStyle = {
@@ -2795,7 +2798,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         try {
           const res = await fetch("/api/register-org", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: name.trim(), email: email.trim(), orgCode: orgCode.trim(), teamId: teamIdFromUrl || undefined }),
+            body: JSON.stringify({ name: name.trim(), email: email.trim(), orgCode: orgCode.trim(), teamId: teamIdFromUrl || undefined, invitedEmail: invitedEmailFromUrl || undefined }),
           });
           const data = await res.json();
           if (!res.ok) { setError(data.error || "Something went wrong. Please try again."); return; }
@@ -3739,6 +3742,22 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [message, setMessage] = useState(null);
       const [error, setError] = useState(null);
 
+      // Subscription management state
+      const [subInfo, setSubInfo] = useState(null);
+      const [subLoading, setSubLoading] = useState(false);
+      const [trialCancelConfirm, setTrialCancelConfirm] = useState(false);
+      const [trialCancelled, setTrialCancelled] = useState(false);
+      const [trialCancelLoading, setTrialCancelLoading] = useState(false);
+
+      // Fetch subscription info for subscribers
+      useEffect(() => {
+        if (user?.userState === "individual-subscriber") {
+          fetch("/api/account/subscription").then(r => r.json()).then(data => {
+            if (data.interval) setSubInfo(data);
+          }).catch(() => {});
+        }
+      }, [user?.userState]);
+
       const submit = async () => {
         if (!newEmail.trim()) return;
         setLoading(true); setError(null); setMessage(null);
@@ -3755,11 +3774,127 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         finally { setLoading(false); }
       };
 
+      const cancelTrial = async () => {
+        setTrialCancelLoading(true);
+        try {
+          const res = await fetch("/api/account/cancel-trial", { method: "POST" });
+          if (res.ok) setTrialCancelled(true);
+        } catch {}
+        finally { setTrialCancelLoading(false); }
+      };
+
+      const openBillingPortal = async () => {
+        setSubLoading(true);
+        try {
+          const res = await fetch("/api/account/billing-portal", { method: "POST" });
+          const data = await res.json();
+          if (data.url) window.location.href = data.url;
+        } catch {}
+        finally { setSubLoading(false); }
+      };
+
+      const formatDate = (ts) => {
+        const d = new Date(typeof ts === "number" && ts < 1e12 ? ts * 1000 : ts);
+        return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+      };
+
       const inputStyle = {
         background: "#fff", border: `1.5px solid ${C.sand}`,
         borderRadius: 12, padding: "14px 18px",
         fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
         color: C.ink, outline: "none", width: "100%", boxSizing: "border-box",
+      };
+
+      const labelStyle = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 4px" };
+      const valueStyle = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.ink, fontWeight: 600, margin: 0 };
+      const cardStyle = { background: "#fff", borderRadius: 16, padding: 24, marginBottom: 20, border: `1px solid ${C.sand}40` };
+
+      // Build subscription section based on user state
+      const renderSubscriptionSection = () => {
+        const state = user?.userState;
+
+        if (state === "individual-trial-active") {
+          const trialEnd = user?.trialEndsAt ? formatDate(user.trialEndsAt) : null;
+          return React.createElement("div", { style: cardStyle },
+            React.createElement("p", { style: labelStyle }, "Your trial"),
+            trialEnd && React.createElement("p", { style: { ...valueStyle, margin: "0 0 16px" } }, `Ends ${trialEnd}`),
+            trialCancelled
+              ? React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: 0 } },
+                  `Trial ending ${trialEnd || "soon"}. Your profile will be here when you're ready.`)
+              : trialCancelConfirm
+                ? React.createElement("div", null,
+                    React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 12px" } },
+                      `Your profile stays safe. Access continues until ${trialEnd || "the end of your trial"}.`),
+                    React.createElement("div", { style: { display: "flex", gap: 12 } },
+                      React.createElement("button", {
+                        onClick: cancelTrial, disabled: trialCancelLoading,
+                        style: {
+                          background: C.ink, color: C.cream, border: "none", borderRadius: 99,
+                          padding: "10px 20px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          fontWeight: 600, fontSize: 14, cursor: trialCancelLoading ? "default" : "pointer",
+                        }
+                      }, trialCancelLoading ? "Confirming..." : "Confirm"),
+                      React.createElement("button", {
+                        onClick: () => setTrialCancelConfirm(false),
+                        style: {
+                          background: "none", color: C.stone, border: `1.5px solid ${C.sand}`,
+                          borderRadius: 99, padding: "10px 20px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          fontWeight: 600, fontSize: 14, cursor: "pointer",
+                        }
+                      }, "Keep my trial")
+                    )
+                  )
+                : React.createElement("button", {
+                    onClick: () => setTrialCancelConfirm(true),
+                    style: {
+                      background: "none", border: "none", padding: 0, cursor: "pointer",
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone,
+                      textDecoration: "underline", textUnderlineOffset: 3,
+                    }
+                  }, "End trial early")
+          );
+        }
+
+        if (state === "individual-subscriber" && subInfo) {
+          const periodEnd = formatDate(subInfo.currentPeriodEnd);
+          const price = subInfo.interval === "year" ? "\u00a379/year" : "\u00a39.99/month";
+
+          if (subInfo.cancelAtPeriodEnd) {
+            // Already cancelling — show remaining access
+            const endMs = subInfo.currentPeriodEnd * 1000;
+            const monthsLeft = Math.floor((endMs - Date.now()) / (1000 * 60 * 60 * 24 * 30));
+            const suffix = subInfo.interval === "year" && monthsLeft > 0
+              ? ` \u2014 ${monthsLeft} month${monthsLeft !== 1 ? "s" : ""} remaining`
+              : "";
+            return React.createElement("div", { style: cardStyle },
+              React.createElement("p", { style: labelStyle }, "Your subscription"),
+              React.createElement("p", { style: { ...valueStyle, margin: "0 0 4px" } }, `Access until ${periodEnd} \u00b7 subscription ending${suffix}`),
+              React.createElement("button", {
+                onClick: openBillingPortal, disabled: subLoading,
+                style: {
+                  background: "none", border: "none", padding: 0, cursor: subLoading ? "default" : "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone,
+                  textDecoration: "underline", textUnderlineOffset: 3, marginTop: 12,
+                }
+              }, subLoading ? "Opening..." : "Manage subscription \u2192")
+            );
+          }
+
+          return React.createElement("div", { style: cardStyle },
+            React.createElement("p", { style: labelStyle }, "Your subscription"),
+            React.createElement("p", { style: { ...valueStyle, margin: "0 0 12px" } }, `${price} \u00b7 renews ${periodEnd}`),
+            React.createElement("button", {
+              onClick: openBillingPortal, disabled: subLoading,
+              style: {
+                background: "none", border: "none", padding: 0, cursor: subLoading ? "default" : "pointer",
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone,
+                textDecoration: "underline", textUnderlineOffset: 3,
+              }
+            }, subLoading ? "Opening..." : "Manage subscription \u2192")
+          );
+        }
+
+        return null; // org-member-active, beta-user, trial-expired — nothing shown
       };
 
       return React.createElement("div", {
@@ -3773,17 +3908,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           React.createElement("h1", {
             style: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: C.ink, marginBottom: 32 }
           }, "Account settings"),
-          React.createElement("div", {
-            style: { background: "#fff", borderRadius: 16, padding: 24, marginBottom: 20, border: `1px solid ${C.sand}40` }
-          },
+          React.createElement("div", { style: cardStyle },
+            React.createElement("p", { style: labelStyle }, "Current email"),
             React.createElement("p", {
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 4px" }
-            }, "Current email"),
-            React.createElement("p", {
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.ink, fontWeight: 600, margin: "0 0 20px" }
+              style: { ...valueStyle, margin: "0 0 20px" }
             }, user?.email || "—"),
             React.createElement("p", {
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 8px" }
+              style: { ...labelStyle, margin: "0 0 8px" }
             }, "Change email"),
             React.createElement("input", {
               type: "email", placeholder: "New email address", value: newEmail,
@@ -3804,25 +3935,19 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               }
             }, loading ? "Sending..." : "Send confirmation")
           ),
-          React.createElement("div", {
-            style: { background: "#fff", borderRadius: 16, padding: 24, border: `1px solid ${C.sand}40` }
-          },
+          React.createElement("div", { style: cardStyle },
+            React.createElement("p", { style: labelStyle }, "Name"),
+            React.createElement("p", { style: valueStyle }, user?.name || "—"),
             React.createElement("p", {
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "0 0 4px" }
-            }, "Name"),
-            React.createElement("p", {
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.ink, fontWeight: 600, margin: 0 }
-            }, user?.name || "—"),
-            React.createElement("p", {
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, margin: "16px 0 4px" }
+              style: { ...labelStyle, margin: "16px 0 4px" }
             }, "Account type"),
-            React.createElement("p", {
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.ink, fontWeight: 600, margin: 0 }
-            }, user?.userState === "beta-user" ? "Beta tester" :
+            React.createElement("p", { style: valueStyle },
+              user?.userState === "beta-user" ? "Beta tester" :
                user?.userState === "org-member-active" ? "Team member" :
                user?.userState === "individual-subscriber" ? "Subscriber" :
                user?.userState === "individual-trial-active" ? "Free trial" : "—")
-          )
+          ),
+          renderSubscriptionSection()
         )
       );
     }

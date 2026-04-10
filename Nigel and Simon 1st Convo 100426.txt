@@ -1,0 +1,63 @@
+04-10 Developing a Conversational AI for Dynamic Personality Assessment
+Developing a Conversational AI for Dynamic Personality Assessment
+
+[Image]
+
+
+Critique of Static Personality Profiling Models
+The discussion opens with a thorough critique of traditional, color-based personality profiling models (e.g., DISC, Insights, Clarity4D) and advanced psychometric tools (e.g., NEO, Hogan, GC Index, Facet5). The central objections center on oversimplification, static outputs, and limited post-workshop utility. Assigning labels such as “she’s a red” boxes people in, fosters shorthand judgments, and reduces nuanced behavior to color tags that can carry unintended or inconsistent meanings. For instance, anxiety has been represented by red, turquoise, and purple across different systems, illustrating how color associations can confuse rather than clarify.
+
+Despite strong research foundations, even “mega sophisticated” tools are faulted for practical shortcomings when users “poke” at them. There is a repeated emphasis on usability: non-HR managers and leadership teams often struggle to retain or apply models with many traits (even five can be hard to remember), which encourages reversion to color shorthand or filing profiles away after a single session. The conversation acknowledges the accessibility benefits of color models—they “start the conversation”—but laments how quickly they devolve into fixed labels and static team maps that inadequately support behavioral flexing or growth.
+
+Several practical critiques emphasize that designing everything to “F1 standard” effectively excludes many users and undercuts outcomes. When tools are too complex, expensive, or facilitator-dependent, they achieve “half the value if that” in the hands of practitioners who only “half know it.” Even where organizations adopt GC Index or Clarity4D, the group sees “stilted attempts at flexing,” suggesting that language acquisition alone does not translate to adaptive behavior. Confusion also arises from differing color semantics (e.g., Insights switching green and blue relative to Clarity4D and others), further compromising transferability. The overarching view: people are often “wedded to old technology” and processes, not outcomes, and personality assessment has become overengineered, overcomplicated, and overly expensive without driving sustained change.
+
+Introduction to a Dynamic, AI-Based Assessment Tool
+In response, one speaker presents a new tool—Team Hue—positioned as a dynamic, AI-powered alternative that prioritizes continuous growth and day-to-day usability. The tool’s theoretical foundations combine Jungian theory, MIS scales, situational traits, constructive developmental theory, and neuroscience. Rather than a static questionnaire, it operates as a structured conversational system: users can speak via a microphone, and the AI incorporates tone, hesitancy, and enthusiasm into its understanding. It does not “give you the answer”; instead, it coaches through dialog, aiming to meet users where they are and help them flex toward lesser-preferred energies.
+
+Key functional principles:
+Living profile, not a snapshot: Each conversation refines understanding; users can “redo” by initiating a new dialog and immediately receive an updated output.
+Daily reinforcement: The system offers “little tests” and “mini missions” embedded into a regular cadence, designed to influence behavior and promote receptivity to opportunities for stretch in real contexts.
+Color continuity with clarified semantics: Team Hue retains the familiar four-color schema but relabels them and acknowledges cross-tool inconsistencies (e.g., Insights’ green/blue inversion compared to Clarity4D and others). Within the tool, color semantics become less central than the behavioral guidance delivered through conversation.
+Facilitation-optional: It can operate entirely without a human facilitator, yet can also be layered onto existing programs (e.g., post-Insights workshop) to sustain engagement and embed behavioral change.
+
+Technically, Team Hue is built on Claude and currently delivered as a web app that runs well on phones; users can add it to a home screen from Safari for an app-like experience. A mobile app is envisioned for a later phase. The tool captures the same data it would without AI in terms of the outputs it generates, but the conversational mode is intended to make discovery more natural and iterative. A psychology foundations paper supports the theoretical basis. The build proceeded from vision to production in three weeks; the tool is in production mode and currently in testing. A validation study is in design.
+
+Market Application and Go-to-Market Strategy
+The commercial plan aims to democratize coaching, facilitation, and organizational development by making the tool accessible to individuals and small teams while remaining scalable to enterprises:
+Individual-first adoption (“Headspace model”): Individuals download and own their profiles. Organizations can then purchase corporate licenses when sufficient adoption is achieved. Users may choose to share “headline data” with their organizations for team visibility, while keeping their detailed personal reports private.
+Practitioner augmentation: Facilitators who run workshops (e.g., with Insights) can use Team Hue post-session as an “advanced” or “enhanced” layer to embed learning and support daily behavior change—without requiring ongoing facilitator presence.
+Direct-to-organization entry: Organizations already using static tools can transition to a dynamic model, leveraging Team Hue’s “organic constellation” team visualization that reflects movement and development over time instead of static team maps.
+Accessibility and IT flexibility: Because it is a web app that runs on phones, organizations with strict desktop IT policies can still deploy the tool by allowing employees to use their personal devices. A smartphone-friendly experience is available immediately; a fully native mobile app is slated for phase two or three.
+Target segments and positioning: Smaller tech companies and founder teams are named as early beneficiaries because “tech company problems aren’t technical, they’re human.” A “tech gadget gizmo” that practically helps a team of three founders work better is seen as more attractive than commissioning static profiles. The tool’s “conversational” approach represents a category shift away from traditional psychometrics toward a more dynamic, interaction-based paradigm.
+Commercial model and partners: The speaker is setting up the commercial framework and considering partner opportunities for reselling. Demonstrating how team data works in practice is part of the outreach plan.
+
+Relatedly, one participant notes a peer project building an AI system for market and investment analysis, suggesting broader cross-domain confidence in conversational AI as a practical tool for structured decision support.
+
+Proposed Collaboration and Next Steps
+A concrete collaboration proposal is extended to trial, evaluate, and co-develop Team Hue:
+Access and onboarding: The tool’s link will be shared, and the invitee will be set up as a member of a “Team Hue/Hugh” environment to experience the system firsthand on web and phone.
+Feedback and co-exploration: The goal is to gather user feedback on the build and interface, understand user outcomes, and explore how the tool might be applied in different contexts (e.g., industry-specific adaptations or extensions to adjacent behavior domains such as coaching or presentation development).
+Data for demonstration: Including the invitee within a live team space will help generate aggregated data that can be shown to organizations, illustrating how dynamic team views operate in practice.
+Ongoing dialogue: If opportunities for targeted data capture or structured trials emerge, both parties plan to continue conversations on potential pilots or co-authored content to validate efficacy and refine positioning.
+
+Application of Human-Centric Principles in Business Education
+The conversation closes by applying these human-centric, growth-oriented principles in academia. One speaker has been asked to deliver a two-part session for the Executive MBA at Bath University, focused on a framework for building great, human-centric cultures. The thesis: absent a healthy culture, organizations accrue “decision debt”—people refrain from speaking up, withhold critical information, and leave issues unsaid—directly impairing performance. A cited pharmaceutical case recorded 0.4% turnover against an industry average of 13.2%, presented as evidence that valuing people, soliciting input, and encouraging challenge correlates with strong retention and performance outcomes.
+
+Administrative and practical notes include:
+The session starts at nine o’clock, requiring an overnight stay.
+Bath University will cover expenses, but there is no honorarium. The speaker plans to negotiate for compensation after the first session, once the institution has seen the quality delivered.
+The speaker intends to provide students with a couple of free tools to gain insights and build enthusiasm, and views the engagement as a platform for creating connections (e.g., adding attendees to a contact database).
+There is a plan to give forewarning for next month’s lecture, with the possibility of meeting informally (e.g., at a pub with a good IPA), reflecting the networking and community-building aspect of the engagement.
+
+Action Items
+@Speaker A
+   Send the Team Hue web app link to the invitee. - [TBD]
+ Set up the invitee as a member of a Team Hue/Hugh team environment to enable hands-on testing and to generate demonstrable team data. - [TBD]
+ Provide a walkthrough explaining how Team Hue works and discuss specific outcomes it can deliver. - [TBD]
+ Share the psychology foundations paper supporting the tool’s theoretical base. - [TBD]
+ Prepare a demonstration of the “organic constellation” team visualization for organizational presentations. - [TBD]
+ Give forewarning ahead of next month’s Bath Executive MBA lecture to coordinate a potential meetup. - [TBD]
+ Use a couple of free tools with the Executive MBA students to give them insights and encourage engagement. - [TBD]
+
+@Speaker B
+   Test Team Hue and provide structured feedback on usability, user experience, and potential applications (including industry-specific or adjacent behavior domains). - [TBD]
