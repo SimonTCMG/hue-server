@@ -573,6 +573,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           background: C.cream,
           borderTop: `1px solid ${C.sand}`,
           display: "flex", gap: 10, alignItems: "center",
+          width: "100%", boxSizing: "border-box",
+          overflow: "hidden",
         }}>
           <input
             ref={inputRef}
@@ -583,6 +585,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             disabled={disabled}
             style={{
               flex: 1,
+              minWidth: 0,
               background: "#fff",
               border: `1.5px solid ${voice.listening ? "#D92010" : C.sand}`,
               borderRadius: 99,
@@ -644,12 +647,15 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── Welcome screen ───────────────────────────────────────────────────────
-    function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn, onSettings, teams = [] }) {
+    function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn, onSettings, teams = [], user }) {
       const isDesktop = useIsDesktop();
       const primaryEnergy = savedProfile
         ? ENERGIES.find(e => e.id === savedProfile.rankedIds[0])
         : null;
-      const lockedUntil = retakeAvailableDate(savedProfile);
+      // Issue 7: use stored dates from server, not dynamically computed
+      const lockedUntil = user?.retestAvailableAt
+        ? (new Date(user.retestAvailableAt) > new Date() ? new Date(user.retestAvailableAt) : null)
+        : retakeAvailableDate(savedProfile);
       const hasProfile = !!savedProfile;
 
       const retakeLabel = lockedUntil
@@ -693,7 +699,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             opacity: 0.7,
           }}>
             {hasProfile
-              ? `Your colour energy profile · ${savedProfile.date}`
+              ? `Your colour energy profile · ${user?.registeredAt ? new Date(user.registeredAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : savedProfile.date}`
               : "A short conversation maps your four colour energies. Then Hue stays with you."}
           </p>
 
@@ -1832,6 +1838,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           ? positionHeaders[0]
           : obsData.reach[i] || null;
         const [readMore, setReadMore] = useState(false);
+        // Issue 6: Card 1 (Instinctive) expanded by default, cards 2-4 collapsed
+        const [isOpen, setIsOpen] = useState(i === 0);
         const truncated = positionText ? truncateAtSentence(positionText) : { short: null, full: null };
         const needsTruncation = truncated.full !== null;
 
@@ -1874,9 +1882,22 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 </div>
               </div>
             </div>
-            {/* Observation text — truncated with inline Read more / Read less */}
-            {positionText && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${e.color}25` }}>
+            {/* More / Less toggle */}
+            <div
+              onClick={() => setIsOpen(o => !o)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                marginTop: 10, cursor: "pointer", padding: "6px 0",
+              }}>
+              <span style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 13, fontWeight: 600, color: e.color,
+              }}>{isOpen ? "Less" : "More"}</span>
+              <span style={{ fontSize: 14, color: e.color, lineHeight: 1, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>&#8744;</span>
+            </div>
+            {/* Observation text — shown when expanded */}
+            {isOpen && positionText && (
+              <div style={{ marginTop: 4, paddingTop: 14, borderTop: `1px solid ${e.color}25` }}>
                 <p style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: isDesktop ? 14 : 13, lineHeight: 1.7,
@@ -1913,10 +1934,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             marginBottom: isDesktop ? 32 : 0,
           }}>
 
-            {/* Nav */}
+            {/* Nav — pinned at top so Home icon is always reachable */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: isDesktop ? "32px 40px 0" : "24px 20px 0",
+              padding: isDesktop ? "20px 40px" : "16px 20px",
+              position: "sticky", top: 0, zIndex: 100,
+              background: C.cream,
+              borderBottom: `1px solid ${C.sand}`,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <SpinMark size={38} paused />
@@ -2017,52 +2041,61 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             <div style={{ padding: isDesktop ? "20px 40px 0" : "16px 20px 0" }}>
               {true && (
                 <div style={{ textAlign: "left" }}>
-                  {/* Flex & Surprise */}
+                  {/* Flex & Surprise — Issue 9: four-colour gradient border, ink headings, cream background */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 14 }}>
                     <div style={{
-                      background: "#fff", borderRadius: 20,
+                      borderRadius: 20,
                       padding: isDesktop ? "28px 28px" : "20px 20px",
-                      border: `1.5px solid ${C.sand}`,
+                      border: "3px solid transparent",
+                      backgroundImage: `linear-gradient(${C.cream}, ${C.cream}), linear-gradient(to right, #D92010, #F5D000, #1A8C4E, #1755B8)`,
+                      backgroundOrigin: "border-box",
+                      backgroundClip: "padding-box, border-box",
                       animation: "fadeUp 0.3s ease both",
                     }}>
                       <p style={{
                         fontFamily: "'Plus Jakarta Sans', sans-serif",
                         fontSize: 11, fontWeight: 600,
                         letterSpacing: "0.08em", textTransform: "uppercase",
-                        color: primary.color, margin: "0 0 10px",
+                        color: C.ink, margin: "0 0 10px",
                       }}>When you reach for <EnergyWord name={obs.flexEnergy} /> energy</p>
-                      <TruncatedObs text={obs.flex} color={primary.color} fontSize={isDesktop ? 15 : 14} />
+                      <TruncatedObs text={obs.flex} color={C.ink} fontSize={isDesktop ? 15 : 14} />
                     </div>
                     <div style={{
-                      background: "#fff", borderRadius: 20,
+                      borderRadius: 20,
                       padding: isDesktop ? "28px 28px" : "20px 20px",
-                      border: `1.5px solid ${C.sand}`,
+                      border: "3px solid transparent",
+                      backgroundImage: `linear-gradient(${C.cream}, ${C.cream}), linear-gradient(to right, #D92010, #F5D000, #1A8C4E, #1755B8)`,
+                      backgroundOrigin: "border-box",
+                      backgroundClip: "padding-box, border-box",
                       animation: "fadeUp 0.3s ease 0.1s both",
                     }}>
                       <p style={{
                         fontFamily: "'Plus Jakarta Sans', sans-serif",
                         fontSize: 11, fontWeight: 600,
                         letterSpacing: "0.08em", textTransform: "uppercase",
-                        color: primary.color, margin: "0 0 10px",
+                        color: C.ink, margin: "0 0 10px",
                       }}>You might surprise people</p>
-                      <TruncatedObs text={obs.surprise} color={primary.color} fontSize={isDesktop ? 15 : 14} />
+                      <TruncatedObs text={obs.surprise} color={C.ink} fontSize={isDesktop ? 15 : 14} />
                     </div>
                   </div>
 
-                  {/* Extended observation cards */}
+                  {/* Extended observation cards — Issue 9: gradient border, ink headings */}
                   {selectAdditionalObs(ranked).map((card, ci) => (
                     <div key={ci} style={{ marginBottom: 14 }}>
                       <div style={{
-                        background: "#fff", borderRadius: 20,
+                        borderRadius: 20,
                         padding: isDesktop ? "28px 28px" : "20px 20px",
-                        border: `1.5px solid ${C.sand}`,
+                        border: "3px solid transparent",
+                        backgroundImage: `linear-gradient(${C.cream}, ${C.cream}), linear-gradient(to right, #D92010, #F5D000, #1A8C4E, #1755B8)`,
+                        backgroundOrigin: "border-box",
+                        backgroundClip: "padding-box, border-box",
                         animation: `fadeUp 0.3s ease ${0.2 + ci * 0.1}s both`,
                       }}>
                         <p style={{
                           fontFamily: "'Plus Jakarta Sans', sans-serif",
                           fontSize: 11, fontWeight: 600,
                           letterSpacing: "0.08em", textTransform: "uppercase",
-                          color: card.type === "misread" ? primary.color : C.stone,
+                          color: C.ink,
                           margin: "0 0 10px",
                         }}>
                           {card.type === "misread"      ? "How you're sometimes read" :
@@ -2070,7 +2103,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                            card.type === "nearEqual"    ? card.label :
                            "Your profile shape"}
                         </p>
-                        <TruncatedObs text={card.text} color={card.type === "misread" ? primary.color : C.stone} fontSize={isDesktop ? 15 : 14} />
+                        <TruncatedObs text={card.text} color={C.ink} fontSize={isDesktop ? 15 : 14} />
                       </div>
                     </div>
                   ))}
@@ -2900,10 +2933,11 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
     function BandDot({ band, energy }) {
       const col = C[energy];
-      const base = { width: 12, height: 12, minWidth: 12, minHeight: 12, maxWidth: 12, maxHeight: 12, borderRadius: "50%", flexShrink: 0, display: "inline-block", boxSizing: "border-box" };
+      // Issue 8: explicit 14px dimensions with min-width to prevent oval distortion
+      const base = { width: 14, height: 14, minWidth: 14, minHeight: 14, maxWidth: 14, maxHeight: 14, borderRadius: "50%", flexShrink: 0, display: "inline-block", boxSizing: "border-box" };
       if (band === "Naturally present") return React.createElement("div", { style: { ...base, background: col } });
-      if (band === "Intentionally present") return React.createElement("div", { style: { ...base, background: `${col}40`, border: `2px solid ${col}` } });
-      return React.createElement("div", { style: { ...base, background: "transparent", border: `2px solid ${col}73` } });
+      if (band === "Intentionally present") return React.createElement("div", { style: { ...base, background: `${col}59`, border: `2px solid ${col}` } });
+      return React.createElement("div", { style: { ...base, background: "transparent", border: `2px solid ${col}80` } });
     }
 
     // ─── Team Constellation ──────────────────────────────────────────────────
@@ -2920,22 +2954,33 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         return () => clearInterval(id);
       }, []);
 
-      // Position each member using X/Y axes mapped to energy pairs:
-      // X axis: Spark (right) ←→ Tend (left)  — drive vs steadiness
-      // Y axis: Flow (top) ←→ Glow (bottom)   — systems vs connection
-      // Band weights determine pull strength along each axis
-      const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.45, "Developing": 0.0 };
+      // Constellation axis mapping (confirmed 7 April 2026):
+      // X axis: Spark (right) <-> Tend (left)
+      // Y axis: Flow (top) <-> Glow (bottom)
+      //
+      // Position formula (relative ratio, not raw score):
+      // xNorm = Spark% / (Spark% + Tend%)
+      // yNorm = Flow% / (Flow% + Glow%)
+      //
+      // Equal Spark and Tend = centre X (0.5)
+      // Equal Flow and Glow = centre Y (0.5)
+      // Overlap nudging applied after initial position is calculated
+      //
+      // Band weights approximate energy percentages for positioning
+      const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.45, "Developing": 0.1 };
 
-      // First pass: compute raw positions from bands
+      // First pass: compute raw positions from bands using ratio formula
       const rawPositions = members.filter(m => m.assessmentComplete && m.bands).map(m => {
-        const sw = bandWeight[m.bands.spark] || 0;
-        const gw = bandWeight[m.bands.glow] || 0;
-        const tw = bandWeight[m.bands.tend] || 0;
-        const fw = bandWeight[m.bands.flow] || 0;
-        // X: positive = Spark, negative = Tend
-        const rawX = (sw - tw);
-        // Y: positive = Glow (bottom), negative = Flow (top)
-        const rawY = (gw - fw);
+        const sw = bandWeight[m.bands.spark] || 0.1;
+        const gw = bandWeight[m.bands.glow] || 0.1;
+        const tw = bandWeight[m.bands.tend] || 0.1;
+        const fw = bandWeight[m.bands.flow] || 0.1;
+        // Ratio formula: normalised 0 to 1
+        const xNorm = sw / (sw + tw); // 0 = far left (Tend), 1 = far right (Spark)
+        const yNorm = fw / (fw + gw); // 0 = bottom (Glow), 1 = top (Flow)
+        // Map to canvas-relative coordinates: centre at 0, range [-1, 1]
+        const rawX = (xNorm - 0.5) * 2;
+        const rawY = -(yNorm - 0.5) * 2; // negate so Flow (high yNorm) = top (negative Y in SVG)
         return { ...m, rawX, rawY };
       });
 
@@ -3323,18 +3368,17 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           // ─── 32-dimension panel ───
           aggregate.memberCount > 0 && React.createElement("div", { style: { marginTop: 24 } },
             React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}` } },
-              React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 12 } },
-                React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: 0 } }, "Functional dimensions"),
-                React.createElement("div", { style: { display: "flex", gap: 14, alignItems: "center" } },
-                  [
-                    { label: "Naturally present", style: { width: 12, height: 12, borderRadius: "50%", background: C.stone } },
-                    { label: "Intentionally present", style: { width: 12, height: 12, borderRadius: "50%", background: `${C.stone}55`, border: `2px solid ${C.stone}`, boxSizing: "border-box" } },
-                    { label: "Developing", style: { width: 12, height: 12, borderRadius: "50%", background: "transparent", border: `2px solid ${C.stone}44`, boxSizing: "border-box" } },
-                  ].map(k => React.createElement("div", { key: k.label, style: { display: "flex", alignItems: "center", gap: 5 } },
-                    React.createElement("div", { style: k.style }),
-                    React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, k.label)
-                  ))
-                )
+              React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 12px" } }, "Functional dimensions"),
+              // Issue 8: legend as own row with 14px dots
+              React.createElement("div", { style: { display: "flex", gap: isDesktop ? 18 : 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12, padding: "10px 14px", background: `${C.sand}18`, borderRadius: 10 } },
+                [
+                  { label: "Naturally present", style: { width: 14, height: 14, minWidth: 14, borderRadius: "50%", background: C.stone, boxSizing: "border-box" } },
+                  { label: "Intentionally present", style: { width: 14, height: 14, minWidth: 14, borderRadius: "50%", background: `${C.stone}59`, border: `2px solid ${C.stone}`, boxSizing: "border-box" } },
+                  { label: "Developing", style: { width: 14, height: 14, minWidth: 14, borderRadius: "50%", background: "transparent", border: `2px solid ${C.stone}80`, boxSizing: "border-box" } },
+                ].map(k => React.createElement("div", { key: k.label, style: { display: "flex", alignItems: "center", gap: 8 } },
+                  React.createElement("div", { style: k.style }),
+                  React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone } }, k.label)
+                ))
               ),
               React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginBottom: 20 } },
                 "What the team naturally attends to \u2014 and what may need deliberate attention."
@@ -3372,20 +3416,18 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
           // ─── Member list ───
           React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}`, overflow: "hidden", width: "100%" } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 } },
-              React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: 0 } }, "Members"),
-              // Legend
-              React.createElement("div", { style: { display: "flex", gap: 14, alignItems: "center" } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 12px" } }, "Members"),
+            // Legend — Issue 8: own visually separated row above member list
+            React.createElement("div", { style: { display: "flex", gap: isDesktop ? 18 : 12, alignItems: "center", flexWrap: "wrap", marginBottom: 16, padding: "10px 14px", background: `${C.sand}18`, borderRadius: 10 } },
                 [
-                  { label: "Naturally present", style: { width: 12, height: 12, borderRadius: "50%", background: C.stone } },
-                  { label: "Intentionally present", style: { width: 12, height: 12, borderRadius: "50%", background: `${C.stone}55`, border: `2px solid ${C.stone}`, boxSizing: "border-box" } },
-                  { label: "Developing", style: { width: 12, height: 12, borderRadius: "50%", background: "transparent", border: `2px solid ${C.stone}44`, boxSizing: "border-box" } },
-                ].map(k => React.createElement("div", { key: k.label, style: { display: "flex", alignItems: "center", gap: 5 } },
+                  { label: "Naturally present", style: { width: 14, height: 14, minWidth: 14, borderRadius: "50%", background: C.stone, boxSizing: "border-box" } },
+                  { label: "Intentionally present", style: { width: 14, height: 14, minWidth: 14, borderRadius: "50%", background: `${C.stone}59`, border: `2px solid ${C.stone}`, boxSizing: "border-box" } },
+                  { label: "Developing", style: { width: 14, height: 14, minWidth: 14, borderRadius: "50%", background: "transparent", border: `2px solid ${C.stone}80`, boxSizing: "border-box" } },
+                ].map(k => React.createElement("div", { key: k.label, style: { display: "flex", alignItems: "center", gap: 8 } },
                   React.createElement("div", { style: k.style }),
-                  React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, k.label)
+                  React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone } }, k.label)
                 ))
-              )
-            ),
+              ),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 } },
               members.map(m => {
                 const instCol = m.instinctiveEnergy ? C[m.instinctiveEnergy] : C.sand;
@@ -3481,6 +3523,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [inviteMsg, setInviteMsg] = useState(null);
       const [newTeamName, setNewTeamName] = useState("");
       const [creatingTeam, setCreatingTeam] = useState(false);
+      const [filterTeam, setFilterTeam] = useState("all");
+      const [filterStatus, setFilterStatus] = useState("all");
 
       const loadData = () => {
         fetch(`/api/org/${orgId}`).then(r => r.json()).then(d => {
@@ -3691,31 +3735,57 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
           // ─── Member list ───
           React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}`, overflow: "hidden", width: "100%" } },
-            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 20 } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 16 } },
               `All members (${membersList.length})${pendingInvitations.length > 0 ? ` \u00B7 ${pendingInvitations.length} invited` : ""}`
             ),
-            membersList.length === 0
-              ? React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, fontStyle: "italic" } }, "No members yet. Use the invite form above to add people.")
-              : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-                  membersList.map(m => {
-                    const s = statusLabel(m);
-                    const initials = m.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-                    const instCol = m.dominantEnergy ? C[m.dominantEnergy] : C.sand;
-                    const instTextCol = m.dominantEnergy === "glow" ? C.glowOnLight : instCol;
-                    return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: `1px solid ${C.sand}22`, minWidth: 0, overflow: "hidden", width: "100%" } },
-                      React.createElement("div", { style: { width: 36, height: 36, flexShrink: 0, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instTextCol : C.stone } }, initials),
-                      React.createElement("div", { style: { flex: 1, minWidth: 0, overflow: "hidden" } },
-                        React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", width: "100%" } }, m.name),
-                        React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", width: "100%" } }, m.email),
-                        React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 } },
-                          React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: s.col, fontWeight: 600 } }, s.text),
-                          m.teams.map(t => React.createElement("span", { key: t.teamId, style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}44`, padding: "2px 8px", borderRadius: 99 } }, t.teamName))
-                        )
-                      ),
-                      React.createElement("button", { onClick: () => handleRemoveMember(m.userId), style: { flexShrink: 0, background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, cursor: "pointer", padding: "6px 10px" } }, "Remove")
-                    );
-                  })
-                ),
+            // Filter controls
+            React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" } },
+              teams.length > 1 && React.createElement("select", {
+                value: filterTeam, onChange: e => setFilterTeam(e.target.value),
+                style: { ...inputStyle, width: "auto", minWidth: 140, padding: "8px 12px", fontSize: 13 },
+              },
+                React.createElement("option", { value: "all" }, "All teams"),
+                teams.map(t => React.createElement("option", { key: t.id, value: t.id }, t.name))
+              ),
+              React.createElement("select", {
+                value: filterStatus, onChange: e => setFilterStatus(e.target.value),
+                style: { ...inputStyle, width: "auto", minWidth: 140, padding: "8px 12px", fontSize: 13 },
+              },
+                React.createElement("option", { value: "all" }, "All statuses"),
+                React.createElement("option", { value: "complete" }, "Profile complete"),
+                React.createElement("option", { value: "pending" }, "Pending")
+              )
+            ),
+            (() => {
+              const filtered = membersList.filter(m => {
+                if (filterTeam !== "all" && !m.teams.some(t => t.teamId === filterTeam)) return false;
+                if (filterStatus === "complete" && !m.assessmentComplete) return false;
+                if (filterStatus === "pending" && m.assessmentComplete) return false;
+                return true;
+              });
+              return filtered.length === 0
+                ? React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, fontStyle: "italic" } }, filterTeam !== "all" || filterStatus !== "all" ? "No members match the current filters." : "No members yet. Use the invite form above to add people.")
+                : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+                    filtered.map(m => {
+                      const s = statusLabel(m);
+                      const initials = m.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+                      const instCol = m.dominantEnergy ? C[m.dominantEnergy] : C.sand;
+                      const instTextCol = m.dominantEnergy === "glow" ? C.glowOnLight : instCol;
+                      return React.createElement("div", { key: m.userId, style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: `1px solid ${C.sand}22`, minWidth: 0, overflow: "hidden", width: "100%" } },
+                        React.createElement("div", { style: { width: 36, height: 36, flexShrink: 0, borderRadius: "50%", background: m.assessmentComplete ? `${instCol}22` : `${C.sand}33`, border: `2px solid ${m.assessmentComplete ? instCol : C.sand}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: m.assessmentComplete ? instTextCol : C.stone } }, initials),
+                        React.createElement("div", { style: { flex: 1, minWidth: 0, overflow: "hidden" } },
+                          React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", width: "100%" } }, m.name),
+                          React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", width: "100%" } }, m.email),
+                          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 } },
+                            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: s.col, fontWeight: 600 } }, s.text),
+                            m.teams.map(t => React.createElement("span", { key: t.teamId, style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}44`, padding: "2px 8px", borderRadius: 99 } }, t.teamName))
+                          )
+                        ),
+                        React.createElement("button", { onClick: () => handleRemoveMember(m.userId), style: { flexShrink: 0, background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, cursor: "pointer", padding: "6px 10px" } }, "Remove")
+                      );
+                    })
+                  );
+            })(),
             // Pending invitations
             pendingInvitations.length > 0 && React.createElement("div", { style: { marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.sand}` } },
               React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: C.stone, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 } }, "Invited \u2014 not yet registered"),
@@ -4186,6 +4256,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   onSignIn={() => navigate("sign-in")}
                   onSettings={() => navigate("settings")}
                   teams={userTeams}
+                  user={betaUser}
                 />
               )}
               {screen === "consent" && (

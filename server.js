@@ -270,6 +270,9 @@ function formatUserResponse(user) {
     dominantEnergy: user.dominant_energy || null,
     scores: user.energy_scores ? JSON.parse(user.energy_scores) : null,
     labels: user.reach_labels  ? JSON.parse(user.reach_labels)  : null,
+    // Issue 7: serve stored dates — never recomputed at request time
+    registeredAt: user.registered_at || null,
+    retestAvailableAt: user.retest_available_at || null,
   };
 }
 
@@ -310,6 +313,8 @@ app.post("/api/register", async (req, res) => {
 
   const id  = uuidv4();
   const now = Date.now();
+  // Issue 7: compute retest date once at registration, store as ISO string
+  const retestAvailableAt = new Date(now + 90 * 24 * 60 * 60 * 1000).toISOString();
   try {
     createUser({
       id,
@@ -319,6 +324,8 @@ app.post("/api/register", async (req, res) => {
       trial_started_at: isBetaUser ? null : now,
       user_state: isBetaUser ? "beta-user" : "individual-trial-active",
     });
+    // Store retest date
+    db.prepare("UPDATE users SET retest_available_at = ? WHERE id = ?").run(retestAvailableAt, id);
   } catch (err) {
     console.error("DB error on register:", err);
     return res.status(500).json({ error: "Could not create your account. Please try again." });
@@ -479,9 +486,11 @@ app.post("/api/register-org", async (req, res) => {
 
   const id  = uuidv4();
   const now = Date.now();
+  const retestAvailableAtOrg = new Date(now + 90 * 24 * 60 * 60 * 1000).toISOString();
   try {
     createUser({ id, name: name.trim(), email: normalised, registered_at: now,
                  trial_started_at: null, user_state: "org-member-active" });
+    db.prepare("UPDATE users SET retest_available_at = ? WHERE id = ?").run(retestAvailableAtOrg, id);
   } catch (err) {
     console.error("DB error on org register:", err);
     return res.status(500).json({ error: "Could not create your account. Please try again." });
@@ -1552,8 +1561,29 @@ app.get("/api/team/:teamId", (req, res) => {
     return res.json({ team: { id: team.id, name: team.name, visibility: team.visibility }, restricted: true });
   }
 
-  const aggregate = getTeamAggregate(teamId);
   const members = getTeamMembers(teamId);
+
+  // Issue 2 fix: if a member has a completed assessment (energy_scores in users table)
+  // but no bands record for this team, auto-sync bands now. This handles multi-team
+  // membership where the user completed their assessment before being added to this team.
+  for (const m of members) {
+    if (m.assessment_completed_at && m.energy_scores) {
+      const existingBand = db.prepare(
+        "SELECT 1 FROM team_energy_bands WHERE user_id = ? AND team_id = ?"
+      ).get(m.user_id, teamId);
+      if (!existingBand) {
+        try {
+          const scores = JSON.parse(m.energy_scores);
+          upsertTeamEnergyBands(m.user_id, teamId, calculateBands(scores));
+        } catch (err) {
+          console.error(`Auto-sync bands for user ${m.user_id} in team ${teamId}:`, err);
+        }
+      }
+    }
+  }
+
+  // Re-fetch after potential auto-sync
+  const aggregate = getTeamAggregate(teamId);
   const bands = getTeamEnergyBands(teamId);
 
   // Build member list with initials and instinctive energy colour (never raw scores)
@@ -1571,13 +1601,15 @@ app.get("/api/team/:teamId", (req, res) => {
         .map(e => ({ e, r: BAND_RANK[band[`${e}_band`]] || 0 }))
         .sort((a, b) => b.r - a.r)[0].e;
     }
+    // Issue 1/2 consistency: use assessment_completed_at from users table as canonical status
+    const profileComplete = !!m.assessment_completed_at;
     return {
       userId: m.user_id,
       name: m.name,
       initials: m.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2),
       role: m.role,
-      assessmentComplete: !!band,
-      instinctiveEnergy: band ? instinctive : null,
+      assessmentComplete: profileComplete,
+      instinctiveEnergy: profileComplete ? instinctive : null,
       bands: band ? {
         spark: band.spark_band,
         glow: band.glow_band,
@@ -1703,14 +1735,18 @@ app.get("/api/org/:orgId", (req, res) => {
   const members = getOrgMembers(orgId);
 
   // Group members by user (a user can be in multiple teams)
+  // Issue 1 fix: read profile_complete from user record (assessment_completed_at),
+  // not from any team-scoped field. This ensures consistency with the individual home screen.
   const memberMap = {};
   for (const m of members) {
     if (!memberMap[m.id]) {
+      // Canonical status: user has completed assessment if assessment_completed_at is set
+      const profileComplete = !!m.assessment_completed_at;
       memberMap[m.id] = {
         userId: m.id,
         name: m.name,
         email: m.email,
-        assessmentComplete: !!m.assessment_completed_at,
+        assessmentComplete: profileComplete,
         userState: m.user_state,
         dominantEnergy: m.dominant_energy,
         teams: [],

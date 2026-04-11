@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 10 April 2026 (marketing page session).*
+*Master brief for all Claude sessions. Last updated: 11 April 2026 (UI/UX fixes session).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -21,7 +21,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 ### Working and live
 - Full assessment conversation flow (AI-conducted, 6–8 exchanges, six scoring dimensions in system prompt)
 - Four energy scores generated from conversation
-- Results screen: redesigned — bespoke observation at top ("only you", always shown in full), four energy cards each with position-specific celebratory framing (Instinctive/Fluent/Intentional/Developing) plus sub-labels ("This is where you go first" / "You move here easily when it helps" / "You reach for this when the situation calls for it" / "There's more here for you when you're ready"), flex and surprise cards, extended observations. Long observations truncated at ~200 chars at sentence boundary (180–220 range, always at full sentence end) with "Read more" / "Read less" inline toggle. Learn-more prompt uses accessible language (no framework vocabulary in navigation)
+- Results screen: redesigned — bespoke observation at top ("only you", always shown in full), four energy cards each with position-specific celebratory framing (Instinctive/Fluent/Intentional/Developing) plus sub-labels ("This is where you go first" / "You move here easily when it helps" / "You reach for this when the situation calls for it" / "There's more here for you when you're ready"), flex and surprise cards, extended observations. Long observations truncated at ~200 chars at sentence boundary (180–220 range, always at full sentence end) with "Read more" / "Read less" inline toggle. Learn-more prompt uses accessible language (no framework vocabulary in navigation). Card 1 (Instinctive) expanded by default, cards 2-4 collapsed with prominent "More" / "Less" toggle in energy colour (not accordion — cards toggle independently). Nav bar pinned at top (sticky) so Home icon is always reachable. Extended/additional cards (flex, surprise, misread, profile shape, etc.) use four-colour gradient border (Spark→Glow→Tend→Flow) with ink headings and cream background — not instinctive energy colour
 - Bespoke observation: second API call generates one unrepeatable observation from the specific conversation
 - One sentence: identity-distillation sentence, shareable, with canvas download
 - Observation library: all 16 primary observations live (4 energies × 4 reach positions), plus 12 pairings, 8 misread, 4 under pressure, 4 leadership, 4 conflict, 4 relationships, 8 flex crossings, 7 near-equal, 6 profile shapes — all in companion and results
@@ -30,7 +30,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - `<EnergyWord>` component: renders Spark, Glow, Tend, Flow in their energy colours throughout the app
 - `colorize()` helper: auto-wraps energy names in EnergyWord within any text string
 - Voice input: browser-native Speech Recognition (Web Speech API) on both assessment and companion chat. Microphone button next to send, pulses red while listening, input field shows "Listening..." placeholder. No backend, no API keys, no cost. Falls back gracefully if unsupported. Works in Chrome and Safari.
-- Companion chat: profile-aware, coaching register, colour energy in coaching, conversation memory (summaries), anniversary sentence, pre/post situation practice. Response length rules enforced in system prompt: max 2 sentences of observation before a question, one question per response, no affirmation openers ("That's a really interesting reflection..."), match the person's energy/length. Fixed-position fullscreen layout with pinned header (Home icon always visible), 680px centred card on desktop, full width on mobile.
+- Companion chat: profile-aware, coaching register, colour energy in coaching, conversation memory (summaries), anniversary sentence, pre/post situation practice. Response length rules enforced in system prompt: max 2 sentences of observation before a question, one question per response, no affirmation openers ("That's a really interesting reflection..."), match the person's energy/length. Fixed-position fullscreen layout with pinned header (Home icon always visible), 680px centred card on desktop, full width on mobile. Input row uses flex layout with `minWidth: 0` on text input, `flexShrink: 0` on buttons, `overflow: hidden` on container — submit button always visible on mobile.
 - Assessment chat: same fixed-position layout as companion — pinned header with Home icon, centred card on desktop, full width on mobile
 - User accounts: email registration, login, session cookies, user states
 - Stripe integration: checkout sessions, 14-day trial with card at sign-up, webhook handling (checkout.session.completed, invoice.paid, customer.subscription.deleted, invoice.payment_failed), billing portal
@@ -43,7 +43,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Org member registration: separate screen at `/register-org`, no payment, no trial clock, `org-member-active` state, data ownership messaging. Invite link passes org and team IDs — user auto-added to team on registration. Form asks for "Personal email address" (not work email — profile outlasts the job). Org code field hidden when passed via URL.
 - Org member onboarding emails: 4-email sequence via MailerSend. Email 1 (Welcome, immediate on registration), Email 2 (First insight, Day 3 — personalised by dominant/developing energy), Email 3 (Team context, Day 7 — what employer sees), Email 4 (Companion intro, Day 14). Cron at 9:15am UK for Days 3/7/14. Tracked in `org_emails` table. Org members never receive trial emails (suppressed by state).
 - Invite email: language-guide-compliant, explains what Hue is, states data ownership, links to `/register-org`. Uses proper email HTML template.
-- Returning user flow: shows last result, offers retake after 90 days
+- Returning user flow: shows last result, offers retake after 90 days. Registration date and retest date stored once at registration in users table (`registered_at`, `retest_available_at`) — never recomputed at render time
 - Beta user state: `beta-user` — full access, no trial clock, no Stripe, suppressed from trial emails, beta welcome email only. `BETA_EMAILS` env var in Railway controls who gets beta status on registration. Beta users skip the payment/plan screen entirely on registration (frontend checks userState and calls onRegistered directly).
 - Account settings screen: accessible from welcome screen, shows current email/name/account type, email change flow
 - Email change flow: authenticated session initiates, confirmation via new email only (24h token), old email gets notification (informational, bounce harmless), MailerLite atomic sync on change. Account settings accessible regardless of subscription state.
@@ -61,7 +61,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 
 ### Team dashboard — UI built
 - Team dashboard overview at `/team/:teamId`: four energy band bars (all full colour — visual weight from bar length, not opacity), member count, member list with initials in instinctive energy colour, subtle tinted card backgrounds per member. Band labels have hover tooltips ("The team reaches for this without thinking" / "The team brings this deliberately when it's needed" / "This energy is available — the team is still building its reach here")
-- Member list: shows all four energy band dots per person (not just instinctive colour) — reinforces that everyone has access to all four energies. Legend in header row explains dot styles (full = Naturally present, partial = Intentionally present, hollow = Developing). Status indicators: green tick for profile complete, sand "Not yet started" pill for pending members. Names dimmed when incomplete.
+- Member list: shows all four energy band dots per person (not just instinctive colour) — reinforces that everyone has access to all four energies. Legend in its own visually separated row above the member list (not inline with heading), 14px circle dots (solid = Naturally present, partial fill = Intentionally present, hollow = Developing), subtle background, 12px label text. Status indicators: green tick for profile complete, sand "Not yet started" pill for pending members. Names dimmed when incomplete.
 - 32-dimension functional panel: four quadrants (Spark/Glow/Tend/Flow), each showing 8 confirmed dimensions as dots. Qualifying text per quadrant based on relative ranking — energies ranked against each other so the team always sees contrast (strongest, present-but-deliberate, growth frontier). Legend in header row. Spark: Purpose/Vision/Decision/Transformation/Momentum/Courage/Ambition/Challenge. Glow: Collaboration/Communication/Environment/Team Meetings/Celebration/Inclusion/Belonging/Energy. Tend: Trust/Accountability/Commitment/Diversity/Wellbeing/Consistency/Loyalty/Memory. Flow: Planning/Processes/Roles & Skills/Reflection/Clarity/Evidence/Learning/Systems.
 - Team constellation view: SVG spatial layout using consistent X/Y axis mapping — X: Spark (right) vs Tend (left), Y: Flow (top) vs Glow (bottom). Same energy bands = same position. Overlap nudging prevents stacking. No connection lines (removed — "shared energy affinity" was undefined and meaningless). Ambient float animation, quadrant glow, Fraunces labels at edges. Initials only on nodes, full name on hover. List/table alternative for teams of 10+.
 - Cultural prompt inline above visibility toggle — exact copy from strategy doc. Toggle only for team-lead/org-admin. Green when full_team, sand when leader_only.
@@ -76,10 +76,10 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Sub-team support: user can belong to multiple teams, profile contributes independently to each
 - Roles: org-admin (all teams), team-lead (their teams), member
 - Aggregate function: band counts per energy, observations suppressed below 8 members
-- Auto-sync: assessment completion pushes bands to all teams user belongs to
+- Auto-sync: assessment completion pushes bands to all teams user belongs to. Team dashboard endpoint also auto-syncs missing bands on load (handles case where user completed assessment before being added to a team)
 
 ### Org admin — UI built
-- Org admin screen at `/org/:orgId`: create teams, invite members by email (sends invite via MailerSend with data ownership message), view all members with status (Profile complete / Joined, not started / Invited), remove members, assign team leads
+- Org admin screen at `/org/:orgId`: create teams, invite members by email (sends invite via MailerSend with data ownership message), view all members with status (Profile complete / Joined, not started / Invited), remove members, assign team leads. Member status reads from canonical `assessment_completed_at` on users table. Filter controls: filter by team (dropdown) and filter by status (All / Profile complete / Pending)
 - Bulk invite: textarea accepts multiple emails separated by commas, semicolons, newlines, or spaces. Single email sends immediately. Multiple emails show confirmation panel listing all addresses before sending. Maximum 50 per batch. Helper text explains format.
 - API endpoints: `/api/org/create`, `/api/org/:orgId`, `/api/org/:orgId/team`, `/api/org/:orgId/invite`, `/api/org/:orgId/member/:userId` (DELETE), `/api/org/:orgId/team/:teamId/lead`
 - Team API endpoints: `/api/teams`, `/api/team/:teamId`, `/api/team/:teamId/visibility`
@@ -334,7 +334,7 @@ Individual behavioural patterns (overstretch, check-ins, longitudinal observatio
 
 **Team dashboard — member list shows all four energies:** Each member row displays four band dots (Spark/Glow/Tend/Flow) below their name, not just their instinctive energy colour. This reinforces that every person has access to all four energies. The initials avatar still uses the instinctive energy colour, but the full picture is always visible.
 
-**Team constellation — axis logic:** X axis maps Spark (right) vs Tend (left). Y axis maps Flow (top) vs Glow (bottom). Same energy band profile = same position on the canvas. Overlap nudging prevents stacking but keeps similar profiles clustered. No connection lines — "shared energy affinity" was an undefined concept and added visual noise without meaning. Positioning alone shows who shares energy tendencies.
+**Team constellation — axis logic:** X axis maps Spark (right) vs Tend (left). Y axis maps Flow (top) vs Glow (bottom). Same energy band profile = same position on the canvas. Overlap nudging prevents stacking but keeps similar profiles clustered. No connection lines — "shared energy affinity" was an undefined concept and added visual noise without meaning. Positioning alone shows who shares energy tendencies. Position formula uses relative ratios: `xNorm = Spark% / (Spark% + Tend%)`, `yNorm = Flow% / (Flow% + Glow%)` — documented in code comment block (confirmed 7 April 2026).
 
 **New hire modeller — three scenarios:** (1) No profile: hiring manager inputs estimate, marked as such, replaced when real profile exists. (2) Existing subscriber: explicit consent to contribute to team picture, declining has no bearing on hiring process. (3) Standard onboarding: 30-day settling period before profile influences team-level observations.
 
@@ -440,6 +440,18 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 37. ✅ Dashboard reveal gate — hidden from members until team lead reveals, team lead sees live dashboard with banner, permanent once revealed
 38. Write `hue-launch-checklist.md`
 39. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper
+
+**UI/UX fixes — completed 11 April 2026:**
+
+69. ✅ Org admin member status fix — reads from canonical `assessment_completed_at`, added team + status filter controls
+70. ✅ Multi-team profile association fix — auto-syncs missing energy bands on dashboard load
+71. ✅ Mobile submit button clipping fix — flex layout with `minWidth: 0`, no horizontal overflow
+72. ✅ Results screen nav pinned (sticky) — Home icon always reachable
+73. ✅ Constellation positioning formula verified — ratio formula with code comment block
+74. ✅ Results energy cards collapse/expand — card 1 open, cards 2-4 collapsed, independent More/Less toggle
+75. ✅ Registration/retest dates stored at registration — `retest_available_at` column, no dynamic recomputation
+76. ✅ Legend dots fixed (14px circles, not ovals) — own visually separated row, larger text, subtle background
+77. ✅ Additional result cards four-colour gradient border — ink headings, cream background, EnergyWord unchanged
 
 **Marketing page — live:**
 

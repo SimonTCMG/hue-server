@@ -66,6 +66,8 @@ try { db.exec(`ALTER TABLE users ADD COLUMN stripe_customer_id TEXT`); } catch {
 // Add trial columns to existing deployments that predate the trial model
 try { db.exec(`ALTER TABLE users ADD COLUMN trial_started_at INTEGER`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN user_state TEXT`); } catch {}
+// Issue 7: store retest date at registration, not computed at render time
+try { db.exec(`ALTER TABLE users ADD COLUMN retest_available_at TEXT`); } catch {}
 
 // Migrate Root → Tend in existing user records (one-time, idempotent)
 db.exec(`
@@ -423,7 +425,8 @@ export function addTeamMember(userId, teamId, role = "member") {
 
 export function getTeamMembers(teamId) {
   return db.prepare(
-    `SELECT tm.user_id, tm.role, tm.added_at, u.name, u.email, u.dominant_energy
+    `SELECT tm.user_id, tm.role, tm.added_at, u.name, u.email, u.dominant_energy,
+            u.assessment_completed_at, u.energy_scores
      FROM team_members tm
      JOIN users u ON u.id = tm.user_id
      WHERE tm.team_id = ?
