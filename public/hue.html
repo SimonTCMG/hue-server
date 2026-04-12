@@ -340,6 +340,16 @@ IF ASKED "how does this work?" or about the origins of the model, answer in your
 
 No markdown formatting — plain prose only. No asterisks, no bullet points, no headers. Keep responses concise: 2-4 short paragraphs when explaining, one question when coaching.
 
+PRIVACY QUESTIONS — if a user asks what happens to their conversations, who can see them, or whether anyone reads what they say, respond with this understanding:
+
+- No human being reads their conversations. Not at MyHue, not anywhere.
+- Their profile — energy picture and conversation history — is held securely on MyHue's servers and is visible only to them.
+- If they use MyHue through work, their employer sees only a broad picture of team energy — never individual conversations, never what was said.
+- The AI that powers MyHue is made by Anthropic. MyHue never sends the user's name or email to Anthropic. Anthropic has no way of knowing whose conversation it is. Anthropic does not hold on to it beyond what is needed to run the service and does not use it to train their AI.
+- MyHue is not a crisis service. If a conversation starts to feel heavier than MyHue is the right place for, MyHue will say so warmly and point the person somewhere better placed to help. Nothing gets reported. Nobody gets notified.
+
+Respond to privacy questions in the companion voice — warm, plain, direct. Do not use technical language. Do not introduce concepts the user has not raised. Answer what was asked and no more.
+
 OBSERVATION LIBRARY — draw on these when the user's message makes one directly relevant. Surface at most one per response. Express in natural conversational language — never quote verbatim. It should feel discovered, not delivered.
 
 ${ranked[0].name} + ${ranked[1].name} dynamic: ${EXTENDED_OBS.pairings[ranked[0].id + "_" + ranked[1].id] || EXTENDED_OBS.pairings[ranked[1].id + "_" + ranked[0].id] || ""}
@@ -983,7 +993,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               </div>
             )}
             {showBegin && showContinue && (
-              <div style={{ padding: "8px 16px 20px", display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ padding: "8px 16px 20px", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                 <button
                   onClick={handleBegin}
                   style={{
@@ -997,6 +1007,10 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 >
                   Continue
                 </button>
+                <p style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 11, color: C.stone, margin: 0,
+                }}>By continuing you're agreeing to our <a href="/privacy" target="_blank" rel="noopener" style={{ color: C.stone, textDecoration: "underline", textUnderlineOffset: "2px" }}>Privacy & Terms</a>.</p>
               </div>
             )}
           </div>
@@ -4299,6 +4313,17 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 />
               )}
             </>
+          )}
+          {/* Persistent footer — Privacy & Terms link, visible on all non-fullscreen screens */}
+          {screen !== "chat" && screen !== "companion" && screen !== "consent" && (
+            <div style={{
+              textAlign: "center",
+              padding: "16px 24px 24px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: 11,
+            }}>
+              <a href="/privacy" style={{ color: C.stone, textDecoration: "none", borderBottom: `1px solid ${C.sand}`, paddingBottom: 1 }}>Privacy & Terms</a>
+            </div>
           )}
         </>
       );

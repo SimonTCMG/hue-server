@@ -156,6 +156,14 @@ app.get("/about", (req, res) => {
   res.sendFile(join(__dirname, "public", "about.html"));
 });
 
+// Privacy & Terms — standalone static HTML
+app.get("/privacy", (req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Surrogate-Control", "no-store");
+  res.sendFile(join(__dirname, "public", "privacy.html"));
+});
+
 // ─── Temporary admin: delete user by email (remove after beta setup) ────────
 app.delete("/api/admin/delete-user/:email", (req, res) => {
   const secret = req.headers["x-admin-secret"];

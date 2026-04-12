@@ -56,6 +56,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Marketing page at `/about`: standalone HTML file (`public/about.html`), fully isolated from app — no session logic, no React component tree overlap. Served via dedicated route in server.js. Sections: hero (88vh with animated SpinMark and scroll chevron), WIIFM section (ink background, EnergyIcon + statement rows with staggered scroll-reveal), companion conversation (typewriter animation triggered by IntersectionObserver — types in sequentially, plays once), how it works (three steps with EnergyIcon accents and italic scenario hooks), social proof (three placeholder testimonials in Fraunces — ready for real beta quotes), trial reassurance (decorative EnergyIcon row above four statements), final CTA (ink background, Spark-red button), minimal footer. All animations respect `prefers-reduced-motion`. WCAG AA contrast throughout — uses `#73685A` for secondary text instead of app's `#9B8E7E` stone.
 - Subscription management in account settings: "End trial early" (one-tap cancel with inline confirm) for trial-active users; interval-aware "Manage subscription" (Stripe billing portal redirect) for subscribers — shows monthly/annual plan and renewal date, displays remaining access clearly if already cancelled. Not shown to org members or beta users.
 - API endpoints: POST /api/account/cancel-trial, POST /api/account/billing-portal, GET /api/account/subscription
+- Privacy & Terms page at `/privacy`: standalone HTML file (`public/privacy.html`), same styling as about.html. Three sections: Your conversations (full privacy explanation), Your profile (ownership statement), The legal version (placeholder for formal T&C pre-launch). Footer link present in both `about.html` and `hue.html`. Consent conversation includes "By continuing you're agreeing to our Privacy & Terms" link below the Continue button. Companion system prompt includes privacy Q&A guidance so Hue can answer privacy questions accurately in conversation.
 - Static SVG favicon, PWA manifest
 - Deployed on Railway, auto-deploys on GitHub push
 
@@ -131,6 +132,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 |------|---------|
 | `public/hue.html` | Entire frontend — single HTML file, React via CDN |
 | `public/about.html` | Marketing page at `/about` — standalone, no shared state with app |
+| `public/privacy.html` | Privacy & Terms page at `/privacy` — standalone, same style as about.html |
 | `server.js` | Node/Express backend, proxies Anthropic API calls, Stripe, email cron |
 | `db.js` | SQLite schema and queries — users, teams, orgs, shares, summaries, trial emails |
 | `mailerlite.js` | MailerLite subscriber sync |
