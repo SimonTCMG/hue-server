@@ -876,6 +876,55 @@ app.get("/api/account/subscription", async (req, res) => {
   }
 });
 
+// ─── Multi-currency pricing ─────────────────────────────────────────────────
+
+const PRICING = {
+  GBP: { symbol: "£", monthly: "9.99", annual: "79",  annualMonthly: "6.58" },
+  USD: { symbol: "$", monthly: "12.99", annual: "99",  annualMonthly: "8.25" },
+  AUD: { symbol: "A$", monthly: "14.99", annual: "119", annualMonthly: "9.92" },
+  CAD: { symbol: "C$", monthly: "14.99", annual: "119", annualMonthly: "9.92" },
+  EUR: { symbol: "€", monthly: "11.99", annual: "95",  annualMonthly: "7.92" },
+  NZD: { symbol: "NZ$", monthly: "16.99", annual: "129", annualMonthly: "10.75" },
+  SGD: { symbol: "S$", monthly: "16.99", annual: "129", annualMonthly: "10.75" },
+  AED: { symbol: "AED ", monthly: "47.00", annual: "369", annualMonthly: "30.75" },
+};
+
+const COUNTRY_TO_CURRENCY = {
+  US: "USD", CA: "CAD", AU: "AUD", NZ: "NZD", SG: "SGD", AE: "AED",
+  AT: "EUR", BE: "EUR", CY: "EUR", EE: "EUR", FI: "EUR", FR: "EUR",
+  DE: "EUR", GR: "EUR", IE: "EUR", IT: "EUR", LV: "EUR", LT: "EUR",
+  LU: "EUR", MT: "EUR", NL: "EUR", PT: "EUR", SK: "EUR", SI: "EUR",
+  ES: "EUR",
+};
+
+function getCurrencyForRequest(req) {
+  const country = (req.headers["cf-ipcountry"] || "").toUpperCase();
+  return COUNTRY_TO_CURRENCY[country] || "GBP";
+}
+
+function getStripePriceId(currency, plan) {
+  const suffix = `_${currency}`;
+  const envKey = plan === "annual"
+    ? `STRIPE_PRICE_ANNUAL${suffix}`
+    : `STRIPE_PRICE_MONTHLY${suffix}`;
+  const priceId = process.env[envKey];
+  if (priceId) return priceId;
+  // Fall back to GBP if currency-specific price not configured
+  if (currency !== "GBP") {
+    console.warn(`Stripe price not configured for ${envKey}, falling back to GBP`);
+    return getStripePriceId("GBP", plan);
+  }
+  // Final fallback to legacy env var names (no currency suffix)
+  return plan === "annual" ? process.env.STRIPE_PRICE_ANNUAL : process.env.STRIPE_PRICE_MONTHLY;
+}
+
+// GET /api/pricing — returns local currency and prices based on Cloudflare geo header
+app.get("/api/pricing", (req, res) => {
+  const currency = getCurrencyForRequest(req);
+  const prices = PRICING[currency] || PRICING.GBP;
+  res.json({ currency, ...prices });
+});
+
 // ─── Stripe routes ──────────────────────────────────────────────────────────
 
 // POST /api/create-checkout — creates a Stripe Checkout session (14-day trial, card required)
@@ -883,11 +932,9 @@ app.post("/api/create-checkout", async (req, res) => {
   if (!stripe) return res.status(503).json({ error: "Payment not configured." });
   const user = getUserFromCookie(req);
   if (!user) return res.status(401).json({ error: "Not signed in." });
-  const { plan, priceId: explicitPriceId } = req.body;
-  const priceId = explicitPriceId
-    || (plan === "annual"  ? process.env.STRIPE_PRICE_ANNUAL  : null)
-    || (plan === "monthly" ? process.env.STRIPE_PRICE_MONTHLY : null)
-    || process.env.STRIPE_PRICE_MONTHLY;
+  const { plan } = req.body;
+  const currency = getCurrencyForRequest(req);
+  const priceId = getStripePriceId(currency, plan || "monthly");
   if (!priceId) return res.status(400).json({ error: "No Stripe price configured." });
   try {
     // Item 54: Create Stripe customer for users without one (beta users, etc.)

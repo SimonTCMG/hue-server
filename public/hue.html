@@ -2242,14 +2242,19 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     function TrialExpiredScreen({ userName }) {
       const isDesktop = useIsDesktop();
       const [loading, setLoading] = useState(false);
+      const [pricing, setPricing] = useState({ symbol: "£", monthly: "9.99", annual: "79", annualMonthly: "6.58" });
 
-      const openCheckout = async (priceId) => {
+      React.useEffect(() => {
+        fetch("/api/pricing").then(r => r.json()).then(p => { if (p && p.symbol) setPricing(p); }).catch(() => {});
+      }, []);
+
+      const openCheckout = async (plan) => {
         setLoading(true);
         try {
           const res  = await fetch("/api/create-checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ priceId }),
+            body: JSON.stringify({ plan }),
           });
           const data = await res.json();
           if (data.url) window.location.href = data.url;
@@ -2297,11 +2302,11 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             Pick up exactly where you left off.
           </p>
           <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 }}>
-            <button onClick={() => openCheckout(window.STRIPE_PRICE_MONTHLY)} style={btnStyle(true)} disabled={loading}>
-              {loading ? "Redirecting…" : "Keep going — £9.99 / month"}
+            <button onClick={() => openCheckout("monthly")} style={btnStyle(true)} disabled={loading}>
+              {loading ? "Redirecting…" : `Keep going — ${pricing.symbol}${pricing.monthly} / month`}
             </button>
-            <button onClick={() => openCheckout(window.STRIPE_PRICE_ANNUAL)} style={btnStyle(false)} disabled={loading}>
-              Keep going — £79 / year (save two months)
+            <button onClick={() => openCheckout("annual")} style={btnStyle(false)} disabled={loading}>
+              {`Keep going — ${pricing.symbol}${pricing.annual} / year (save two months)`}
             </button>
           </div>
           <p style={{
@@ -2580,6 +2585,11 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [loading, setLoading] = useState(false);
       const [error,   setError]   = useState(null);
       const [user,    setUser]    = useState(null);
+      const [pricing, setPricing] = useState({ symbol: "£", monthly: "9.99", annual: "79", annualMonthly: "6.58" });
+
+      React.useEffect(() => {
+        fetch("/api/pricing").then(r => r.json()).then(p => { if (p && p.symbol) setPricing(p); }).catch(() => {});
+      }, []);
 
       const inputStyle = {
         background: "#fff", border: `1.5px solid ${C.sand}`,
@@ -2653,7 +2663,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
                 <span>Monthly</span>
-                <span style={{ fontWeight: 400, opacity: 0.8 }}>£9.99 / month</span>
+                <span style={{ fontWeight: 400, opacity: 0.8 }}>{pricing.symbol}{pricing.monthly} / month</span>
               </button>
               <button onClick={() => choosePlan("annual")} disabled={loading} style={{
                 background: "#fff", color: C.ink, border: `1.5px solid ${C.sand}`, borderRadius: 16,
@@ -2661,8 +2671,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 fontWeight: 700, fontSize: 15, cursor: "pointer", textAlign: "left",
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
-                <span>Annual <span style={{ fontWeight: 400, color: C.tend, fontSize: 12 }}>Save 34%</span></span>
-                <span style={{ fontWeight: 400, color: C.stone }}>£79 / year</span>
+                <span>Annual <span style={{ fontWeight: 400, color: C.tend, fontSize: 12 }}>Save {Math.round((1 - pricing.annual / (pricing.monthly * 12)) * 100)}%</span></span>
+                <span style={{ fontWeight: 400, color: C.stone }}>{pricing.symbol}{pricing.annual} / year</span>
               </button>
             </div>
             <p style={{ fontSize: 11, color: C.stone, marginTop: 16, fontFamily: "'Plus Jakarta Sans', sans-serif", maxWidth: 320, lineHeight: 1.5 }}>
