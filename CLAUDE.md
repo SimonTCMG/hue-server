@@ -362,11 +362,49 @@ Instinctive energies appear spontaneously, effortlessly, frequently, positively,
 | Tier | Price | Notes |
 |------|-------|-------|
 | Individual trial | Free for 14 days | Card required at sign-up. Full access — all four energies. Clock starts at sign-up. |
-| Individual paid | £9.99/month or £79/year | Auto-converts at trial end |
+| Individual paid | £9.99/month or £79/year | Auto-converts at trial end. Multi-currency — see table below. |
 | Organisational | £8/seat/month | Annual contract, min 10 seats. Team dashboard included. Team members register free. |
 | Not-for-profit / charity | £6/seat/month | Applied in conversation, not advertised |
 | Facilitator | £49/month (up to 20 active clients) | |
 | Training partner seats | £5/seat/month | |
+
+### Multi-currency individual pricing (live — 12 April 2026)
+
+Explicit prices per currency, fixed (not floating with exchange rates). UK GBP is the anchor. International prices set at fair purchasing-power-adjusted equivalents, rounded to psychologically clean price points. **Review annually** to adjust for exchange rate changes.
+
+**Monthly:**
+
+| Currency | Price | Market |
+|----------|-------|--------|
+| GBP | £9.99 | UK |
+| USD | $12.99 | US |
+| AUD | A$14.99 | Australia |
+| CAD | C$14.99 | Canada |
+| EUR | €11.99 | Europe |
+| NZD | NZ$16.99 | New Zealand |
+| SGD | S$16.99 | Singapore |
+| AED | AED 47.00 | UAE |
+
+**Annual:**
+
+| Currency | Price | Market |
+|----------|-------|--------|
+| GBP | £79 | UK |
+| USD | $99 | US |
+| AUD | A$119 | Australia |
+| CAD | C$119 | Canada |
+| EUR | €95 | Europe |
+| NZD | NZ$129 | New Zealand |
+| SGD | S$129 | Singapore |
+| AED | AED 369 | UAE |
+
+Any currency not in the above list falls back to GBP. No auto-conversion or estimation.
+
+**How it works:** Cloudflare's `CF-IPCountry` header detects the visitor's country. `getCurrencyForRequest()` in server.js maps country → currency. `GET /api/pricing` returns local currency/symbol/prices to the frontend. `POST /api/create-checkout` selects the correct Stripe Price ID from env vars (`STRIPE_PRICE_MONTHLY_{CURRENCY}`, `STRIPE_PRICE_ANNUAL_{CURRENCY}`). Falls back to GBP if a currency-specific env var is missing.
+
+**Stripe:** 16 Price objects on the Hue product (8 currencies × 2 intervals). Price IDs stored as Railway env vars. Org/facilitator/training pricing is not multi-currency — individual subscription only.
+
+**Country → currency mapping:** US→USD, CA→CAD, AU→AUD, NZ→NZD, SG→SGD, AE→AED, Eurozone (AT/BE/CY/EE/FI/FR/DE/GR/IE/IT/LV/LT/LU/MT/NL/PT/SK/SI/ES)→EUR, everything else→GBP.
 
 ---
 
@@ -459,6 +497,10 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 
 67. ✅ `/about` marketing page built and deployed — hero, WIIFM, companion chat, how it works, social proof, trial reassurance, final CTA, footer
 68. ⬜ Replace placeholder testimonials in `/about` social proof section with real beta feedback (three slots, marked with PLACEHOLDER comments in `public/about.html`)
+
+**Multi-currency pricing — live:**
+
+78. ✅ Multi-currency individual pricing — 8 currencies (GBP, USD, AUD, CAD, EUR, NZD, SGD, AED), Cloudflare geo-detection, dynamic frontend pricing, Stripe Price IDs in Railway env vars, test script (`test-currency.js`). Prices to be reviewed annually for exchange rate adjustment.
 
 **Admin architecture — not started:**
 
