@@ -1073,6 +1073,11 @@ app.post("/api/summarise", async (req, res) => {
 
   const system = `You are Hue. Summarise the key themes, questions, tensions, or shifts in thinking from this companion conversation in 2–3 sentences. Focus on what would be worth reflecting back in a future session — recurring concerns, things this person is actively working through, any realisations or resistance that surfaced. Write in third person. Be specific, not generic. Plain prose only.`;
 
+  // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
+  // User identity is resolved server-side only. Only anonymised profile data
+  // and conversation content are sent to the Anthropic API.
+  // Do not add user.name, user.email, user.id, or any other PII to this payload.
+  // This is a published promise to users — see /privacy.
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -1147,6 +1152,11 @@ Do not include quotation marks. Do not explain. Return only the sentence.`;
 
   const prompt = `Their colour energy profile (ranked):\n${ranked.map((e, i) => `${i + 1}. ${e.name}: ${e.pct}%`).join("\n")}\n\nWhat they said (their words only):\n${userWords}\n\nWrite the one sentence.`;
 
+  // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
+  // User identity is resolved server-side only. Only anonymised profile data
+  // and conversation content are sent to the Anthropic API.
+  // Do not add user.name, user.email, user.id, or any other PII to this payload.
+  // This is a published promise to users — see /privacy.
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -1222,6 +1232,11 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
 
   const prompt = `Their colour energy profile (ranked):\n${ranked.map((e, i) => `${i + 1}. ${e.name}: ${e.pct}%`).join("\n")}\n\nThe assessment conversation:\n${transcript}\n\nWrite the observation.`;
 
+  // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
+  // User identity is resolved server-side only. Only anonymised profile data
+  // and conversation content are sent to the Anthropic API.
+  // Do not add user.name, user.email, user.id, or any other PII to this payload.
+  // This is a published promise to users — see /privacy.
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -1342,6 +1357,11 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ error: "messages must start with role: user" });
   }
 
+  // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
+  // User identity is resolved server-side only. Only anonymised profile data
+  // and conversation content are sent to the Anthropic API.
+  // Do not add user.name, user.email, user.id, or any other PII to this payload.
+  // This is a published promise to users — see /privacy.
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -1443,7 +1463,12 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
 - Do not use markdown in your response. No ## headings, no **bold**, no *italic*, no bullet points. Write in plain prose only. Use line breaks between paragraphs. The email is sent as HTML — formatting comes from the template, not from you.
 - Plain prose only`;
 
-  const messages = [{ role: "user", content: `Write a "${contentType}" for ${user.name.split(" ")[0]}.` }];
+  // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
+  // User identity is resolved server-side only. Only anonymised profile data
+  // and conversation content are sent to the Anthropic API.
+  // Do not add user.name, user.email, user.id, or any other PII to this payload.
+  // This is a published promise to users — see /privacy.
+  const messages = [{ role: "user", content: `Write a "${contentType}" for this person.` }];
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {

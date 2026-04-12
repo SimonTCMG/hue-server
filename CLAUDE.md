@@ -857,6 +857,7 @@ Access priority rule (checked in this order):
 - Do not call the energy Tend "Root" — Root is retired as an energy name
 - Do not surface raw percentages anywhere in the team dashboard UI — bands only
 - Do not allow any individual behavioural data to cross from the personal companion pipeline into the team layer — these pipelines are architecturally separate and must stay that way
+- **PII in API payloads — never permitted:** No personally identifying information (name, email, user ID, org name, team name) may be included in any payload sent to the Anthropic API. User identity is resolved server-side only. Only anonymised profile data (energy scores, reach positions) and conversation content are sent. Each API call site in server.js carries a PRIVACY COMMITMENT comment block enforcing this. This is a published user promise — see /privacy. Do not reopen this decision.
 - Do not reopen any decision in this document without explicit instruction from Simon
 
 ---
