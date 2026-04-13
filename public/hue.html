@@ -2990,18 +2990,23 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       // Equal Flow and Glow = centre Y (0.5)
       // Overlap nudging applied after initial position is calculated
       //
-      // Band weights approximate energy percentages for positioning
+      // Band weights approximate energy percentages for positioning.
+      // The dominant energy (instinctiveEnergy) gets a boost to break ties
+      // when two energies share the same band label.
       const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.45, "Developing": 0.1 };
+      const DOMINANT_BOOST = 0.25;
 
       // First pass: compute raw positions from bands using ratio formula
       const rawPositions = members.filter(m => m.assessmentComplete && m.bands).map(m => {
-        const sw = bandWeight[m.bands.spark] || 0.1;
-        const gw = bandWeight[m.bands.glow] || 0.1;
-        const tw = bandWeight[m.bands.tend] || 0.1;
-        const fw = bandWeight[m.bands.flow] || 0.1;
+        const weights = {};
+        for (const e of ["spark", "glow", "tend", "flow"]) {
+          weights[e] = bandWeight[m.bands[e]] || 0.1;
+          // Boost the dominant energy so it pulls harder — breaks ties within same band
+          if (m.instinctiveEnergy === e) weights[e] += DOMINANT_BOOST;
+        }
         // Ratio formula: normalised 0 to 1
-        const xNorm = sw / (sw + tw); // 0 = far left (Tend), 1 = far right (Spark)
-        const yNorm = fw / (fw + gw); // 0 = bottom (Glow), 1 = top (Flow)
+        const xNorm = weights.spark / (weights.spark + weights.tend); // 0 = far left (Tend), 1 = far right (Spark)
+        const yNorm = weights.flow / (weights.flow + weights.glow); // 0 = bottom (Glow), 1 = top (Flow)
         // Map to canvas-relative coordinates: centre at 0, range [-1, 1]
         const rawX = (xNorm - 0.5) * 2;
         const rawY = -(yNorm - 0.5) * 2; // negate so Flow (high yNorm) = top (negative Y in SVG)
@@ -3090,19 +3095,30 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             }
             return React.createElement("g", { key: `label-${q.energy}` }, textEl);
           }),
-          // Member nodes
-          positioned.map(m => React.createElement("g", {
-            key: m.userId,
-            onMouseEnter: () => setHovered(m),
-            onMouseLeave: () => setHovered(null),
-            style: { cursor: "pointer" },
-          },
-            React.createElement("circle", { cx: m.x, cy: m.y, r: 18, fill: `${m.col}22`, stroke: m.col, strokeWidth: 2 }),
-            React.createElement("text", {
-              x: m.x, y: m.y + 4, textAnchor: "middle",
-              style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, fill: m.instinctiveEnergy === "glow" ? C.glowOnLight : m.col },
-            }, m.initials)
-          ))
+          // Member nodes — disambiguate duplicate initials by using more of first name
+          (() => {
+            const initialCounts = {};
+            positioned.forEach(m => { initialCounts[m.initials] = (initialCounts[m.initials] || 0) + 1; });
+            return positioned.map(m => {
+              // If initials clash, use first name (up to 4 chars) instead
+              const label = initialCounts[m.initials] > 1
+                ? (m.name || "").split(" ")[0].slice(0, 4)
+                : m.initials;
+              const nodeR = label.length > 2 ? 22 : 18;
+              return React.createElement("g", {
+                key: m.userId,
+                onMouseEnter: () => setHovered(m),
+                onMouseLeave: () => setHovered(null),
+                style: { cursor: "pointer" },
+              },
+                React.createElement("circle", { cx: m.x, cy: m.y, r: nodeR, fill: `${m.col}22`, stroke: m.col, strokeWidth: 2 }),
+                React.createElement("text", {
+                  x: m.x, y: m.y + 4, textAnchor: "middle",
+                  style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: label.length > 2 ? 10 : 11, fontWeight: 700, fill: m.instinctiveEnergy === "glow" ? C.glowOnLight : m.col },
+                }, label)
+              );
+            });
+          })()
         ),
         // Hover tooltip
         hovered && React.createElement("div", { style: {
