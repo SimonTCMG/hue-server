@@ -2990,44 +2990,57 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       // Equal Flow and Glow = centre Y (0.5)
       // Overlap nudging applied after initial position is calculated
       //
-      // Band weights approximate energy percentages for positioning.
-      // The dominant energy (instinctiveEnergy) gets a boost to break ties
-      // when two energies share the same band label.
-      const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.45, "Developing": 0.1 };
-      const DOMINANT_BOOST = 0.4;
-      const POSITION_SCALE = 0.88; // how far toward edge nodes can reach (higher = more spread)
+      // Constellation axis mapping (confirmed 7 April 2026):
+      // X axis: Spark (right) <-> Tend (left)
+      // Y axis: Flow (top) <-> Glow (bottom)
+      //
+      // Positioning logic:
+      // 1. The dominant energy (instinctiveEnergy) determines WHICH QUADRANT the node is in.
+      //    The node starts at the dominant energy's anchor point (~55% from centre toward edge).
+      // 2. The other three energies pull the node within that quadrant — secondary energies
+      //    shift the position toward their respective directions proportional to band weight.
+      //
+      // This ensures someone with Glow dominant always appears in the Glow (bottom) zone,
+      // even if their Tend is equally strong by band label.
+      const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.5, "Developing": 0.1 };
+      const ENERGY_DIRS = {
+        spark: { dx: 1, dy: 0 },   // right
+        tend:  { dx: -1, dy: 0 },  // left
+        flow:  { dx: 0, dy: -1 },  // up (SVG: negative Y = up)
+        glow:  { dx: 0, dy: 1 },   // down (SVG: positive Y = down)
+      };
 
-      // First pass: compute raw positions from bands using ratio formula
+      // First pass: compute positions — dominant energy places you, secondaries adjust
       const rawPositions = members.filter(m => m.assessmentComplete && m.bands).map(m => {
-        const weights = {};
+        const dominant = m.instinctiveEnergy || "tend";
+        // Start at the dominant energy's anchor — 55% of radius from centre
+        const anchorDist = radius * 0.55;
+        let px = ENERGY_DIRS[dominant].dx * anchorDist;
+        let py = ENERGY_DIRS[dominant].dy * anchorDist;
+
+        // Secondary energies pull the node toward their directions
+        const secondaryScale = radius * 0.28;
         for (const e of ["spark", "glow", "tend", "flow"]) {
-          weights[e] = bandWeight[m.bands[e]] || 0.1;
-          // Boost the dominant energy so it pulls harder — breaks ties within same band
-          if (m.instinctiveEnergy === e) weights[e] += DOMINANT_BOOST;
+          if (e === dominant) continue;
+          const w = bandWeight[m.bands[e]] || 0.1;
+          px += ENERGY_DIRS[e].dx * w * secondaryScale;
+          py += ENERGY_DIRS[e].dy * w * secondaryScale;
         }
-        // Ratio formula: normalised 0 to 1
-        const xNorm = weights.spark / (weights.spark + weights.tend); // 0 = far left (Tend), 1 = far right (Spark)
-        const yNorm = weights.flow / (weights.flow + weights.glow); // 0 = bottom (Glow), 1 = top (Flow)
-        // Map to canvas-relative coordinates: centre at 0, range [-1, 1]
-        const rawX = (xNorm - 0.5) * 2;
-        const rawY = -(yNorm - 0.5) * 2; // negate so Flow (high yNorm) = top (negative Y in SVG)
-        return { ...m, rawX, rawY };
+
+        return { ...m, px, py };
       });
 
       // Second pass: nudge overlapping nodes apart so every label is readable
       const positioned = rawPositions.map((m, i) => {
-        let px = m.rawX * radius * POSITION_SCALE;
-        let py = m.rawY * radius * POSITION_SCALE;
+        let px = m.px;
+        let py = m.py;
 
-        // Check for near-overlaps with all earlier nodes and nudge until clear
         for (let j = 0; j < i; j++) {
-          const other = rawPositions[j];
-          const ox = other.rawX * radius * POSITION_SCALE;
-          const oy = other.rawY * radius * POSITION_SCALE;
+          const ox = rawPositions[j].px;
+          const oy = rawPositions[j].py;
           const dx = px - ox, dy = py - oy;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 50) {
-            // Nudge perpendicular to the line from centre — enough to clear the node
             const nudgeAngle = Math.atan2(py, px) + (Math.PI / 2) * (i % 2 === 0 ? 1 : -1);
             const nudgeDist = 46 + (i % 3) * 12;
             px += Math.cos(nudgeAngle) * nudgeDist;
