@@ -2994,7 +2994,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       // The dominant energy (instinctiveEnergy) gets a boost to break ties
       // when two energies share the same band label.
       const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.45, "Developing": 0.1 };
-      const DOMINANT_BOOST = 0.25;
+      const DOMINANT_BOOST = 0.4;
+      const POSITION_SCALE = 0.88; // how far toward edge nodes can reach (higher = more spread)
 
       // First pass: compute raw positions from bands using ratio formula
       const rawPositions = members.filter(m => m.assessmentComplete && m.bands).map(m => {
@@ -3013,22 +3014,22 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         return { ...m, rawX, rawY };
       });
 
-      // Second pass: nudge overlapping nodes apart (same profile = cluster, not stack)
+      // Second pass: nudge overlapping nodes apart so every label is readable
       const positioned = rawPositions.map((m, i) => {
-        let px = m.rawX * radius * 0.7;
-        let py = m.rawY * radius * 0.7;
+        let px = m.rawX * radius * POSITION_SCALE;
+        let py = m.rawY * radius * POSITION_SCALE;
 
-        // Check for near-overlaps with earlier nodes and nudge
+        // Check for near-overlaps with all earlier nodes and nudge until clear
         for (let j = 0; j < i; j++) {
           const other = rawPositions[j];
-          const ox = other.rawX * radius * 0.7;
-          const oy = other.rawY * radius * 0.7;
+          const ox = other.rawX * radius * POSITION_SCALE;
+          const oy = other.rawY * radius * POSITION_SCALE;
           const dx = px - ox, dy = py - oy;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 42) {
-            // Nudge perpendicular to the line from centre, proportional to index
-            const nudgeAngle = Math.atan2(py, px) + (Math.PI / 2);
-            const nudgeDist = 22 + (i % 3) * 10;
+          if (dist < 50) {
+            // Nudge perpendicular to the line from centre — enough to clear the node
+            const nudgeAngle = Math.atan2(py, px) + (Math.PI / 2) * (i % 2 === 0 ? 1 : -1);
+            const nudgeDist = 46 + (i % 3) * 12;
             px += Math.cos(nudgeAngle) * nudgeDist;
             py += Math.sin(nudgeAngle) * nudgeDist;
           }
