@@ -1463,6 +1463,13 @@ const ENERGY_COLORS = {
   flow:  "#1755B8",
 };
 
+const ENERGY_BADGE_TEXT = {
+  spark: "#8A0A00",
+  glow:  "#7A5800",   // dark — badge background is light yellow
+  tend:  "#0A4A28",
+  flow:  "#0A2E6E",
+};
+
 const CONTENT_TYPES = [
   "A thought for today",
   "A question to sit with",
@@ -1540,7 +1547,7 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
     const data = await response.json();
     const text = data.content?.find(b => b.type === "text")?.text?.trim();
     if (!text) return null;
-    return { contentType, contentText: text, dominant: ranked[0] };
+    return { contentType, contentText: text, dominant: ranked[0], second: ranked[1] };
   } catch (err) {
     console.error("Email content generation error:", err);
     return null;
@@ -1555,6 +1562,34 @@ function stripMarkdown(text) {
     .replace(/^[-*]\s+/gm, '')           // remove bullet points
     .replace(/\n{3,}/g, '\n\n')          // collapse excess line breaks
     .trim();
+}
+
+function formatEmailCopy(text) {
+  const energyColors = {
+    "Spark": "#D92010",
+    "Glow":  "#C8960C",   // glowOnLight — readable on cream
+    "Tend":  "#1A8C4E",
+    "Flow":  "#1755B8",
+  };
+  let result = text;
+  for (const [name, color] of Object.entries(energyColors)) {
+    const regex = new RegExp(`\\b${name}\\b`, 'g');
+    result = result.replace(regex,
+      `<span style="color:${color};font-weight:700">${name}</span>`
+    );
+  }
+  const pStyle = [
+    "margin:0 0 14px",
+    "font-family:Georgia,serif",
+    "font-size:19px",
+    "font-style:italic",
+    "line-height:1.5",
+    "color:#1A1410"
+  ].join(";");
+  return result
+    .split(/\n\n+/)
+    .map(p => `<p style="${pStyle}">${p.trim()}</p>`)
+    .join("");
 }
 
 async function sendDailyEmails() {
@@ -1579,13 +1614,18 @@ async function sendDailyEmails() {
       const dayName   = new Date().toLocaleDateString("en-GB", { weekday: "long" });
 
       const html = EMAIL_TEMPLATE
-        .replace(/\{\{FIRST_NAME\}\}/g,    firstName)
-        .replace(/\{\{PRIMARY_COLOR\}\}/g, ENERGY_COLORS[content.dominant.id] || "#1A1410")
-        .replace(/\{\{ENERGY_NAME\}\}/g,   content.dominant.name)
-        .replace(/\{\{CONTENT_TYPE\}\}/g,  content.contentType)
-        .replace(/\{\{CONTENT_TEXT\}\}/g,  stripMarkdown(content.contentText))
-        .replace(/\{\{CTA_URL\}\}/g,       "https://myhue.co")
-        .replace(/\{\{UNSUBSCRIBE_URL\}\}/g, `https://myhue.co/unsubscribe?id=${user.id}`);
+        .replace(/\{\{FIRST_NAME\}\}/g,               firstName)
+        .replace(/\{\{DAY_NAME\}\}/g,                 dayName)
+        .replace(/\{\{ENERGY_NAME\}\}/g,              content.dominant.name)
+        .replace(/\{\{ENERGY_COLOR\}\}/g,             ENERGY_COLORS[content.dominant.id] || '#1A1410')
+        .replace(/\{\{ENERGY_BADGE_TEXT\}\}/g,        ENERGY_BADGE_TEXT[content.dominant.id] || '#1A1410')
+        .replace(/\{\{SECOND_ENERGY_NAME\}\}/g,       content.second?.name || '')
+        .replace(/\{\{SECOND_ENERGY_COLOR\}\}/g,      ENERGY_COLORS[content.second?.id] || '#9B8E7E')
+        .replace(/\{\{SECOND_ENERGY_BADGE_TEXT\}\}/g, ENERGY_BADGE_TEXT[content.second?.id] || '#5A4A3A')
+        .replace(/\{\{CONTENT_TYPE\}\}/g,             content.contentType)
+        .replace(/\{\{CONTENT_TEXT_FORMATTED\}\}/g,   formatEmailCopy(stripMarkdown(content.contentText)))
+        .replace(/\{\{CTA_URL\}\}/g,                  'https://myhue.co')
+        .replace(/\{\{UNSUBSCRIBE_URL\}\}/g,          `https://myhue.co/unsubscribe?id=${user.id}`);
 
       const sent = await sendEmail({
         to:      user.email,

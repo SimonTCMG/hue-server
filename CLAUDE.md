@@ -541,6 +541,11 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 65. ✅ Team dashboard instinctive energy: uses stored `dominant_energy` (band-level label) with band-rank fallback — fixes faint/missing avatar colour for members whose top energy isn't "Naturally present"
 66. ✅ Daily email: context block marked internal-only to prevent profile data leaking into email body; explicit no-markdown rule added to system prompt; `stripMarkdown()` safety net strips any residual markdown before template injection
 
+**Daily email + companion language — completed 15 April 2026:**
+
+79. ✅ Daily email redesign: four-colour top bar (Spark/Glow/Tend/Flow stripes) replaces single-energy background block. Cream background throughout. Two energy badges (instinctive + second-ranked). Energy names in body copy rendered in their energy colours via `formatEmailCopy()`. `{{PRIMARY_COLOR}}` placeholder removed. CTA button ink black. Footer: "Your profile belongs to you."
+80. ✅ Companion language fixes: no outcome-forecasting, no readiness/preparation language, no direct instructions ("pause and ask yourself"), both forms of banned rhetorical construction listed, additional banned phrases added
+
 ---
 
 ## DATABASE MIGRATION — TODO (before significant user growth)
@@ -896,6 +901,8 @@ Access priority rule (checked in this order):
 **All user-facing copy rules are in `hue-voice-v1.md`.** Read that document before writing any text a user will see. The banned phrasing list, autonomy voice rules, energy description rules, and accessibility test all live there.
 
 **Banned companion phrases (added April 2026):** "sit with", "sit with you", "sit with that", "what feels most alive", "most alive for you", "what feels most alive to talk about". Also banned: offering a topic menu (listing options and asking which the person wants to discuss). The companion picks one thread and asks about it specifically.
+
+**Additional banned phrases (added 15 April 2026):** "when you're ready", "bring something to the companion", "when you bring it deliberately", "people will notice" / "others will notice" (any outcome-forecasting), "that's not a tension", "two engines running in parallel", "each one ready when you need it", "That's not X. That's Y." (same as "This isn't X. It's Y." — both forms banned). Also banned: telling the user to pause, reflect, or consider anything ("Pause and ask yourself..." is a direct instruction — offer the observation and stop). No readiness language, no preparation framing, no outcome forecasting.
 
 **Architecture and code rules (not covered by voice doc):**
 - Do not call the energy Tend "Root" — Root is retired as an energy name
