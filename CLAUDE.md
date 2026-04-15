@@ -1,5 +1,5 @@
 # CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 11 April 2026 (UI/UX fixes session).*
+*Master brief for all Claude sessions. Last updated: 15 April 2026 (daily email + companion language session).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -540,6 +540,21 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 64. ✅ Glow two-context rendering: `#F5D000` for fills/borders, `#C8960C` (glowOnLight) for text on light backgrounds — system-wide
 65. ✅ Team dashboard instinctive energy: uses stored `dominant_energy` (band-level label) with band-rank fallback — fixes faint/missing avatar colour for members whose top energy isn't "Naturally present"
 66. ✅ Daily email: context block marked internal-only to prevent profile data leaking into email body; explicit no-markdown rule added to system prompt; `stripMarkdown()` safety net strips any residual markdown before template injection
+
+**Privacy + PII — completed 15 April 2026:**
+
+81. ✅ PII stripped from all Anthropic API payloads — `user.name` removed from daily email generation call, PRIVACY COMMITMENT comment block above all 5 API call sites
+82. ✅ Privacy & Terms page at `/privacy` — standalone HTML, three sections (conversations, profile, legal placeholder), served via dedicated route in server.js
+83. ✅ Privacy section added to `/about` marketing page — full explanation between trial reassurance and final CTA
+84. ✅ Companion system prompt privacy guidance — accurate Q&A block so Hue can answer privacy questions in conversation
+85. ✅ Consent screen privacy link — "By continuing you're agreeing to our Privacy & Terms" below Continue button
+86. ✅ Persistent "Privacy & Terms" footer link in hue.html on all non-chat screens
+
+**Constellation fixes — completed 15 April 2026:**
+
+87. ✅ Constellation positioning rewrite — dominant energy determines quadrant (55% from centre), other three energies adjust position within it. Replaces axis-ratio formula that placed nodes by balance between opposing pairs
+88. ✅ Constellation initials disambiguation — when two members share the same initials, uses first 4 chars of first name (e.g. "Jacq" vs "Jill")
+89. ✅ Constellation overlap nudging — increased nudge distance (46-58px) and threshold (50px) so overlapping nodes are always readable
 
 **Daily email + companion language — completed 15 April 2026:**
 
