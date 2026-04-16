@@ -45,7 +45,7 @@ MyHue is an AI-conducted colour energy assessment and ongoing companion. Through
 - Org member registration: separate screen at `/register-org`, no payment, no trial clock, `org-member-active` state, data ownership messaging. Invite link passes org and team IDs — user auto-added to team on registration. Form asks for "Personal email address" (not work email — profile outlasts the job). Org code field hidden when passed via URL.
 - Org member onboarding emails: 4-email sequence via MailerSend. Email 1 (Welcome, immediate on registration), Email 2 (First insight, Day 3 — personalised by dominant/developing energy), Email 3 (Team context, Day 7 — what employer sees), Email 4 (Companion intro, Day 14). Cron at 9:15am UK for Days 3/7/14. Tracked in `org_emails` table. Org members never receive trial emails (suppressed by state).
 - Invite email: language-guide-compliant, explains what MyHue is, states data ownership, links to `/register-org`. Uses proper email HTML template.
-- Returning user flow: shows last result, offers retake after 90 days. Registration date and retest date stored once at registration in users table (`registered_at`, `retest_available_at`) — never recomputed at render time
+- Returning user flow: shows last result, offers retake after 90 days. `registered_at` stored at registration. `retest_available_at` stored at assessment completion (in `/api/complete`) — precisely 90 days after the assessment, not registration. Updated on every retake. Never recomputed at render time.
 - Beta user state: `beta-user` — full access, no trial clock, no Stripe, suppressed from trial emails, beta welcome email only. `BETA_EMAILS` env var in Railway controls who gets beta status on registration. Beta users skip the payment/plan screen entirely on registration (frontend checks userState and calls onRegistered directly).
 - Account settings screen: accessible from welcome screen, shows current email/name/account type, email change flow
 - Email change flow: authenticated session initiates, confirmation via new email only (24h token), old email gets notification (informational, bounce harmless), MailerLite atomic sync on change. Account settings accessible regardless of subscription state.
@@ -495,7 +495,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 72. ✅ Results screen nav pinned (sticky) — Home icon always reachable
 73. ✅ Constellation positioning formula verified — ratio formula with code comment block
 74. ✅ Results energy cards collapse/expand — card 1 open, cards 2-4 collapsed, independent More/Less toggle
-75. ✅ Registration/retest dates stored at registration — `retest_available_at` column, no dynamic recomputation
+75. ✅ Registration date stored at registration. Retest date (`retest_available_at`) stored at assessment completion in `/api/complete` — 90 days after assessment, not registration. Updated on every retake. Never recomputed at render time.
 76. ✅ Legend dots fixed (14px circles, not ovals) — own visually separated row, larger text, subtle background
 77. ✅ Additional result cards four-colour gradient border — ink headings, cream background, EnergyWord unchanged
 
