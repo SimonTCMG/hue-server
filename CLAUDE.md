@@ -579,7 +579,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 94. ✅ Email footer: `Hue · myhue.co` → `MyHue · myhue.co`
 95. ✅ Maintenance page: logo text updated to `MyHue`, body copy updated, `.u` CSS rule removed
 96. ✅ about.html title tag: `Hue` → `MyHue`. Body copy references to Hue as companion unchanged (correct per naming rules)
-97. ✅ Home screen: large "Hue" display heading and stone tagline replaced with spin logo (36px) + MyHue wordmark in Fraunces inline, tagline promoted to hero weight (Fraunces 28px italic bold, ink colour). Animated SpinMark, date line, energy dots, buttons all unchanged
+97. ✅ Home screen: large "Hue" display heading and stone tagline replaced with MyHue wordmark in Fraunces (no static spin logo — animated SpinMark above is sufficient), tagline promoted to hero weight (Fraunces 28px italic bold, ink colour). Animated SpinMark, date line, energy dots, buttons all unchanged
 98. ✅ Project documents updated: CLAUDE.md, hue-voice-v1.md, hue-email-strategy-v1.md — all reflect MyHue naming throughout
 
 ---
