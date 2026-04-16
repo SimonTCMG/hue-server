@@ -320,8 +320,6 @@ app.post("/api/register", async (req, res) => {
 
   const id  = uuidv4();
   const now = Date.now();
-  // Issue 7: compute retest date once at registration, store as ISO string
-  const retestAvailableAt = new Date(now + 90 * 24 * 60 * 60 * 1000).toISOString();
   try {
     createUser({
       id,
@@ -331,8 +329,6 @@ app.post("/api/register", async (req, res) => {
       trial_started_at: isBetaUser ? null : now,
       user_state: isBetaUser ? "beta-user" : "individual-trial-active",
     });
-    // Store retest date
-    db.prepare("UPDATE users SET retest_available_at = ? WHERE id = ?").run(retestAvailableAt, id);
   } catch (err) {
     console.error("DB error on register:", err);
     return res.status(500).json({ error: "Could not create your account. Please try again." });
@@ -493,11 +489,9 @@ app.post("/api/register-org", async (req, res) => {
 
   const id  = uuidv4();
   const now = Date.now();
-  const retestAvailableAtOrg = new Date(now + 90 * 24 * 60 * 60 * 1000).toISOString();
   try {
     createUser({ id, name: name.trim(), email: normalised, registered_at: now,
                  trial_started_at: null, user_state: "org-member-active" });
-    db.prepare("UPDATE users SET retest_available_at = ? WHERE id = ?").run(retestAvailableAtOrg, id);
   } catch (err) {
     console.error("DB error on org register:", err);
     return res.status(500).json({ error: "Could not create your account. Please try again." });
@@ -1056,12 +1050,16 @@ app.post("/api/complete", async (req, res) => {
   }
 
   try {
+    const completedAt = Date.now();
     updateAssessment(user.id, {
-      completed_at:   Date.now(),
+      completed_at:   completedAt,
       energy_scores:  JSON.stringify(scores),
       reach_labels:   JSON.stringify(labels || {}),
       dominant_energy: dominantEnergy,
     });
+    // Retest available 90 days after assessment completion, not registration
+    const retestAvailableAt = new Date(completedAt + 90 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare("UPDATE users SET retest_available_at = ? WHERE id = ?").run(retestAvailableAt, user.id);
   } catch (err) {
     console.error("DB error on complete:", err);
     return res.status(500).json({ error: "Could not save your results." });
