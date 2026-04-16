@@ -1,6 +1,27 @@
-# Changelog — Hue / myhue.co
+# Changelog — MyHue / myhue.co
 
-All notable changes to the Hue product. Ordered by date, most recent first. Each entry references the numbered item in CLAUDE.md where the full specification lives.
+All notable changes to the MyHue product. Ordered by date, most recent first. Each entry references the numbered item in CLAUDE.md where the full specification lives.
+
+---
+
+## 16 April 2026 — MyHue rebrand + daily email energy rotation
+
+### MyHue rebrand (#93–98)
+- **Product is now MyHue everywhere.** The companion remains Hue ("Hi, I'm Hue"). All UI, emails, marketing, headers, and footers use MyHue.
+- Email header: static spin logo SVG (H with four colour dots) + MyHue wordmark in Georgia serif — replaces old red-u `hue` text
+- Email footer: `MyHue · myhue.co`
+- Maintenance page: `MyHue` logo text, body copy updated, `.u` CSS rule removed
+- about.html: title tag updated to MyHue. Body copy references to Hue as companion unchanged
+- Home screen: large "Hue" heading replaced with spin logo (36px) inline with MyHue wordmark in Fraunces, tagline promoted to hero weight (Fraunces 28px italic bold, ink)
+- Project documents updated: CLAUDE.md, hue-voice-v1.md, hue-email-strategy-v1.md
+
+### Daily email energy rotation (#90–92)
+- Weekly focus mode cycle across all four energy positions: instinctive (Sun/Thu), fluent (Mon/Fri), intentional (Tue/Sat), developing (Wed)
+- Four distinct content instructions per mode — instinctive (what it makes possible), fluent (what it adds alongside instinctive), intentional (precision when reached for), developing (where practice has most visible impact)
+- Badges show focus energy + instinctive (or focus + fluent on instinctive days)
+- Subject line includes energy name on intentional/developing days only
+- Two-facts technique: occasional overlay on alternate Wednesdays — exactly two standalone observable-behaviour sentences, no connective, no question. Content type label stays "A thought for today"
+- System prompt: energy-name-in-body-copy rule added — names appear only in template badges
 
 ---
 

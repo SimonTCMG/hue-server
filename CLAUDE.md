@@ -573,6 +573,15 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 91. ✅ Two-facts technique: occasional overlay on alternate Wednesdays (developing day). Two standalone observable-behaviour sentences, no connective, no question. `useTwoFacts` flag, `twoFactsInstruction` content instruction, overrides content type entirely. Content type label stays "A thought for today".
 92. ✅ System prompt updated: focus energy context line added, energy-name-in-body-copy rule added ("Do not include the energy name in the body of the email. Energy names appear only in the template badges, not in your generated text.")
 
+**MyHue rebrand — completed 16 April 2026:**
+
+93. ✅ Email header: old red-u `hue` text replaced with static spin logo SVG (H with four colour dots: Spark TL, Glow TR, Tend BR, Flow BL) + MyHue wordmark in Georgia serif 22px
+94. ✅ Email footer: `Hue · myhue.co` → `MyHue · myhue.co`
+95. ✅ Maintenance page: logo text updated to `MyHue`, body copy updated, `.u` CSS rule removed
+96. ✅ about.html title tag: `Hue` → `MyHue`. Body copy references to Hue as companion unchanged (correct per naming rules)
+97. ✅ Home screen: large "Hue" display heading and stone tagline replaced with spin logo (36px) + MyHue wordmark in Fraunces inline, tagline promoted to hero weight (Fraunces 28px italic bold, ink colour). Animated SpinMark, date line, energy dots, buttons all unchanged
+98. ✅ Project documents updated: CLAUDE.md, hue-voice-v1.md, hue-email-strategy-v1.md — all reflect MyHue naming throughout
+
 ---
 
 ## DATABASE MIGRATION — TODO (before significant user growth)
