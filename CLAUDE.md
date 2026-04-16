@@ -1,12 +1,14 @@
-# CLAUDE.md — Hue / myhue.co
-*Master brief for all Claude sessions. Last updated: 15 April 2026 (daily email + companion language session).*
+# CLAUDE.md — MyHue / myhue.co
+*Master brief for all Claude sessions. Last updated: 16 April 2026 (MyHue rebrand + daily email energy rotation session).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
 
-## WHAT HUE IS
+## WHAT MYHUE IS
 
-An AI-conducted colour energy assessment and ongoing companion. Through a natural conversation — not a questionnaire — Hue identifies how each person tends to show up across four energy dimensions. The result is a personalised profile with specific observations. The companion chat continues the relationship after assessment.
+MyHue is an AI-conducted colour energy assessment and ongoing companion. Through a natural conversation — not a questionnaire — the product identifies how each person tends to show up across four energy dimensions. The result is a personalised profile with specific observations. The companion chat continues the relationship after assessment.
+
+**The product is MyHue. The companion is Hue.** In all UI copy, marketing, and external communications the product is always MyHue. In the companion chat, Hue speaks — "Hi, I'm Hue" — as the named presence inside MyHue. Never refer to the companion as MyHue.
 
 **Live at:** myhue.co
 **Also accessible at:** hue-server-production.up.railway.app
@@ -42,7 +44,7 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Shareable result card: canvas-rendered PNG (1080×1350) with four energy bars, dominant energy, myhue.co branding — "Save card" button on results screen
 - Org member registration: separate screen at `/register-org`, no payment, no trial clock, `org-member-active` state, data ownership messaging. Invite link passes org and team IDs — user auto-added to team on registration. Form asks for "Personal email address" (not work email — profile outlasts the job). Org code field hidden when passed via URL.
 - Org member onboarding emails: 4-email sequence via MailerSend. Email 1 (Welcome, immediate on registration), Email 2 (First insight, Day 3 — personalised by dominant/developing energy), Email 3 (Team context, Day 7 — what employer sees), Email 4 (Companion intro, Day 14). Cron at 9:15am UK for Days 3/7/14. Tracked in `org_emails` table. Org members never receive trial emails (suppressed by state).
-- Invite email: language-guide-compliant, explains what Hue is, states data ownership, links to `/register-org`. Uses proper email HTML template.
+- Invite email: language-guide-compliant, explains what MyHue is, states data ownership, links to `/register-org`. Uses proper email HTML template.
 - Returning user flow: shows last result, offers retake after 90 days. Registration date and retest date stored once at registration in users table (`registered_at`, `retest_available_at`) — never recomputed at render time
 - Beta user state: `beta-user` — full access, no trial clock, no Stripe, suppressed from trial emails, beta welcome email only. `BETA_EMAILS` env var in Railway controls who gets beta status on registration. Beta users skip the payment/plan screen entirely on registration (frontend checks userState and calls onRegistered directly).
 - Account settings screen: accessible from welcome screen, shows current email/name/account type, email change flow
@@ -50,13 +52,17 @@ An AI-conducted colour energy assessment and ongoing companion. Through a natura
 - Returning user branch on `/register-org`: recognises existing accounts, attaches team membership without creating duplicate, handles state transitions (subscription pause, email sequence switching), sends welcome-back email instead of 4-email onboarding for users with existing profiles
 - Stripe customer creation on-demand: users without Stripe records (beta, org members) get customer created at point of first subscription, not at registration
 - Subscription pause/resume: org join pauses active individual subscription (billing stops, record preserved), org lapse auto-resumes paused subscription seamlessly. `subscription_paused_at` and `subscription_paused_reason` tracked per user.
-- Welcome-back email: single email for returning users joining new org — acknowledges they know Hue, names the team, reminds of data ownership. Suppresses standard 4-email sequence.
+- Welcome-back email: single email for returning users joining new org — acknowledges they know MyHue, names the team, reminds of data ownership. Suppresses standard 4-email sequence.
 - Maintenance mode: `MAINTENANCE_MODE` env var closes site instantly (Stripe webhook still passes through)
 - Tend rename: complete throughout codebase (tokens, variables, stored data, migration for old profiles)
 - Marketing page at `/about`: standalone HTML file (`public/about.html`), fully isolated from app — no session logic, no React component tree overlap. Served via dedicated route in server.js. Sections: hero (88vh with animated SpinMark and scroll chevron), WIIFM section (ink background, EnergyIcon + statement rows with staggered scroll-reveal), companion conversation (typewriter animation triggered by IntersectionObserver — types in sequentially, plays once), how it works (three steps with EnergyIcon accents and italic scenario hooks), social proof (three placeholder testimonials in Fraunces — ready for real beta quotes), trial reassurance (decorative EnergyIcon row above four statements), final CTA (ink background, Spark-red button), minimal footer. All animations respect `prefers-reduced-motion`. WCAG AA contrast throughout — uses `#73685A` for secondary text instead of app's `#9B8E7E` stone.
 - Subscription management in account settings: "End trial early" (one-tap cancel with inline confirm) for trial-active users; interval-aware "Manage subscription" (Stripe billing portal redirect) for subscribers — shows monthly/annual plan and renewal date, displays remaining access clearly if already cancelled. Not shown to org members or beta users.
 - API endpoints: POST /api/account/cancel-trial, POST /api/account/billing-portal, GET /api/account/subscription
 - Privacy & Terms page at `/privacy`: standalone HTML file (`public/privacy.html`), same styling as about.html. Three sections: Your conversations (full privacy explanation), Your profile (ownership statement), The legal version (placeholder for formal T&C pre-launch). Footer link present in both `about.html` and `hue.html`. Consent conversation includes "By continuing you're agreeing to our Privacy & Terms" link below the Continue button. Companion system prompt includes privacy Q&A guidance so Hue can answer privacy questions accurately in conversation.
+- Daily email: personalised AI-generated email sent at 8am UK to all subscribers/org members/beta users. Four-colour top bar (Spark/Glow/Tend/Flow stripes), cream background, two energy badges (focus energy + instinctive), energy names in body copy rendered in energy colours via `formatEmailCopy()`. CTA button ink black. Footer: "MyHue · myhue.co — Your profile belongs to you." Email header: static spin logo (H with four colour dots in quadrant positions — Spark TL, Glow TR, Tend BR, Flow BL) plus MyHue wordmark in Georgia serif. The red-u 'hue' text mark is retired. Animated logo not possible in email — static only. Content generated by Claude Sonnet 4.5 with full profile context. `stripMarkdown()` safety net strips residual formatting. Context block marked internal-only to prevent profile data leaking into email body.
+- Daily email energy rotation: weekly focus mode cycle across all four energy positions — instinctive (Sun/Thu), fluent (Mon/Fri), intentional (Tue/Sat), developing (Wed). Each mode has a distinct content instruction: instinctive (what it makes possible), fluent (what it adds alongside instinctive — name the combination), intentional (precision when reached for — not a gap), developing (where practice has most visible impact — never a weakness). Rotation invisible to recipient — no energy name in body copy, badges only. Subject line includes energy name on intentional/developing days only.
+- Two-facts technique: occasional overlay (~1 in 7 emails, fires every other Wednesday on developing day) — exactly two standalone sentences, both observable behaviours, no connective, no question, no follow-up. The reader closes the gap. Never on fluent days. Content type label stays as "A thought for today" on two-facts days.
+- Companion language fixes: no outcome-forecasting, no readiness/preparation language, no direct instructions ("pause and ask yourself"), both forms of banned rhetorical construction listed ("This isn't X. It's Y." / "That's not X. That's Y."), additional banned phrases added (see WHAT NOT TO DO section)
 - Static SVG favicon, PWA manifest
 - Deployed on Railway, auto-deploys on GitHub push
 
@@ -561,6 +567,12 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 79. ✅ Daily email redesign: four-colour top bar (Spark/Glow/Tend/Flow stripes) replaces single-energy background block. Cream background throughout. Two energy badges (instinctive + second-ranked). Energy names in body copy rendered in their energy colours via `formatEmailCopy()`. `{{PRIMARY_COLOR}}` placeholder removed. CTA button ink black. Footer: "Your profile belongs to you."
 80. ✅ Companion language fixes: no outcome-forecasting, no readiness/preparation language, no direct instructions ("pause and ask yourself"), both forms of banned rhetorical construction listed, additional banned phrases added
 
+**Daily email energy rotation — completed 16 April 2026:**
+
+90. ✅ Daily email energy rotation: weekly focus mode cycle (instinctive Sun/Thu, fluent Mon/Fri, intentional Tue/Sat, developing Wed) with four distinct content instructions per mode. `EMAIL_FOCUS_MODE` map in server.js. Badges show focus energy + instinctive (or focus + fluent on instinctive days). Subject line includes energy name on intentional/developing days only.
+91. ✅ Two-facts technique: occasional overlay on alternate Wednesdays (developing day). Two standalone observable-behaviour sentences, no connective, no question. `useTwoFacts` flag, `twoFactsInstruction` content instruction, overrides content type entirely. Content type label stays "A thought for today".
+92. ✅ System prompt updated: focus energy context line added, energy-name-in-body-copy rule added ("Do not include the energy name in the body of the email. Energy names appear only in the template badges, not in your generated text.")
+
 ---
 
 ## DATABASE MIGRATION — TODO (before significant user growth)
@@ -875,16 +887,16 @@ On reversion from `org-member-lapsed` to individual:
 
 **Welcome-back email for returning org members (item 57)**
 
-A user with an existing Hue profile joining a new org should not receive the standard 4-email onboarding sequence — it is written for people new to Hue and will feel wrong to someone who already knows the product.
+A user with an existing MyHue profile joining a new org should not receive the standard 4-email onboarding sequence — it is written for people new to MyHue and will feel wrong to someone who already knows the product.
 
 Trigger: org member registration where `profile_complete = true` on the user record.
 
 Content:
-- Acknowledges they already know Hue
+- Acknowledges they already know MyHue
 - Briefly names the team context — "you're now part of [team name]'s energy picture"
 - Reminds them their profile is theirs — unchanged, still private, still portable
 - Single CTA: visit your profile or continue a companion conversation
-- No explanation of what Hue is, no assessment prompt if profile already exists
+- No explanation of what MyHue is, no assessment prompt if profile already exists
 
 ---
 
@@ -896,7 +908,7 @@ Content:
 | Individual trial | `individual-trial-active` | Full | Trial sequence days 1–14 | Customer + subscription |
 | Individual subscriber | `individual-subscriber` | Full | Subscriber sequence | Active subscription |
 | Trial expired | `individual-trial-expired` | Gated | Nurture sequence | Cancelled/failed |
-| Org member (new to Hue) | `org-member-active` | Full | Org onboarding 4-email | None |
+| Org member (new to MyHue) | `org-member-active` | Full | Org onboarding 4-email | None |
 | Org member (returning) | `org-member-active` | Full | Welcome-back single email | Paused if previously subscriber |
 | Org member lapsed, sub resumes | `individual-subscriber` | Full | Subscriber sequence resumes | Resumed from pause |
 | Org member lapsed, no sub | `individual-trial-expired` | Gated | Nurture sequence | None |
@@ -924,6 +936,8 @@ Access priority rule (checked in this order):
 - Do not surface raw percentages anywhere in the team dashboard UI — bands only
 - Do not allow any individual behavioural data to cross from the personal companion pipeline into the team layer — these pipelines are architecturally separate and must stay that way
 - **PII in API payloads — never permitted:** No personally identifying information (name, email, user ID, org name, team name) may be included in any payload sent to the Anthropic API. User identity is resolved server-side only. Only anonymised profile data (energy scores, reach positions) and conversation content are sent. Each API call site in server.js carries a PRIVACY COMMITMENT comment block enforcing this. This is a published user promise — see /privacy. Do not reopen this decision.
+- **Product name — MyHue everywhere except the companion:** All UI labels, marketing copy, email headers, footers, page titles, and external references use MyHue. The companion speaks as Hue and introduces itself as Hue. Never refer to the companion as MyHue. Never use the old red-u 'hue' text mark anywhere.
+- **Email header — static spin logo + MyHue wordmark:** The `trialEmailHtml()` function in `server.js` must use the static SVG spin logo (H with four colour dots: Spark TL `#D92010`, Glow TR `#F5D000`, Tend BR `#1A8C4E`, Flow BL `#1755B8`) plus MyHue in Georgia serif. Footer reads 'MyHue · myhue.co'. Animated logo is not possible in email — static only. All email templates use this header.
 - Do not reopen any decision in this document without explicit instruction from Simon
 
 ---

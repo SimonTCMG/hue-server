@@ -1,21 +1,23 @@
-# Hue — Voice & Copy Reference
-*hue-voice-v1.md · Created April 2026 · This is the master reference for the Hue voice. It supersedes the voice and tone sections of `hue-language-guide-v1.md`. All decisions resolved — do not reopen without explicit instruction from Simon.*
+# MyHue — Voice & Copy Reference
+*hue-voice-v1.md · Created April 2026 · This is the master reference for the MyHue voice. It supersedes the voice and tone sections of `hue-language-guide-v1.md`. All decisions resolved — do not reopen without explicit instruction from Simon.*
 
 ---
 
 ## Who reads this
 
-Everyone who writes anything for Hue — Code building UI labels, Chat drafting observations, copywriters writing emails, Simon writing scripts. If you are producing words that a Hue user will read, start here.
+Everyone who writes anything for MyHue — Code building UI labels, Chat drafting observations, copywriters writing emails, Simon writing scripts. If you are producing words that a MyHue user will read, start here.
 
 Read this document before writing anything. It takes five minutes. It will save you rewriting everything twice.
 
 ---
 
-## 1. What Hue sounds like
+## 1. What MyHue sounds like
 
 **One sentence:** A trusted friend who has been paying very close attention.
 
 Not a corporate wellness tool. Not a therapist. Not an assessment report. Not a life coach. Not an AI assistant. A warm, precise, curious human presence that has something specific to say — and says it, then steps back.
+
+**The product is MyHue. The companion is Hue.** In all UI copy, marketing, and external communications, the product is always MyHue. In the companion chat, Hue speaks — "Hi, I'm Hue" — as the named presence inside MyHue. Never "Hi, I'm MyHue."
 
 **The test for any piece of copy:** Read it aloud. Does it sound like something a warm, intelligent person would actually say to someone they respect? If not, rewrite it.
 
@@ -38,11 +40,11 @@ Hue never positions itself as the authority. It observes, reflects, asks — the
 
 ## 3. The accessibility rule
 
-**If a phrase requires the reader to already be inside the Hue framework to understand it, rewrite it.**
+**If a phrase requires the reader to already be inside the MyHue framework to understand it, rewrite it.**
 
 The app must work for someone on day one who knows nothing, and still feel right on day ninety when they know everything. Framework vocabulary — flex crossings, misreads, arc — never appears in navigation, buttons, prompts, or helper text. It only appears in observations and companion responses where context has already been established.
 
-**The test:** Would someone who has never heard of Hue understand this immediately? If not, rewrite it.
+**The test:** Would someone who has never heard of MyHue understand this immediately? If not, rewrite it.
 
 ---
 
@@ -106,6 +108,8 @@ These must never read as a hierarchy or imply deficiency.
 
 The companion is where the Hue voice lives most fully. It is also where length and pacing matter most. A long response in a chat interface breaks the conversational contract.
 
+**Naming in chat:** Hue always refers to itself as Hue, never MyHue. "Hi, I'm Hue." The product that surrounds the conversation is MyHue — the companion inside it is Hue.
+
 ### The rules
 
 - **Maximum two sentences before a question.** If the insight is longer, break it across turns — offer part of it, ask a question, and continue when the person responds.
@@ -129,7 +133,9 @@ Same insight. A third of the length. The person stays active.
 
 ## 6. Email voice — rules and examples
 
-The Hue email voice follows the same principles as the app and companion. The format is different — longer, more considered — but the voice is identical. Warm, precise, autonomy-respecting. Never promotional, never urgent, never jargon-heavy.
+The MyHue email voice follows the same principles as the app and companion. The format is different — longer, more considered — but the voice is identical. Warm, precise, autonomy-respecting. Never promotional, never urgent, never jargon-heavy.
+
+**Email branding:** All emails use the MyHue header — static spin logo (H with four colour dots in quadrant positions) plus MyHue wordmark in serif. The red-u 'hue' text mark is retired. Footer reads 'MyHue · myhue.co'. The sender name is Hue (the companion sending on behalf of MyHue — personal, not corporate).
 
 ### Subject lines
 - Never use "unlock", "exclusive", "don't miss", or urgency language
@@ -150,10 +156,26 @@ The Hue email voice follows the same principles as the app and companion. The fo
 - End with one clear action — never two
 - Never guilt. Never countdown imagery. Never "you'll lose everything."
 
+### Daily email — two-facts technique (added 16 April 2026)
+
+An occasional email form (~1 in 7 daily emails) that presents two standalone observations and stops. The reader closes the gap themselves. This is the strongest content form for the developing energy reframe and for the instinctive whole-life pairing.
+
+**Rules:**
+- Exactly two sentences. No more.
+- Both must be observable behaviours about this specific person — not descriptions of the energy in general. Not "You are a warm person" — but "You noticed the person at the dinner table who'd gone quiet before anyone else did."
+- Neither sentence should contain "but", "however", "and", "which means", "which is why", or "so". They stand alone.
+- No commentary, no framing sentence before or after. Just the two facts.
+- No question. No follow-up. The silence is the technique.
+- Both facts must be true for this specific person — not generic observations that could apply to anyone with this energy.
+- The gap between them should produce a clear, singular conclusion. If it could produce two different conclusions, rewrite one of the facts.
+- Never use on fluent energy days — the fluent energy pairing (instinctive + fluent working together) has its own logic that the two-facts form disrupts.
+
+**Where it does not belong:** The two-facts technique is powerful in the daily email and on the about page (where it communicates Hue's core difference without making explicit claims). It does not belong in the companion conversation, where the relationship is interactive and the person expects dialogue, not statements dropped without follow-up.
+
 ### The data ownership statement
 This must appear in every org member email and in any email that references team or employer context.
 
-> Your profile belongs to you — not your employer, not Hue. It travels with you if you change jobs. It stays yours if you stop subscribing.
+> Your profile belongs to you — not your employer, not MyHue. It travels with you if you change jobs. It stays yours if you stop subscribing.
 
 **Short form for constrained layouts:**
 > Your Hue, your data.
@@ -183,7 +205,7 @@ This must appear in every org member email and in any email that references team
 | "Complete your profile" | Implies incompleteness as a problem | "Continue your conversation" |
 | "Don't miss out" | Urgency, wrong tone | State the value, let the person decide |
 | "Burnout" / "depression" / clinical states | Hue never names clinical states | Name the observable behaviour instead |
-| "Free trial" in promotional copy | Positions Hue as promotional | "14 days to explore Hue" |
+| "Free trial" in promotional copy | Positions MyHue as promotional | "14 days to explore MyHue" |
 | "Upgrade" | Implies current tier is lesser | "Subscribe to continue" |
 | "Misreads" in UI copy | Internal vocabulary | "What others sometimes get wrong about you" |
 | "Flex crossings" in UI copy | Internal vocabulary | "The energies you can reach for" |
@@ -220,10 +242,10 @@ See observation 72 in `hue-observations-v1.md` as the philosophical foundation.
 
 ## 10. Psychometric and validity language
 
-Hue must never describe itself as a psychometric test in clinical or regulatory contexts.
+MyHue must never describe itself as a psychometric test in clinical or regulatory contexts.
 
 **Standard framing:**
-> Hue is a structured conversational instrument that surfaces energy preference through behavioural language analysis. It is not a psychometric test in the clinical sense. The theoretical foundations are rigorous. A validation study is in design.
+> MyHue is a structured conversational instrument that surfaces energy preference through behavioural language analysis. It is not a psychometric test in the clinical sense. The theoretical foundations are rigorous. A validation study is in design.
 
 **Eight-word version for marketing:**
 > The science is serious. The experience is human.
@@ -265,7 +287,7 @@ Once this document is saved to the project, the following sections of other docu
 
 Add this line to `CLAUDE.md` under a new heading **"Voice and copy"**:
 
-> Before writing any user-facing copy — UI labels, companion responses, email content, observations, onboarding text, error states, or any other text a user will read — read `hue-voice-v1.md` in full. All copy decisions not covered by this document default to the autonomy voice principle in section 2.
+> Before writing any user-facing copy — UI labels, companion responses, email content, observations, onboarding text, error states, or any other text a user will read — read `hue-voice-v1.md` in full. All copy decisions not covered by this document default to the autonomy voice principle in section 2. The product is always MyHue in external and UI copy. The companion always speaks as Hue.
 
 ---
 

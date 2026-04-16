@@ -104,7 +104,6 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
     body{font-family:'Plus Jakarta Sans',sans-serif;background:#FDFAF5;color:#1A1410;
          display:flex;align-items:center;justify-content:center;min-height:100vh;padding:32px;text-align:center}
     .logo{font-family:'Fraunces',serif;font-size:40px;font-weight:900;letter-spacing:-0.03em;margin-bottom:32px}
-    .logo .u{color:#D92010}
     h1{font-family:'Fraunces',serif;font-size:clamp(28px,5vw,40px);font-weight:900;
        letter-spacing:-0.02em;line-height:1.1;margin-bottom:16px}
     p{font-size:16px;line-height:1.7;color:#6B6357;max-width:400px;margin:0 auto}
@@ -112,9 +111,9 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 </head>
 <body>
   <div>
-    <div class="logo">h<span class="u">u</span>e</div>
+    <div class="logo">MyHue</div>
     <h1>Something new<br>is taking shape.</h1>
-    <p>We're putting the finishing touches on Hue. Check back very soon.</p>
+    <p>We're putting the finishing touches on MyHue. Check back very soon.</p>
   </div>
 </body>
 </html>`;
@@ -2069,11 +2068,29 @@ function trialEmailHtml({ firstName, body, ctaText, ctaUrl }) {
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 24px">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px">
 <tr><td style="padding-bottom:32px">
-  <span style="font-family:Georgia,serif;font-size:24px;font-weight:900;letter-spacing:-0.02em;color:#1A1410">h<span style="color:#D92010">u</span>e</span>
+  <table cellpadding="0" cellspacing="0" style="border:none">
+    <tr>
+      <td style="padding-right:10px;vertical-align:middle">
+        <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="16" fill="#FFFFFF"/>
+          <rect x="10" y="9" width="2.2" height="14" fill="#1A1410"/>
+          <rect x="10" y="14.4" width="10" height="2.2" fill="#1A1410"/>
+          <rect x="19.8" y="9" width="2.2" height="14" fill="#1A1410"/>
+          <circle cx="10.5" cy="9.5" r="3" fill="#D92010"/>
+          <circle cx="21.5" cy="9.5" r="3" fill="#F5D000"/>
+          <circle cx="21.5" cy="22.5" r="3" fill="#1A8C4E"/>
+          <circle cx="10.5" cy="22.5" r="3" fill="#1755B8"/>
+        </svg>
+      </td>
+      <td style="vertical-align:middle">
+        <span style="font-family:Georgia,serif;font-size:22px;font-weight:900;letter-spacing:-0.02em;color:#1A1410">MyHue</span>
+      </td>
+    </tr>
+  </table>
 </td></tr>
 <tr><td style="font-size:16px;line-height:1.75;color:#1A1410">${body}${cta}</td></tr>
 <tr><td style="padding-top:40px;font-family:Arial,sans-serif;font-size:12px;color:#9A8F86;line-height:1.6;border-top:1px solid #EAE4DB;margin-top:40px">
-  <p style="margin:0">Hue · <a href="${APP_URL}" style="color:#9A8F86">myhue.co</a></p>
+  <p style="margin:0">MyHue · <a href="${APP_URL}" style="color:#9A8F86">myhue.co</a></p>
   <p style="margin:6px 0 0">Your profile belongs to you. <a href="${APP_URL}/unsubscribe?email=${encodeURIComponent("{{EMAIL}}")}" style="color:#9A8F86">Unsubscribe</a></p>
 </td></tr>
 </table></td></tr></table>
