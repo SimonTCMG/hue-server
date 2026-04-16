@@ -1476,6 +1476,19 @@ const CONTENT_TYPES = [
   "A small experiment",
 ];
 
+// Weekly focus mode rotation — which energy position is the lens for today's email.
+// Instinctive and fluent appear twice per week; intentional twice; developing once (Wednesday).
+// The rotation is invisible to the recipient — no day-of-week pattern should be detectable.
+const EMAIL_FOCUS_MODE = {
+  0: 'instinctive',   // Sunday
+  1: 'fluent',        // Monday
+  2: 'intentional',   // Tuesday
+  3: 'developing',    // Wednesday
+  4: 'instinctive',   // Thursday
+  5: 'fluent',        // Friday
+  6: 'intentional',   // Saturday
+};
+
 async function generateEmailContent(user) {
   const scores = JSON.parse(user.energy_scores);
   const labels = JSON.parse(user.reach_labels || "{}");
@@ -1490,14 +1503,54 @@ async function generateEmailContent(user) {
       label: labels[id] || "",
     }));
 
+  // --- Focus mode rotation ---
+  const focusMode = EMAIL_FOCUS_MODE[new Date().getDay()];
+  const focusIndex = focusMode === 'instinctive' ? 0
+                   : focusMode === 'fluent'      ? 1
+                   : focusMode === 'intentional'  ? 2 : 3;
+  const focusEnergy = ranked[focusIndex];
+
+  // Two-facts overlay: fires on Wednesday (developing day) every other week.
+  // Chosen because developing energy reframe is the highest-value application.
+  const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+  const useTwoFacts = (new Date().getDay() === 3) && (weekNumber % 2 === 0);
+
   // Rotate content type by day of week so users get variety
   const contentType = CONTENT_TYPES[new Date().getDay() % CONTENT_TYPES.length];
 
-  const contentInstruction = {
-    "A thought for today":    "Write a single observation worth noticing today. Concrete, specific to their profile, not generic.",
-    "A question to sit with": "Write a single question for them to sit with today. Specific to their profile. No answer needed, no follow-up.",
-    "A small experiment":     "Name one small, specific thing they might notice today about how they naturally show up. Frame as an observation to look out for, never as advice or a prescription.",
-  }[contentType];
+  // --- Two-facts technique instruction (overrides content type when active) ---
+  const twoFactsInstruction = `Write exactly two sentences about this person.
+Both must be specific to their profile — observable behaviours, not energy descriptions.
+The first observes something about how they show up.
+The second observes something from a different context or angle that the reader
+will connect to the first themselves.
+Do not connect them. Do not explain the link. No question. No follow-up.
+Stop after the second sentence. The silence is the technique.`;
+
+  // --- Focus-specific content instruction ---
+  const focusInstruction = useTwoFacts ? twoFactsInstruction : {
+    instinctive: `One observation about how this person's instinctive energy`
+      + ` (${focusEnergy.name}) shows up — what it makes possible in practice.`
+      + ` Specific to this profile. Not a general energy description.`,
+    fluent: `One observation about this person's fluent energy (${focusEnergy.name})`
+      + ` and what it adds alongside ${ranked[0].name}. Name the combination.`
+      + ` Never frame as secondary.`,
+    intentional: `One observation about this person's intentional energy`
+      + ` (${focusEnergy.name}). Not a gap. Lands with precision when reached for.`
+      + ` Make that visible. Never frame as something to work on.`,
+    developing: `One observation about this person's developing energy`
+      + ` (${focusEnergy.name}) — not absence, but where practice lands with most`
+      + ` visible impact. Never frame as weakness or target. Mirror, not prescription.`,
+  }[focusMode];
+
+  // Combine focus instruction with content type instruction (unless two-facts overrides)
+  const contentInstruction = useTwoFacts
+    ? focusInstruction   // two-facts overrides content type entirely
+    : {
+      'A thought for today':    `${focusInstruction} Single observation.`,
+      'A question to sit with': `${focusInstruction} Single question. No answer needed.`,
+      'A small experiment':     `${focusInstruction} One thing to notice today. Never advice.`,
+    }[contentType];
 
   const system = `You are Hue — a trusted friend who has been paying very close attention. You are writing 1–3 sentences for a daily email.
 
@@ -1507,6 +1560,8 @@ ${contentInstruction}
 
 This person's colour energy profile (ranked by preference):
 ${ranked.map(e => `- ${e.name}: ${e.label} (${e.pct}%)`).join("\n")}
+
+Today's focus energy: ${focusEnergy.name} (${focusMode} — their ${focusMode} energy).
 
 The context block above is for your use only. Never include it, or any part of it (headings, labels, percentages, energy band descriptions), in the email you generate. The email begins with the first word of the personalised content.
 
@@ -1523,6 +1578,7 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
 - Draw on something specific from their profile — if it could be sent to anyone, rewrite it
 - No sign-off, no salutation, no subject line
 - Do not use markdown in your response. No ## headings, no **bold**, no *italic*, no bullet points. Write in plain prose only. Use line breaks between paragraphs. The email is sent as HTML — formatting comes from the template, not from you.
+- Do not include the energy name in the body of the email. Energy names appear only in the template badges, not in your generated text.
 - Plain prose only`;
 
   // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
@@ -1530,7 +1586,7 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
   // and conversation content are sent to the Anthropic API.
   // Do not add user.name, user.email, user.id, or any other PII to this payload.
   // This is a published promise to users — see /privacy.
-  const messages = [{ role: "user", content: `Write a "${contentType}" for this person.` }];
+  const messages = [{ role: "user", content: `Write a "${useTwoFacts ? 'A thought for today' : contentType}" for this person.` }];
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1547,7 +1603,14 @@ Voice rules (non-negotiable — follow hue-voice-v1.md):
     const data = await response.json();
     const text = data.content?.find(b => b.type === "text")?.text?.trim();
     if (!text) return null;
-    return { contentType, contentText: text, dominant: ranked[0], second: ranked[1] };
+    return {
+      contentType: useTwoFacts ? 'A thought for today' : contentType,
+      contentText: text,
+      focusMode,
+      useTwoFacts,
+      dominant:  focusEnergy,
+      second:    focusMode === 'instinctive' ? ranked[1] : ranked[0],
+    };
   } catch (err) {
     console.error("Email content generation error:", err);
     return null;
@@ -1627,10 +1690,16 @@ async function sendDailyEmails() {
         .replace(/\{\{CTA_URL\}\}/g,                  'https://myhue.co')
         .replace(/\{\{UNSUBSCRIBE_URL\}\}/g,          `https://myhue.co/unsubscribe?id=${user.id}`);
 
+      // Energy name in subject line only on intentional and developing days —
+      // instinctive and fluent days keep the subject clean and pattern-free.
+      const subject = (content.focusMode === 'intentional' || content.focusMode === 'developing')
+        ? `${content.contentType} — your ${content.dominant.name} energy — ${dayName}`
+        : `${content.contentType} — ${dayName}`;
+
       const sent = await sendEmail({
         to:      user.email,
         toName:  firstName,
-        subject: `${content.contentType} — ${dayName}`,
+        subject,
         html,
       });
 
