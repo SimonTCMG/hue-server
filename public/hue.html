@@ -2974,186 +2974,379 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       return React.createElement("div", { style: { ...base, background: "transparent", border: `2px solid ${col}80` } });
     }
 
-    // ─── Team Constellation ──────────────────────────────────────────────────
+    // ─── Team Constellation (redesigned April 2026) ─────────────────────────
+    // Positioning: instinctive energy = quadrant (hard constraint, no exceptions).
+    // Fluent energy = position within quadrant. Zone-based placement, not ratio formula.
+    // Axis mapping: X = Spark (right) / Tend (left), Y = Flow (top) / Glow (bottom).
+    // Quadrants: Spark = top-right, Flow = top-left, Glow = bottom-right, Tend = bottom-left.
+    // No animation. No glow/halo. All nodes equal weight. Static only.
     function TeamConstellation({ members, isDesktop }) {
-      const canvasSize = isDesktop ? 500 : 320;
-      const centre = canvasSize / 2;
-      const radius = canvasSize * 0.38;
+      const canvasSize = isDesktop ? 480 : 320;
+      const mx = canvasSize / 2;
+      const my = canvasSize / 2;
       const [hovered, setHovered] = useState(null);
-      const [tick, setTick] = useState(0);
 
-      // Ambient float animation
-      useEffect(() => {
-        const id = setInterval(() => setTick(t => t + 1), 2000);
-        return () => clearInterval(id);
-      }, []);
+      // Band ranking for deriving fluent energy from bands
+      const BAND_RANK = { "Naturally present": 3, "Intentionally present": 2, "Developing": 1 };
+      const ENERGY_IDS = ["spark", "glow", "tend", "flow"];
 
-      // Constellation axis mapping (confirmed 7 April 2026):
-      // X axis: Spark (right) <-> Tend (left)
-      // Y axis: Flow (top) <-> Glow (bottom)
-      //
-      // Position formula (relative ratio, not raw score):
-      // xNorm = Spark% / (Spark% + Tend%)
-      // yNorm = Flow% / (Flow% + Glow%)
-      //
-      // Equal Spark and Tend = centre X (0.5)
-      // Equal Flow and Glow = centre Y (0.5)
-      // Overlap nudging applied after initial position is calculated
-      //
-      // Constellation axis mapping (confirmed 7 April 2026):
-      // X axis: Spark (right) <-> Tend (left)
-      // Y axis: Flow (top) <-> Glow (bottom)
-      //
-      // Positioning logic:
-      // 1. The dominant energy (instinctiveEnergy) determines WHICH QUADRANT the node is in.
-      //    The node starts at the dominant energy's anchor point (~55% from centre toward edge).
-      // 2. The other three energies pull the node within that quadrant — secondary energies
-      //    shift the position toward their respective directions proportional to band weight.
-      //
-      // This ensures someone with Glow dominant always appears in the Glow (bottom) zone,
-      // even if their Tend is equally strong by band label.
-      const bandWeight = { "Naturally present": 1.0, "Intentionally present": 0.5, "Developing": 0.1 };
-      const ENERGY_DIRS = {
-        spark: { dx: 1, dy: 0 },   // right
-        tend:  { dx: -1, dy: 0 },  // left
-        flow:  { dx: 0, dy: -1 },  // up (SVG: negative Y = up)
-        glow:  { dx: 0, dy: 1 },   // down (SVG: positive Y = down)
+      // Derive ranked energies from bands for a member
+      function getRanked(m) {
+        if (!m.bands) return [{ id: m.instinctiveEnergy || "tend" }, { id: "tend" }];
+        const sorted = ENERGY_IDS
+          .map(id => ({ id, r: BAND_RANK[m.bands[id]] || 0 }))
+          .sort((a, b) => b.r - a.r);
+        // Ensure instinctive energy is always first
+        const inst = m.instinctiveEnergy || sorted[0].id;
+        const rest = sorted.filter(e => e.id !== inst);
+        return [{ id: inst }, ...rest];
+      }
+
+      // Responsive node radius
+      const totalMembers = members.filter(m => m.assessmentComplete && m.bands).length;
+      const nodeR = totalMembers > 30 ? 10 : totalMembers > 20 ? 12 : 14;
+      const R = nodeR + 2; // padding from edge
+
+      // Zone-based position: quadrant from instinctive, position from fluent pull
+      function getBasePosition(ranked) {
+        const inst = ranked[0].id;
+        const flu = ranked[1].id;
+        const zones = {
+          spark: { xMin: mx + R, xMax: canvasSize - R, yMin: R, yMax: my - R },
+          glow:  { xMin: mx + R, xMax: canvasSize - R, yMin: my + R, yMax: canvasSize - R },
+          flow:  { xMin: R, xMax: mx - R, yMin: R, yMax: my - R },
+          tend:  { xMin: R, xMax: mx - R, yMin: my + R, yMax: canvasSize - R },
+        };
+        const z = zones[inst];
+        const near = 0.25;
+        const centre = 0.5;
+        const pullTable = {
+          "glow-spark":  { x: centre, y: near },
+          "glow-tend":   { x: near, y: centre },
+          "glow-flow":   { x: near, y: near },
+          "glow-glow":   { x: centre, y: centre },
+          "tend-glow":   { x: 1 - near, y: centre },
+          "tend-flow":   { x: centre, y: near },
+          "tend-spark":  { x: centre, y: centre },
+          "tend-tend":   { x: centre, y: centre },
+          "spark-glow":  { x: centre, y: 1 - near },
+          "spark-flow":  { x: near, y: centre },
+          "spark-tend":  { x: centre, y: centre },
+          "spark-spark": { x: centre, y: centre },
+          "flow-tend":   { x: centre, y: 1 - near },
+          "flow-spark":  { x: 1 - near, y: centre },
+          "flow-glow":   { x: centre, y: centre },
+          "flow-flow":   { x: centre, y: centre },
+        };
+        const key = inst + "-" + flu;
+        const pull = pullTable[key] || { x: centre, y: centre };
+        return {
+          x: z.xMin + pull.x * (z.xMax - z.xMin),
+          y: z.yMin + pull.y * (z.yMax - z.yMin),
+        };
+      }
+
+      // Clamp node inside its instinctive energy quadrant
+      function clampToQuadrant(member) {
+        const inst = member.ranked[0].id;
+        const bounds = {
+          spark: { xMin: mx + R, xMax: canvasSize - R, yMin: R, yMax: my - R },
+          glow:  { xMin: mx + R, xMax: canvasSize - R, yMin: my + R, yMax: canvasSize - R },
+          flow:  { xMin: R, xMax: mx - R, yMin: R, yMax: my - R },
+          tend:  { xMin: R, xMax: mx - R, yMin: my + R, yMax: canvasSize - R },
+        }[inst];
+        member.x = Math.max(bounds.xMin, Math.min(bounds.xMax, member.x));
+        member.y = Math.max(bounds.yMin, Math.min(bounds.yMax, member.y));
+      }
+
+      // Overlap nudging: iterative collision resolution with quadrant clamping
+      function resolveOverlaps(nodes, minDist = 40, maxPasses = 50) {
+        for (let pass = 0; pass < maxPasses; pass++) {
+          let moved = false;
+          for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+              const dx = nodes[j].x - nodes[i].x;
+              const dy = nodes[j].y - nodes[i].y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < minDist && dist > 0) {
+                const push = (minDist - dist) / 2;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                nodes[i].x -= nx * push;
+                nodes[i].y -= ny * push;
+                nodes[j].x += nx * push;
+                nodes[j].y += ny * push;
+                moved = true;
+              }
+            }
+          }
+          if (!moved) break;
+          nodes.forEach(n => clampToQuadrant(n));
+        }
+      }
+
+      // Energy descriptions for gap callout
+      const ENERGY_DESC = {
+        spark: "drive and momentum",
+        glow: "warmth and connection",
+        tend: "steadiness and follow-through",
+        flow: "systems thinking and clarity",
       };
 
-      // First pass: compute positions — dominant energy places you, secondaries adjust
-      const rawPositions = members.filter(m => m.assessmentComplete && m.bands).map(m => {
-        const dominant = m.instinctiveEnergy || "tend";
-        // Start at the dominant energy's anchor — 55% of radius from centre
-        const anchorDist = radius * 0.55;
-        let px = ENERGY_DIRS[dominant].dx * anchorDist;
-        let py = ENERGY_DIRS[dominant].dy * anchorDist;
-
-        // Secondary energies pull the node toward their directions
-        const secondaryScale = radius * 0.28;
-        for (const e of ["spark", "glow", "tend", "flow"]) {
-          if (e === dominant) continue;
-          const w = bandWeight[m.bands[e]] || 0.1;
-          px += ENERGY_DIRS[e].dx * w * secondaryScale;
-          py += ENERGY_DIRS[e].dy * w * secondaryScale;
-        }
-
-        return { ...m, px, py };
+      // Build positioned nodes
+      const assessed = members.filter(m => m.assessmentComplete && m.bands);
+      const nodes = assessed.map(m => {
+        const ranked = getRanked(m);
+        const inst = ranked[0].id;
+        const flu = ranked[1].id;
+        const pos = getBasePosition(ranked);
+        const col = C[inst] || C.sand;
+        const fluCol = C[flu] || C.sand;
+        // Determine if fluent pull is meaningful (different from instinctive and not a flat profile)
+        const hasFluent = flu !== inst && !(m.bands && m.bands[inst] === m.bands[flu] && m.bands[flu] === m.bands[ranked[2]?.id]);
+        return { ...m, x: pos.x, y: pos.y, col, fluCol, ranked, hasFluent, instEnergy: inst, fluEnergy: flu };
       });
 
-      // Second pass: nudge overlapping nodes apart so every label is readable
-      const positioned = rawPositions.map((m, i) => {
-        let px = m.px;
-        let py = m.py;
+      resolveOverlaps(nodes);
 
-        for (let j = 0; j < i; j++) {
-          const ox = rawPositions[j].px;
-          const oy = rawPositions[j].py;
-          const dx = px - ox, dy = py - oy;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 50) {
-            const nudgeAngle = Math.atan2(py, px) + (Math.PI / 2) * (i % 2 === 0 ? 1 : -1);
-            const nudgeDist = 46 + (i % 3) * 12;
-            px += Math.cos(nudgeAngle) * nudgeDist;
-            py += Math.sin(nudgeAngle) * nudgeDist;
+      // Compute instinctive and fluent counts per energy
+      const instCounts = { spark: 0, glow: 0, tend: 0, flow: 0 };
+      const fluCounts = { spark: 0, glow: 0, tend: 0, flow: 0 };
+      nodes.forEach(n => {
+        instCounts[n.instEnergy] = (instCounts[n.instEnergy] || 0) + 1;
+        if (n.hasFluent) fluCounts[n.fluEnergy] = (fluCounts[n.fluEnergy] || 0) + 1;
+      });
+
+      // Initials disambiguation
+      const initialCounts = {};
+      nodes.forEach(m => { initialCounts[m.initials] = (initialCounts[m.initials] || 0) + 1; });
+      function getLabel(m) {
+        return initialCounts[m.initials] > 1
+          ? (m.name || "").split(" ")[0].slice(0, 4)
+          : m.initials;
+      }
+
+      // Gap callout sentence
+      function getGapCallout() {
+        for (const e of ENERGY_IDS) {
+          if (instCounts[e] === 0 && fluCounts[e] === 0) {
+            const eName = ENERGIES.find(x => x.id === e).name;
+            return `${eName} is absent across the team \u2014 ${ENERGY_DESC[e]} arrives only when someone actively reaches for it from outside their natural profile.`;
           }
         }
+        for (const e of ENERGY_IDS) {
+          if (instCounts[e] === 0 && fluCounts[e] > 0) {
+            const eName = ENERGIES.find(x => x.id === e).name;
+            return `${eName} has no instinctive presence \u2014 ${fluCounts[e]} member${fluCounts[e] !== 1 ? "s" : ""} reach${fluCounts[e] === 1 ? "es" : ""} for it fluently, so it is available but arrives deliberately rather than by default.`;
+          }
+        }
+        // All energies have at least one instinctive member — describe heaviest and lightest
+        const sorted = ENERGY_IDS.slice().sort((a, b) => instCounts[b] - instCounts[a]);
+        const heaviest = ENERGIES.find(x => x.id === sorted[0]).name;
+        const lightest = ENERGIES.find(x => x.id === sorted[3]).name;
+        if (instCounts[sorted[0]] === instCounts[sorted[3]]) {
+          return "The team\u2019s instinctive energy is evenly spread across all four \u2014 no single energy dominates, which means breadth is a natural strength.";
+        }
+        return `${heaviest} is the team\u2019s strongest instinctive energy, while ${lightest} is the lightest \u2014 ${ENERGY_DESC[sorted[3]]} may need more deliberate attention.`;
+      }
 
-        // Ambient float
-        const seed = m.initials.charCodeAt(0) * 7 + (m.initials.charCodeAt(1) || 0) * 13;
-        const floatX = Math.sin((tick * 0.5) + seed * 0.1) * 2;
-        const floatY = Math.cos((tick * 0.7) + seed * 0.13) * 2;
+      // Reach callouts for absent instinctive energies (suppressed for 30+ members)
+      function getReachCallouts() {
+        if (totalMembers >= 30) return [];
+        const callouts = [];
+        for (const e of ENERGY_IDS) {
+          if (instCounts[e] === 0 && fluCounts[e] > 0) {
+            const fluMembers = nodes.filter(n => n.hasFluent && n.fluEnergy === e);
+            if (fluMembers.length > 0) {
+              const names = fluMembers.map(n => (n.name || "").split(" ")[0]).join(", ");
+              callouts.push({ energy: e, names, members: fluMembers });
+            }
+          }
+        }
+        return callouts;
+      }
 
-        const x = centre + px + floatX;
-        const y = centre + py + floatY;
-        const col = m.instinctiveEnergy ? C[m.instinctiveEnergy] : C.sand;
-
-        return { ...m, x, y, col };
-      });
-
-      // Quadrant glow — matches axis mapping: Spark right, Tend left, Flow top, Glow bottom
-      const quadrants = [
-        { energy: "spark", cx: canvasSize * 0.85, cy: canvasSize * 0.5, col: C.spark },
-        { energy: "tend",  cx: canvasSize * 0.15, cy: canvasSize * 0.5, col: C.tend },
-        { energy: "flow",  cx: canvasSize * 0.5, cy: canvasSize * 0.15, col: C.flow },
-        { energy: "glow",  cx: canvasSize * 0.5, cy: canvasSize * 0.85, col: C.glow },
-      ];
-
-      if (positioned.length === 0) {
+      if (nodes.length === 0) {
         return React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, fontStyle: "italic", textAlign: "center" } },
           "The constellation will appear once team members complete their profiles."
         );
       }
 
-      return React.createElement("div", { style: { position: "relative", width: "100%", maxWidth: canvasSize, margin: "0 auto" } },
-        React.createElement("svg", {
-          viewBox: `0 0 ${canvasSize} ${canvasSize}`,
-          preserveAspectRatio: "xMidYMid meet",
-          style: { display: "block", width: "100%", height: "auto" },
-        },
-          // Quadrant glow
-          quadrants.map(q => React.createElement("circle", {
-            key: q.energy, cx: q.cx, cy: q.cy, r: canvasSize * 0.3,
-            fill: q.col, opacity: 0.06,
-          })),
-          // Quadrant labels
-          quadrants.map(q => {
-            const e = ENERGIES.find(x => x.id === q.energy);
-            const tx = q.energy === "spark" ? canvasSize - 12 : q.energy === "tend" ? 12 : q.cx;
-            const ty = q.energy === "flow" ? 20 : q.energy === "glow" ? canvasSize - 4 : centre + 5;
-            const anchor = q.energy === "spark" ? "end" : q.energy === "tend" ? "start" : "middle";
-            const textEl = React.createElement("text", {
-              x: tx, y: ty, textAnchor: anchor,
-              style: { fontFamily: "'Fraunces', serif", fontSize: 16, fill: q.energy === "glow" ? C.glowOnLight : q.col, fontWeight: 700, opacity: q.energy === "glow" ? 1 : 0.85 },
-            }, e.name);
-            if (q.energy === "glow") {
-              // White background pill behind Glow label so it sits cleanly on the tinted overlap zone.
-              const pillW = 58, pillH = 22;
-              return React.createElement("g", { key: `label-${q.energy}` },
-                React.createElement("rect", {
-                  x: tx - pillW / 2, y: ty - pillH + 5,
-                  width: pillW, height: pillH, rx: 11,
-                  fill: "white", fillOpacity: 0.9,
-                }),
-                textEl
-              );
-            }
-            return React.createElement("g", { key: `label-${q.energy}` }, textEl);
-          }),
-          // Member nodes — disambiguate duplicate initials by using more of first name
-          (() => {
-            const initialCounts = {};
-            positioned.forEach(m => { initialCounts[m.initials] = (initialCounts[m.initials] || 0) + 1; });
-            return positioned.map(m => {
-              // If initials clash, use first name (up to 4 chars) instead
-              const label = initialCounts[m.initials] > 1
-                ? (m.name || "").split(" ")[0].slice(0, 4)
-                : m.initials;
-              const nodeR = label.length > 2 ? 22 : 18;
+      const callouts = getReachCallouts();
+
+      // Fluent arc props
+      const arcR = nodeR + (nodeR <= 12 ? 3 : 4);
+      const arcStrokeWidth = nodeR <= 12 ? 1 : 1.5;
+
+      return React.createElement("div", { style: { width: "100%", maxWidth: 480, margin: "0 auto" } },
+        // ─── SVG constellation map ───
+        React.createElement("div", { style: { position: "relative" } },
+          React.createElement("svg", {
+            viewBox: `0 0 ${canvasSize} ${canvasSize}`,
+            preserveAspectRatio: "xMidYMid meet",
+            style: { display: "block", width: "100%", height: "auto" },
+          },
+            // Defs: radial gradients for quadrant washes
+            React.createElement("defs", null,
+              React.createElement("radialGradient", { id: "wash-spark", cx: "100%", cy: "0%", r: "65%", gradientUnits: "objectBoundingBox" },
+                React.createElement("stop", { offset: "0%", stopColor: "#D92010", stopOpacity: "0.22" }),
+                React.createElement("stop", { offset: "100%", stopColor: "#D92010", stopOpacity: "0" })
+              ),
+              React.createElement("radialGradient", { id: "wash-glow", cx: "100%", cy: "100%", r: "65%", gradientUnits: "objectBoundingBox" },
+                React.createElement("stop", { offset: "0%", stopColor: "#C8960C", stopOpacity: "0.24" }),
+                React.createElement("stop", { offset: "100%", stopColor: "#C8960C", stopOpacity: "0" })
+              ),
+              React.createElement("radialGradient", { id: "wash-flow", cx: "0%", cy: "0%", r: "65%", gradientUnits: "objectBoundingBox" },
+                React.createElement("stop", { offset: "0%", stopColor: "#1755B8", stopOpacity: "0.20" }),
+                React.createElement("stop", { offset: "100%", stopColor: "#1755B8", stopOpacity: "0" })
+              ),
+              React.createElement("radialGradient", { id: "wash-tend", cx: "0%", cy: "100%", r: "65%", gradientUnits: "objectBoundingBox" },
+                React.createElement("stop", { offset: "0%", stopColor: "#1A8C4E", stopOpacity: "0.22" }),
+                React.createElement("stop", { offset: "100%", stopColor: "#1A8C4E", stopOpacity: "0" })
+              )
+            ),
+            // Quadrant colour washes
+            React.createElement("rect", { x: 0, y: 0, width: canvasSize, height: canvasSize, fill: "url(#wash-spark)" }),
+            React.createElement("rect", { x: 0, y: 0, width: canvasSize, height: canvasSize, fill: "url(#wash-glow)" }),
+            React.createElement("rect", { x: 0, y: 0, width: canvasSize, height: canvasSize, fill: "url(#wash-flow)" }),
+            React.createElement("rect", { x: 0, y: 0, width: canvasSize, height: canvasSize, fill: "url(#wash-tend)" }),
+            // Axis lines
+            React.createElement("line", { x1: mx, y1: 0, x2: mx, y2: canvasSize, stroke: "#1A1410", strokeWidth: 0.5, opacity: 0.12 }),
+            React.createElement("line", { x1: 0, y1: my, x2: canvasSize, y2: my, stroke: "#1A1410", strokeWidth: 0.5, opacity: 0.12 }),
+            // Quadrant labels — corner anchored, energy colour at reduced opacity
+            React.createElement("text", { x: canvasSize - 10, y: 18, textAnchor: "end",
+              style: { fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, fill: C.spark, opacity: 0.65, letterSpacing: "0.07em" } }, "Spark"),
+            React.createElement("text", { x: canvasSize - 10, y: canvasSize - 8, textAnchor: "end",
+              style: { fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, fill: C.glowOnLight, opacity: 0.65, letterSpacing: "0.07em" } }, "Glow"),
+            React.createElement("text", { x: 10, y: 18, textAnchor: "start",
+              style: { fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, fill: C.flow, opacity: 0.65, letterSpacing: "0.07em" } }, "Flow"),
+            React.createElement("text", { x: 10, y: canvasSize - 8, textAnchor: "start",
+              style: { fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, fill: C.tend, opacity: 0.65, letterSpacing: "0.07em" } }, "Tend"),
+            // Fluent arcs (below nodes in z-order, so render first)
+            ...nodes.filter(n => n.hasFluent).map(n => {
+              const fluColour = n.fluEnergy === "glow" ? C.glowOnLight : n.fluCol;
+              return React.createElement("path", {
+                key: `arc-${n.userId}`,
+                d: `M ${n.x - arcR} ${n.y} A ${arcR} ${arcR} 0 0 0 ${n.x + arcR} ${n.y}`,
+                stroke: fluColour, strokeWidth: arcStrokeWidth, strokeDasharray: "2.5 1.5",
+                fill: "none", opacity: 0.85,
+              });
+            }),
+            // Member nodes
+            ...nodes.map(n => {
+              const label = getLabel(n);
+              const fontSize = label.length > 2 ? 8 : 9;
+              const instCol = n.instEnergy === "glow" ? C.glowOnLight : n.col;
               return React.createElement("g", {
-                key: m.userId,
-                onMouseEnter: () => setHovered(m),
+                key: n.userId,
+                onMouseEnter: () => setHovered(n),
                 onMouseLeave: () => setHovered(null),
                 style: { cursor: "pointer" },
               },
-                React.createElement("circle", { cx: m.x, cy: m.y, r: nodeR, fill: `${m.col}22`, stroke: m.col, strokeWidth: 2 }),
+                React.createElement("circle", { cx: n.x, cy: n.y, r: nodeR, fill: C.cream, stroke: instCol, strokeWidth: 2 }),
                 React.createElement("text", {
-                  x: m.x, y: m.y + 4, textAnchor: "middle",
-                  style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: label.length > 2 ? 10 : 11, fontWeight: 700, fill: m.instinctiveEnergy === "glow" ? C.glowOnLight : m.col },
+                  x: n.x, y: n.y + 4, textAnchor: "middle",
+                  style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize, fontWeight: 700, fill: C.ink },
                 }, label)
               );
-            });
-          })()
+            }),
+            // Reach callouts for absent instinctive energies
+            ...callouts.map((co, ci) => {
+              const eCol = co.energy === "glow" ? C.glowOnLight : C[co.energy];
+              const eName = ENERGIES.find(x => x.id === co.energy).name;
+              // Position callout in the centre of the empty quadrant
+              const qCentres = {
+                spark: { x: mx + mx * 0.5, y: my * 0.5 },
+                glow:  { x: mx + mx * 0.5, y: my + my * 0.5 },
+                flow:  { x: mx * 0.5, y: my * 0.5 },
+                tend:  { x: mx * 0.5, y: my + my * 0.5 },
+              };
+              const qc = qCentres[co.energy];
+              return React.createElement("g", { key: `callout-${co.energy}` },
+                React.createElement("text", { x: qc.x, y: qc.y - 4, textAnchor: "middle",
+                  style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 8, fill: eCol, opacity: 0.7, fontWeight: 600 } },
+                  `${eName} reach`
+                ),
+                React.createElement("text", { x: qc.x, y: qc.y + 8, textAnchor: "middle",
+                  style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 8, fill: eCol, opacity: 0.7 } },
+                  `${co.names} \u00B7 fluent`
+                ),
+                // Dashed leader lines to fluent nodes
+                ...co.members.map(fm => React.createElement("line", {
+                  key: `leader-${fm.userId}`,
+                  x1: qc.x, y1: qc.y + 12, x2: fm.x, y2: fm.y + nodeR + arcR + 2,
+                  stroke: eCol, strokeWidth: 0.8, strokeDasharray: "2 2", opacity: 0.4,
+                }))
+              );
+            })
+          ),
+          // Hover tooltip
+          hovered && React.createElement("div", { style: {
+            position: "absolute", top: 8, right: 8, background: "white", borderRadius: 12,
+            padding: "10px 16px", boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.ink,
+            border: `1px solid ${C.sand}`, pointerEvents: "none",
+          } },
+            React.createElement("strong", null, hovered.name),
+            hovered.instEnergy && React.createElement("span", { style: { marginLeft: 8, color: hovered.instEnergy === "glow" ? C.glowOnLight : C[hovered.instEnergy], fontWeight: 600 } },
+              ENERGIES.find(e => e.id === hovered.instEnergy)?.name
+            ),
+            hovered.hasFluent && React.createElement("span", { style: { marginLeft: 6, color: C.stone, fontSize: 12 } },
+              `\u00B7 ${ENERGIES.find(e => e.id === hovered.fluEnergy)?.name} fluent`
+            )
+          )
         ),
-        // Hover tooltip
-        hovered && React.createElement("div", { style: {
-          position: "absolute", top: 8, right: 8, background: "white", borderRadius: 12,
-          padding: "10px 16px", boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.ink,
-          border: `1px solid ${C.sand}`,
-        } },
-          React.createElement("strong", null, hovered.name),
-          hovered.instinctiveEnergy && React.createElement("span", { style: { marginLeft: 8, color: hovered.instinctiveEnergy === "glow" ? C.glowOnLight : C[hovered.instinctiveEnergy], fontWeight: 600 } },
-            ENERGIES.find(e => e.id === hovered.instinctiveEnergy)?.name
+
+        // ─── Weight bars ───
+        React.createElement("div", { style: { marginTop: 16 } },
+          ["tend", "glow", "spark", "flow"].map(energy => {
+            const eName = ENERGIES.find(x => x.id === energy).name;
+            const eCol = energy === "glow" ? C.glowOnLight : C[energy];
+            const instPct = totalMembers > 0 ? (instCounts[energy] / totalMembers) * 100 : 0;
+            const fluPct = totalMembers > 0 ? ((instCounts[energy] + fluCounts[energy]) / totalMembers) * 100 : 0;
+            return React.createElement("div", { key: `bar-${energy}`, style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
+              React.createElement("span", { style: { fontFamily: "'Fraunces', serif", fontSize: 12, fontWeight: 700, color: eCol, width: 44, textAlign: "right", flexShrink: 0 } }, eName),
+              React.createElement("div", { style: { flex: 1, height: 10, background: `${C.sand}33`, borderRadius: 5, position: "relative", overflow: "hidden" } },
+                // Fluent fill (lighter, behind)
+                fluCounts[energy] > 0 && React.createElement("div", { style: {
+                  position: "absolute", top: 0, left: 0, height: "100%", borderRadius: 5,
+                  width: `${Math.min(fluPct, 100)}%`, background: C[energy], opacity: 0.28,
+                } }),
+                // Instinctive fill (solid, on top)
+                React.createElement("div", { style: {
+                  position: "absolute", top: 0, left: 0, height: "100%", borderRadius: 5,
+                  width: `${Math.min(instPct, 100)}%`, background: C[energy],
+                } })
+              ),
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.ink, whiteSpace: "nowrap", flexShrink: 0 } },
+                `${instCounts[energy]} instinctive`,
+                fluCounts[energy] > 0 ? ` \u00B7 ${fluCounts[energy]} fluent` : ""
+              )
+            );
+          })
+        ),
+
+        // ─── Gap callout ───
+        React.createElement("p", { style: {
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone,
+          marginTop: 12, lineHeight: 1.5,
+        } }, getGapCallout()),
+
+        // ─── Legend ───
+        React.createElement("div", { style: { display: "flex", gap: 20, alignItems: "center", marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.sand}33` } },
+          // Instinctive energy
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+            React.createElement("svg", { width: 16, height: 16, viewBox: "0 0 16 16" },
+              React.createElement("circle", { cx: 8, cy: 8, r: 6, fill: C.cream, stroke: C.stone, strokeWidth: 2 })
+            ),
+            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, "Instinctive energy")
+          ),
+          // Fluent (2nd) energy
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+            React.createElement("svg", { width: 24, height: 12, viewBox: "0 0 24 12" },
+              React.createElement("line", { x1: 0, y1: 6, x2: 24, y2: 6, stroke: C.stone, strokeWidth: 2, strokeDasharray: "3 2" })
+            ),
+            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, "Fluent (2nd) energy")
           )
         )
       );
@@ -3459,7 +3652,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           assessedMembers.length >= 2 && React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` } },
             React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 8 } }, "Team constellation"),
             React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginBottom: 20 } },
-              "Each person positioned by their energy profile. Hover for names. Proximity shows shared energy tendencies."
+              "Each person positioned by their instinctive energy. Hover for names."
             ),
             assessedMembers.length > 10
               ? React.createElement("div", null,
