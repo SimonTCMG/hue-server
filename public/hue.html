@@ -54,6 +54,7 @@
     // ─── Design tokens ────────────────────────────────────────────────────────
     const C = {
       cream: "#FDFAF4", ink: "#1A1410", sand: "#E8DFC8", stone: "#9B8E7E",
+      stoneSoft: "#ECE6D6", stonePress: "#E0D8C2",
       spark: "#D92010", sparkLight: "#FFF0ED",
       glow:  "#F5D000", glowLight:  "#FEFCE8", glowOnLight: "#C8960C",
       tend:  "#1A8C4E", tendLight:  "#E8F7EF",
@@ -490,10 +491,10 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       });
     }
 
-    function Bubble({ from, text }) {
+    const Bubble = React.forwardRef(function Bubble({ from, text }, ref) {
       const isHue = from === "hue";
       return (
-        <div style={{
+        <div ref={ref} style={{
           display: "flex",
           justifyContent: isHue ? "flex-start" : "flex-end",
           marginBottom: 10,
@@ -516,7 +517,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           </div>
         </div>
       );
-    }
+    });
 
     function TypingIndicator() {
       return (
@@ -906,15 +907,15 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       const EXCHANGES = [
         {
-          hue:   "Before we start, here's what you're walking into. No quiz, no questionnaire — I'm going to ask about real situations from your actual life, and from how you talk about them, I'll build a picture of the energies you reach for most naturally. Around 10–15 minutes. Sound good?",
+          hue:   "Hi. I'm Hue. This is a conversation, not a quiz — about 10 minutes. Sound good?",
           reply: "Sounds good.",
         },
         {
-          hue:   "Your profile is yours. I won't share it with anyone, and no one else can see it without you choosing to show them. I keep brief notes between conversations — just enough to pick up where we left off, without asking you to start from scratch. Those notes are only ever used to give our conversations more depth. Ready to go?",
-          reply: "Ready to go.",
+          hue:   "Your profile is yours. No one sees it unless you show them. I keep brief notes between conversations so we can pick up where we left off.",
+          reply: "Good to know.",
         },
         {
-          hue:   "One last thing: I'll ask about specific situations, not hypothetical ones. What actually happened, not what you think the right answer might be. There's no right or wrong answer here — just yours. The more honest the conversation, the more useful your profile will be. Okay — let's begin.",
+          hue:   "I'll ask about real situations, not hypothetical ones. No right answer — just yours.",
           reply: null,
         },
       ];
@@ -980,6 +981,15 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             </div>
 
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
+              {step === 1 && messages.length <= 1 && (
+                <div style={{
+                  fontSize: 12, color: C.stone,
+                  textAlign: "center", marginBottom: 16,
+                  letterSpacing: "0.02em",
+                }}>
+                  Three quick things before we start · tap to reply
+                </div>
+              )}
               {messages.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
               {typing && <TypingIndicator />}
               <div ref={bottomRef} style={{ height: 8 }} />
@@ -989,13 +999,17 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               <div style={{ padding: "8px 16px 20px", display: "flex", justifyContent: "flex-end" }}>
                 <button
                   onClick={() => handleReply(chipLabel)}
+                  onMouseDown={e => e.currentTarget.style.background = C.stonePress}
+                  onMouseUp={e => e.currentTarget.style.background = C.stoneSoft}
+                  onMouseLeave={e => e.currentTarget.style.background = C.stoneSoft}
                   style={{
-                    background: C.ink, color: C.cream,
-                    border: "none", borderRadius: 99,
+                    background: C.stoneSoft, color: C.ink,
+                    border: `0.5px solid ${C.sand}`, borderRadius: 99,
                     padding: "12px 24px",
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontSize: 15, fontWeight: 600,
+                    fontSize: 15, fontWeight: 500,
                     cursor: "pointer",
+                    transition: "background 160ms ease",
                   }}
                 >
                   {chipLabel}
@@ -2338,7 +2352,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [hasSentMessage, setHasSentMessage] = useState(false);
       const [summaries, setSummaries] = useState(null); // null = loading
       const [anniversary, setAnniversary] = useState(null);
-      const bottomRef = useRef(null);
+      const lastMessageRef = useRef(null);
       const inputRef  = useRef(null);
       const visitCount = useRef(getChatVisitCount());
       const allSuggestions = returning ? RETURNING_SUGGESTIONS : getResultsSuggestions(ranked);
@@ -2390,7 +2404,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       }, [summaries]);
 
       useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, [display, typing]);
 
       useEffect(() => {
@@ -2451,9 +2465,16 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             </div>
 
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>
-              {display.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
+              {display.map((m, i) => (
+                <Bubble
+                  key={i}
+                  ref={i === display.length - 1 ? lastMessageRef : null}
+                  from={m.from}
+                  text={m.text}
+                />
+              ))}
               {typing && <TypingIndicator />}
-              <div ref={bottomRef} style={{ height: 8 }} />
+              <div style={{ height: "40vh" }} />
             </div>
 
             {!hasSentMessage && (
