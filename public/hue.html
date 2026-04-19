@@ -842,6 +842,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   textDecoration: "underline", textUnderlineOffset: 3,
                 }}>Manage organisation</a>
               )}
+              {user?.email === "simon@thechangemakergroup.com" && (
+                <a href="/admin-register" style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 12, color: C.stone,
+                  textDecoration: "underline", textUnderlineOffset: 3,
+                }}>User register</a>
+              )}
               {onSettings && (
                 <button onClick={onSettings} style={{
                   background: "none", border: "none", cursor: "pointer",
@@ -4306,6 +4313,142 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       );
     }
 
+    // ─── Admin Register Screen (Simon only) ──────────────────────────────────
+    function AdminRegisterScreen({ onBack }) {
+      const isDesktop = useIsDesktop();
+      const [data, setData] = useState(null);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        fetch("/api/admin/user-report")
+          .then(r => r.json())
+          .then(d => { if (d.error) setError(d.error); else setData(d); })
+          .catch(() => setError("Could not load report."));
+      }, []);
+
+      const STATE_LABEL = {
+        "org-member-active":        "Org member",
+        "beta-user":                "Beta",
+        "individual-trial-active":  "Trial active",
+        "individual-subscriber":    "Subscriber",
+        "individual-trial-expired": "Trial expired",
+        "org-member-lapsed":        "Lapsed",
+      };
+      const ENERGY_COLOR = { spark: C.spark, glow: C.glowOnLight, tend: C.tend, flow: C.flow };
+
+      const cellStyle = {
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        fontSize: 13, color: C.ink,
+        padding: "10px 12px", borderBottom: `1px solid ${C.sand}`,
+        verticalAlign: "middle",
+      };
+      const headStyle = { ...cellStyle, fontWeight: 700, fontSize: 12, color: C.stone, background: `${C.sand}33` };
+
+      return (
+        React.createElement("div", { style: { minHeight: "100vh", background: C.cream, padding: isDesktop ? "40px 48px" : "24px 16px" } },
+          React.createElement("div", { style: { maxWidth: 900, margin: "0 auto" } },
+
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 16, marginBottom: 28 } },
+              React.createElement("button", {
+                onClick: onBack,
+                style: { background: "none", border: "none", cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, padding: 0 },
+              }, "← Back"),
+              React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 28 : 22, fontWeight: 900, color: C.ink, margin: 0 } }, "User register"),
+              data && React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone } },
+                `${data.total} registered`
+              ),
+            ),
+
+            !data && !error && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone } }, "Loading…"),
+            error && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.spark } }, error),
+
+            data && React.createElement(React.Fragment, null,
+
+              // ── Registered users ──
+              React.createElement("div", { style: { overflowX: "auto", borderRadius: 16, border: `1px solid ${C.sand}`, marginBottom: 32 } },
+                React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } },
+                  React.createElement("thead", null,
+                    React.createElement("tr", null,
+                      ["#", "Name", "Email", "Status", "Profile", "Energy", "Registered", "Teams"].map(h =>
+                        React.createElement("th", { key: h, style: { ...headStyle, textAlign: "left" } }, h)
+                      )
+                    )
+                  ),
+                  React.createElement("tbody", null,
+                    data.users.map((u, i) =>
+                      React.createElement("tr", { key: u.email, style: { background: i % 2 === 0 ? "transparent" : `${C.sand}18` } },
+                        React.createElement("td", { style: cellStyle }, i + 1),
+                        React.createElement("td", { style: { ...cellStyle, fontWeight: 600 } }, u.name),
+                        React.createElement("td", { style: { ...cellStyle, color: C.stone, fontSize: 12 } }, u.email),
+                        React.createElement("td", { style: cellStyle },
+                          React.createElement("span", { style: {
+                            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                            padding: "3px 8px", borderRadius: 99,
+                            background: u.state === "org-member-active" ? `${C.tend}22` : u.state === "beta-user" ? `${C.flow}22` : `${C.sand}44`,
+                            color: u.state === "org-member-active" ? C.tend : u.state === "beta-user" ? C.flow : C.stone,
+                          } }, STATE_LABEL[u.state] || u.state)
+                        ),
+                        React.createElement("td", { style: { ...cellStyle, textAlign: "center" } }, u.assessmentComplete ? "✓" : "—"),
+                        React.createElement("td", { style: cellStyle },
+                          u.dominantEnergy
+                            ? React.createElement("span", { style: { fontWeight: 700, color: ENERGY_COLOR[u.dominantEnergy] || C.ink, textTransform: "capitalize" } }, u.dominantEnergy)
+                            : React.createElement("span", { style: { color: C.sand } }, "—")
+                        ),
+                        React.createElement("td", { style: { ...cellStyle, color: C.stone, fontSize: 12, whiteSpace: "nowrap" } },
+                          u.registeredAt ? u.registeredAt.slice(5).replace("-", " ") : "—"
+                        ),
+                        React.createElement("td", { style: cellStyle },
+                          u.teams.length === 0
+                            ? React.createElement("span", { style: { color: C.sand } }, "—")
+                            : u.teams.map(t =>
+                                React.createElement("div", { key: t.team, style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, lineHeight: 1.5 } },
+                                  t.team,
+                                  t.role !== "member" && React.createElement("span", { style: { fontSize: 10, color: C.stone, marginLeft: 4 } }, `(${t.role})`)
+                                )
+                              )
+                        ),
+                      )
+                    )
+                  )
+                )
+              ),
+
+              // ── Pending invites ──
+              data.pendingInvites.length > 0 && React.createElement(React.Fragment, null,
+                React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 12 } },
+                  `Invited — not yet registered (${data.pendingInvites.length})`
+                ),
+                React.createElement("div", { style: { overflowX: "auto", borderRadius: 16, border: `1px solid ${C.sand}` } },
+                  React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } },
+                    React.createElement("thead", null,
+                      React.createElement("tr", null,
+                        ["Email", "Invited to", "Invited"].map(h =>
+                          React.createElement("th", { key: h, style: { ...headStyle, textAlign: "left" } }, h)
+                        )
+                      )
+                    ),
+                    React.createElement("tbody", null,
+                      data.pendingInvites.map((inv, i) =>
+                        React.createElement("tr", { key: inv.email, style: { background: i % 2 === 0 ? "transparent" : `${C.sand}18` } },
+                          React.createElement("td", { style: { ...cellStyle, color: C.stone, fontSize: 12 } }, inv.email),
+                          React.createElement("td", { style: cellStyle }, inv.teamName || "—"),
+                          React.createElement("td", { style: { ...cellStyle, color: C.stone, fontSize: 12 } }, inv.invitedAt ? inv.invitedAt.slice(5).replace("-", " ") : "—"),
+                        )
+                      )
+                    )
+                  )
+                )
+              ),
+
+              data.pendingInvites.length === 0 && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone } },
+                "No pending invitations."
+              ),
+            ),
+          )
+        )
+      );
+    }
+
     // ─── App ──────────────────────────────────────────────────────────────────
     function App() {
       const [screen, setScreen] = useState("welcome");
@@ -4347,6 +4490,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       // Org member registration path — /register-org
       const isOrgRegister = window.location.pathname === "/register-org";
+
+      // Admin register path — /admin-register (Simon only)
+      const isAdminRegister = window.location.pathname === "/admin-register";
 
       // Team dashboard path — /team/:teamId
       const teamPathMatch = window.location.pathname.match(/^\/team\/([^/]+)$/);
@@ -4498,7 +4644,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             input::placeholder { color: ${C.stone}; }
             input:focus { border-color: ${C.ink} !important; outline: none; }
           `}</style>
-          {teamPathId && betaUser ? (
+          {isAdminRegister && betaUser?.email === "simon@thechangemakergroup.com" ? (
+            <AdminRegisterScreen onBack={() => { window.history.replaceState({}, "", "/"); window.location.reload(); }} />
+          ) : teamPathId && betaUser ? (
             <TeamDashboardScreen
               teamId={teamPathId}
               currentUserId={betaUser.id}
