@@ -181,49 +181,6 @@ app.delete("/api/admin/delete-user/:email", (req, res) => {
   res.json({ ok: true, deleted: email });
 });
 
-// Temp admin: diagnose and fix Team Hue Demo membership for a user
-app.post("/api/admin/fix-demo-team/:email", (req, res) => {
-  const secret = req.headers["x-admin-secret"];
-  if (secret !== process.env.SESSION_SECRET) return res.status(403).json({ error: "Forbidden" });
-  const email = decodeURIComponent(req.params.email).toLowerCase().trim();
-  const HUE_DEMO_TEAM_ID = "hue-demo-team-001";
-  const TCMG_ORG_ID = "tcmg-org-001";
-
-  // Diagnose the team record
-  const team = getTeam(HUE_DEMO_TEAM_ID);
-  const teamDiag = team ? { found: true, org_id: team.org_id, name: team.name } : { found: false };
-
-  // Fix org_id if wrong
-  if (team && team.org_id !== TCMG_ORG_ID) {
-    db.prepare("UPDATE teams SET org_id = ? WHERE id = ?").run(TCMG_ORG_ID, HUE_DEMO_TEAM_ID);
-    teamDiag.fixed = true;
-  }
-
-  // Find the user and add to team
-  const user = getUserByEmail(email);
-  if (!user) return res.json({ ok: false, teamDiag, error: `User ${email} not found` });
-
-  const existingRole = getUserRole(user.id, HUE_DEMO_TEAM_ID);
-  if (!existingRole) {
-    addTeamMember(user.id, HUE_DEMO_TEAM_ID, "member");
-    // Sync energy bands if assessment complete
-    if (user.energy_scores) {
-      try {
-        const scores = JSON.parse(user.energy_scores);
-        upsertTeamEnergyBands(user.id, HUE_DEMO_TEAM_ID, calculateBands(scores));
-      } catch {}
-    }
-  }
-
-  res.json({
-    ok: true,
-    teamDiag,
-    user: { id: user.id, email: user.email, name: user.name, assessmentComplete: !!user.assessment_completed_at },
-    alreadyMember: !!existingRole,
-    added: !existingRole,
-  });
-});
-
 // Temp admin: mark an invitation as registered (for fixing mismatched-email invites)
 app.post("/api/admin/fix-invitation/:email", (req, res) => {
   const secret = req.headers["x-admin-secret"];
