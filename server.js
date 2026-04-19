@@ -181,33 +181,6 @@ app.delete("/api/admin/delete-user/:email", (req, res) => {
   res.json({ ok: true, deleted: email });
 });
 
-// Temp admin: update user state by email
-app.patch("/api/admin/user-state/:email", (req, res) => {
-  const secret = req.headers["x-admin-secret"];
-  if (secret !== process.env.SESSION_SECRET) return res.status(403).json({ error: "Forbidden" });
-  const email = decodeURIComponent(req.params.email).toLowerCase().trim();
-  const { state } = req.body;
-  const validStates = ["individual-trial-active","individual-subscriber","individual-trial-expired","org-member-active","org-member-lapsed","beta-user"];
-  if (!validStates.includes(state)) return res.status(400).json({ error: "Invalid state" });
-  const user = getUserByEmail(email);
-  if (!user) return res.status(404).json({ error: "User not found" });
-  db.prepare("UPDATE users SET user_state = ? WHERE id = ?").run(state, user.id);
-  res.json({ ok: true, email, previous: user.user_state, updated: state });
-});
-
-// Temp admin: list all pending invitations
-app.get("/api/admin/pending-invites", (req, res) => {
-  const secret = req.headers["x-admin-secret"];
-  if (secret !== process.env.SESSION_SECRET) return res.status(403).json({ error: "Forbidden" });
-  const rows = db.prepare(
-    `SELECT i.email, i.org_id, i.team_id, t.name AS team_name, i.invited_at, i.status
-     FROM invitations i LEFT JOIN teams t ON t.id = i.team_id
-     WHERE i.status = 'invited'
-     ORDER BY i.invited_at ASC`
-  ).all();
-  res.json({ total: rows.length, invites: rows });
-});
-
 // Temp admin: mark an invitation as registered (for fixing mismatched-email invites)
 app.post("/api/admin/fix-invitation/:email", (req, res) => {
   const secret = req.headers["x-admin-secret"];
