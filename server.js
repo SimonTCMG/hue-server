@@ -510,12 +510,19 @@ app.post("/api/register-org", async (req, res) => {
       if (invitedEmail && invitedEmail.toLowerCase().trim() !== normalised) {
         markInvitationRegistered(invitedEmail, orgCode.trim());
       }
+    } else {
+      // teamId provided but team doesn't exist or belongs to a different org — log for diagnosis
+      console.warn(`[register-org] teamId "${teamId}" failed validation for org "${orgCode}" (user: ${normalised}). team found: ${!!team}, team.org_id: ${team?.org_id}. Falling back to first team in org.`);
+      const orgTeams = getTeamsForOrg(orgCode.trim());
+      if (orgTeams.length > 0) {
+        addTeamMember(id, orgTeams[0].id, assignRole);
+      }
     }
   } else {
     // No specific team — add to first team in the org
-    const teams = getTeamsForOrg(orgCode.trim());
-    if (teams.length > 0) {
-      addTeamMember(id, teams[0].id, assignRole);
+    const orgTeams = getTeamsForOrg(orgCode.trim());
+    if (orgTeams.length > 0) {
+      addTeamMember(id, orgTeams[0].id, assignRole);
     }
   }
 
@@ -1805,10 +1812,10 @@ app.get("/api/team/:teamId", (req, res) => {
     };
   });
 
-  // Include pending invitations for this team
+  // Include pending invitations for this team (exclude any email already in team_members)
   const pendingInvites = getInvitationsForTeam(teamId)
     .filter(inv => inv.status === "invited")
-    .filter(inv => !memberList.some(m => m.name && members.find(mm => mm.email === inv.email)));
+    .filter(inv => !members.some(m => m.email === inv.email));
 
   const totalExpected = members.length + pendingInvites.length;
   const completedMembers = memberList.filter(m => m.assessmentComplete).length;
