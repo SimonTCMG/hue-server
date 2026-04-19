@@ -181,6 +181,42 @@ app.delete("/api/admin/delete-user/:email", (req, res) => {
   res.json({ ok: true, deleted: email });
 });
 
+// Temp admin: full user report — all users with status and team assignments
+app.get("/api/admin/user-report", (req, res) => {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== process.env.SESSION_SECRET) return res.status(403).json({ error: "Forbidden" });
+
+  const users = db.prepare(
+    `SELECT u.id, u.name, u.email, u.user_state, u.assessment_completed_at, u.registered_at,
+            u.dominant_energy, u.trial_started_at
+     FROM users u
+     ORDER BY u.registered_at ASC`
+  ).all();
+
+  const teamMemberships = db.prepare(
+    `SELECT tm.user_id, tm.role, t.name AS team_name, t.id AS team_id
+     FROM team_members tm JOIN teams t ON t.id = tm.team_id`
+  ).all();
+
+  const membershipMap = {};
+  for (const m of teamMemberships) {
+    if (!membershipMap[m.user_id]) membershipMap[m.user_id] = [];
+    membershipMap[m.user_id].push({ team: m.team_name, role: m.role });
+  }
+
+  const report = users.map(u => ({
+    name: u.name,
+    email: u.email,
+    state: u.user_state,
+    assessmentComplete: !!u.assessment_completed_at,
+    dominantEnergy: u.dominant_energy || null,
+    registeredAt: u.registered_at ? new Date(u.registered_at).toISOString().slice(0, 10) : null,
+    teams: membershipMap[u.id] || [],
+  }));
+
+  res.json({ total: report.length, users: report });
+});
+
 // Temp admin: mark an invitation as registered (for fixing mismatched-email invites)
 app.post("/api/admin/fix-invitation/:email", (req, res) => {
   const secret = req.headers["x-admin-secret"];
