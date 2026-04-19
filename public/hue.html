@@ -3166,18 +3166,25 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         const pos = getBasePosition(ranked);
         const col = C[inst] || C.sand;
         const fluCol = C[flu] || C.sand;
-        // Bug 2 (Apr 2026): show the fluent arc only when ranked[1] is meaningfully
-        // higher than ranked[2] in the individual profile (4-pt gap threshold).
-        // Members with very flat profiles (e.g. Nicky — Tend instinctive, all others
-        // close together at Developing) correctly show no arc. Falls back to the
-        // legacy band-equality check when secondEnergyGap isn't available.
+        // Bug 2 (Apr 2026): show the fluent arc only when the second energy is
+        // meaningfully present. Rule: arc shown if the second energy's team band is
+        // "Naturally present" or "Intentionally present"; suppressed if "Developing".
+        // This matches what the member list already shows — Cathy's Flow is
+        // Intentionally present so her arc appears; Nicky's everything-else is
+        // Developing so no arc. The 4-pt gap threshold was too tight for real
+        // profiles where scores are closely bunched (e.g. 24%/22% gap = 2pts).
+        // secondEnergyGap is retained on the record for future analytics but is
+        // no longer the display cutoff.
         let hasFluent;
         if (flu === inst) {
           hasFluent = false;
-        } else if (m.secondEnergyGap != null) {
-          hasFluent = m.secondEnergyGap >= 4;
+        } else if (m.bands && m.bands[flu]) {
+          hasFluent = m.bands[flu] !== "Developing";
         } else {
-          hasFluent = !(m.bands && m.bands[inst] === m.bands[flu] && m.bands[flu] === m.bands[ranked[2]?.id]);
+          // Legacy fallback: no bands available, use gap if stored
+          hasFluent = m.secondEnergyGap != null
+            ? m.secondEnergyGap >= 4
+            : !(m.bands && m.bands[inst] === m.bands[flu] && m.bands[flu] === m.bands[ranked[2]?.id]);
         }
         return { ...m, x: pos.x, y: pos.y, col, fluCol, ranked, hasFluent, instEnergy: inst, fluEnergy: flu };
       });
