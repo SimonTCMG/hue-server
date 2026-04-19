@@ -312,20 +312,38 @@ db.exec(`
 
 // Pipeline 1 storage: bands only. Raw scores NEVER stored here.
 // Each energy is stored as a band label string, never a percentage.
+// second_energy = the energy ranked second in the individual profile (label only, no score)
+// second_energy_gap = the integer percentage-point gap between ranked[1] and ranked[2]
+//   in the individual profile. Used by the constellation to decide whether to show a
+//   fluent arc (gap >= 4 = meaningful second energy; below = flat profile, no arc).
+//   Storing the gap as a single integer does not constitute a raw score — it is a
+//   derived shape signal that the team layer needs to render the constellation
+//   correctly. Individual energy percentages remain on users.energy_scores only.
 db.exec(`
   CREATE TABLE IF NOT EXISTS team_energy_bands (
-    user_id    TEXT NOT NULL,
-    team_id    TEXT NOT NULL,
-    spark_band TEXT,
-    glow_band  TEXT,
-    tend_band  TEXT,
-    flow_band  TEXT,
-    updated_at INTEGER NOT NULL,
+    user_id           TEXT NOT NULL,
+    team_id           TEXT NOT NULL,
+    spark_band        TEXT,
+    glow_band         TEXT,
+    tend_band         TEXT,
+    flow_band         TEXT,
+    second_energy     TEXT,
+    second_energy_gap INTEGER,
+    updated_at        INTEGER NOT NULL,
     PRIMARY KEY (user_id, team_id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (team_id) REFERENCES teams(id)
   )
 `);
+
+// Idempotent migration for existing deployments: add the two new columns if missing.
+const tebCols = db.prepare("PRAGMA table_info(team_energy_bands)").all().map(c => c.name);
+if (!tebCols.includes("second_energy")) {
+  db.exec("ALTER TABLE team_energy_bands ADD COLUMN second_energy TEXT");
+}
+if (!tebCols.includes("second_energy_gap")) {
+  db.exec("ALTER TABLE team_energy_bands ADD COLUMN second_energy_gap INTEGER");
+}
 
 // ─── Invitations tracking ─────────────────────────────────────────────────
 db.exec(`
@@ -389,6 +407,21 @@ export function calculateBands(scores) {
     else bands[energy] = BAND_LABELS.low;
   }
   return bands;
+}
+
+// Compute the second-ranked energy and the percentage-point gap to the third.
+// Used at assessment-completion time to feed the constellation's fluent arc logic.
+// Excludes the dominant (instinctive) energy so we always return the genuine 2nd.
+// Returns { second: "tend"|"glow"|"spark"|"flow"|null, gap: integer }
+export function calculateSecondEnergy(scores, dominantEnergy) {
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+  if (total === 0) return { second: null, gap: 0 };
+  const ranked = ["spark", "glow", "tend", "flow"]
+    .filter(e => e !== dominantEnergy)
+    .map(e => ({ id: e, pct: Math.round((scores[e] / total) * 100) }))
+    .sort((a, b) => b.pct - a.pct);
+  if (ranked.length < 2) return { second: ranked[0]?.id || null, gap: 0 };
+  return { second: ranked[0].id, gap: ranked[0].pct - ranked[1].pct };
 }
 
 // ─── Team CRUD ────────────────────────────────────────────────────────────
@@ -455,11 +488,20 @@ export function revealDashboard(teamId) {
 // ─── Pipeline 1: team energy bands ────────────────────────────────────────
 // Stores band labels derived from scores. Raw scores never touch this table.
 
+// bands: { spark, glow, tend, flow, second, gap }
+//   second / gap optional — older callers without raw scores may omit them and
+//   the columns will be left null. The constellation falls back gracefully when null.
 export function upsertTeamEnergyBands(userId, teamId, bands) {
   return db.prepare(
-    `INSERT OR REPLACE INTO team_energy_bands (user_id, team_id, spark_band, glow_band, tend_band, flow_band, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(userId, teamId, bands.spark, bands.glow, bands.tend, bands.flow, Date.now());
+    `INSERT OR REPLACE INTO team_energy_bands
+       (user_id, team_id, spark_band, glow_band, tend_band, flow_band, second_energy, second_energy_gap, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    userId, teamId,
+    bands.spark, bands.glow, bands.tend, bands.flow,
+    bands.second || null, (bands.gap == null ? null : bands.gap),
+    Date.now()
+  );
 }
 
 export function getTeamEnergyBands(teamId) {

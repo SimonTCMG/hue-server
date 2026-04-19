@@ -34,6 +34,7 @@ import db, {
   hasTrialEmailBeenSent,
   recordTrialEmailSent,
   calculateBands,
+  calculateSecondEnergy,
   getTeamsForUser,
   upsertTeamEnergyBands,
   createOrganisation,
@@ -472,7 +473,8 @@ app.post("/api/register-org", async (req, res) => {
         if (existing.energy_scores) {
           try {
             const scores = JSON.parse(existing.energy_scores);
-            upsertTeamEnergyBands(existing.id, targetTeam, calculateBands(scores));
+            const { second, gap } = calculateSecondEnergy(scores, existing.dominant_energy);
+            upsertTeamEnergyBands(existing.id, targetTeam, { ...calculateBands(scores), second, gap });
           } catch {}
         }
       }
@@ -722,7 +724,8 @@ app.post("/api/account/join-org", async (req, res) => {
     if (user.energy_scores) {
       try {
         const scores = JSON.parse(user.energy_scores);
-        upsertTeamEnergyBands(user.id, targetTeamId, calculateBands(scores));
+        const { second, gap } = calculateSecondEnergy(scores, user.dominant_energy);
+        upsertTeamEnergyBands(user.id, targetTeamId, { ...calculateBands(scores), second, gap });
       } catch {}
     }
   }
@@ -1133,12 +1136,16 @@ app.post("/api/complete", async (req, res) => {
   }).catch(console.error);
 
   // Pipeline 1: calculate bands and push to any teams this user belongs to.
-  // Only band labels cross into the team layer — never raw scores.
+  // Only band labels (plus the second-energy label and the integer gap to the third)
+  // cross into the team layer — never raw scores. The gap is a derived shape signal,
+  // not a percentage of any single energy.
   try {
     const bands = calculateBands(scores);
+    const { second, gap } = calculateSecondEnergy(scores, dominantEnergy);
+    const payload = { ...bands, second, gap };
     const teams = getTeamsForUser(user.id);
     for (const team of teams) {
-      upsertTeamEnergyBands(user.id, team.id, bands);
+      upsertTeamEnergyBands(user.id, team.id, payload);
     }
   } catch (err) {
     console.error("Team bands update error (non-blocking):", err);
@@ -1809,15 +1816,20 @@ app.get("/api/team/:teamId", (req, res) => {
   // Issue 2 fix: if a member has a completed assessment (energy_scores in users table)
   // but no bands record for this team, auto-sync bands now. This handles multi-team
   // membership where the user completed their assessment before being added to this team.
+  // Bug 2 (Apr 2026): also re-sync if the existing band record predates the
+  // second_energy column (legacy records have second_energy = NULL). One pass
+  // through the dashboard is enough to backfill the whole team.
   for (const m of members) {
     if (m.assessment_completed_at && m.energy_scores) {
       const existingBand = db.prepare(
-        "SELECT 1 FROM team_energy_bands WHERE user_id = ? AND team_id = ?"
+        "SELECT second_energy FROM team_energy_bands WHERE user_id = ? AND team_id = ?"
       ).get(m.user_id, teamId);
-      if (!existingBand) {
+      const needsBackfill = existingBand && existingBand.second_energy == null;
+      if (!existingBand || needsBackfill) {
         try {
           const scores = JSON.parse(m.energy_scores);
-          upsertTeamEnergyBands(m.user_id, teamId, calculateBands(scores));
+          const { second, gap } = calculateSecondEnergy(scores, m.dominant_energy);
+          upsertTeamEnergyBands(m.user_id, teamId, { ...calculateBands(scores), second, gap });
         } catch (err) {
           console.error(`Auto-sync bands for user ${m.user_id} in team ${teamId}:`, err);
         }
@@ -1853,6 +1865,12 @@ app.get("/api/team/:teamId", (req, res) => {
       role: m.role,
       assessmentComplete: profileComplete,
       instinctiveEnergy: profileComplete ? instinctive : null,
+      // Bug 2 (Apr 2026): second_energy is the individual profile's ranked[1] energy,
+      // and second_energy_gap is the integer pct gap to ranked[2]. The constellation
+      // uses these instead of band-derived ranking so the fluent arc reflects the
+      // actual individual profile shape, not band thresholds.
+      secondEnergy: profileComplete && band ? band.second_energy : null,
+      secondEnergyGap: profileComplete && band ? band.second_energy_gap : null,
       bands: band ? {
         spark: band.spark_band,
         glow: band.glow_band,
@@ -1936,7 +1954,8 @@ app.post("/api/org/create", (req, res) => {
     try {
       const scores = JSON.parse(user.energy_scores);
       const bands = calculateBands(scores);
-      upsertTeamEnergyBands(user.id, teamId, bands);
+      const { second, gap } = calculateSecondEnergy(scores, user.dominant_energy);
+      upsertTeamEnergyBands(user.id, teamId, { ...bands, second, gap });
     } catch {}
   }
 
@@ -2042,7 +2061,8 @@ app.post("/api/org/:orgId/invite", (req, res) => {
       try {
         const scores = JSON.parse(existingUser.energy_scores);
         const bands = calculateBands(scores);
-        upsertTeamEnergyBands(existingUser.id, teamId, bands);
+        const { second, gap } = calculateSecondEnergy(scores, existingUser.dominant_energy);
+        upsertTeamEnergyBands(existingUser.id, teamId, { ...bands, second, gap });
       } catch {}
     }
     return res.json({ ok: true, status: "added" });

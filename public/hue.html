@@ -3014,20 +3014,31 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const my = canvasSize / 2;
       const [hovered, setHovered] = useState(null);
 
-      // Band ranking for deriving fluent energy from bands
+      // Band ranking — kept as a fallback for the very edge case where a member
+      // has bands but no stored second_energy (legacy records pre-Apr 2026 fix).
       const BAND_RANK = { "Naturally present": 3, "Intentionally present": 2, "Developing": 1 };
       const ENERGY_IDS = ["spark", "glow", "tend", "flow"];
 
-      // Derive ranked energies from bands for a member
+      // Bug 2 (Apr 2026): instinctive comes from stored dominant_energy,
+      // fluent comes from stored second_energy (the individual profile's ranked[1]).
+      // This matches the individual profile shape rather than team-band thresholds —
+      // a member like Nicky with all-Developing bands but a clear individual ranking
+      // still gets a meaningful instinctive/fluent pair on the constellation.
       function getRanked(m) {
-        if (!m.bands) return [{ id: m.instinctiveEnergy || "tend" }, { id: "tend" }];
-        const sorted = ENERGY_IDS
-          .map(id => ({ id, r: BAND_RANK[m.bands[id]] || 0 }))
-          .sort((a, b) => b.r - a.r);
-        // Ensure instinctive energy is always first
-        const inst = m.instinctiveEnergy || sorted[0].id;
-        const rest = sorted.filter(e => e.id !== inst);
-        return [{ id: inst }, ...rest];
+        const inst = m.instinctiveEnergy || "tend";
+        // Prefer stored second_energy from the team_energy_bands record.
+        let flu = m.secondEnergy && m.secondEnergy !== inst ? m.secondEnergy : null;
+        // Fallback: derive from bands (legacy data with no second_energy stored yet).
+        if (!flu && m.bands) {
+          flu = ENERGY_IDS
+            .filter(e => e !== inst)
+            .map(id => ({ id, r: BAND_RANK[m.bands[id]] || 0 }))
+            .sort((a, b) => b.r - a.r)[0]?.id || inst;
+        }
+        if (!flu) flu = inst;
+        // Third energy used only for the legacy-fallback flat-profile check below.
+        const third = ENERGY_IDS.filter(e => e !== inst && e !== flu)[0] || inst;
+        return [{ id: inst }, { id: flu }, { id: third }];
       }
 
       // Responsive node radius
@@ -3087,7 +3098,32 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         member.y = Math.max(bounds.yMin, Math.min(bounds.yMax, member.y));
       }
 
-      // Overlap nudging: iterative collision resolution with quadrant clamping
+      // Bug 1 (Apr 2026): jitter nodes that share an identical base position before
+      // nudging. Several members can land on the exact same x/y when they share an
+      // instinctive+fluent combination (e.g. Tend-Glow), and the nudge below does
+      // nothing when dist === 0. Without jitter the row never breaks apart and they
+      // form a horizontal line. Jitter is deterministic (member index) so renders
+      // are stable across re-renders, and small (~3px) so it doesn't disturb the
+      // intended position within the quadrant.
+      function jitterCollocated(nodes) {
+        const seen = new Map();
+        nodes.forEach((n, i) => {
+          const key = `${Math.round(n.x)}|${Math.round(n.y)}`;
+          const count = seen.get(key) || 0;
+          if (count > 0) {
+            // Push subsequent collocated nodes around a small circle in the true plane
+            const angle = (count * 2.3994); // golden-angle-ish spread, deterministic
+            n.x += Math.cos(angle) * 3;
+            n.y += Math.sin(angle) * 3;
+          }
+          seen.set(key, count + 1);
+        });
+      }
+
+      // Overlap nudging: iterative collision resolution with quadrant clamping.
+      // The nudge pushes along the true vector between centres (dx/dist, dy/dist),
+      // not along a single axis — combined with jitterCollocated above this prevents
+      // the horizontal-row clustering reported in the live build.
       function resolveOverlaps(nodes, minDist = 40, maxPasses = 50) {
         for (let pass = 0; pass < maxPasses; pass++) {
           let moved = false;
@@ -3130,11 +3166,23 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         const pos = getBasePosition(ranked);
         const col = C[inst] || C.sand;
         const fluCol = C[flu] || C.sand;
-        // Determine if fluent pull is meaningful (different from instinctive and not a flat profile)
-        const hasFluent = flu !== inst && !(m.bands && m.bands[inst] === m.bands[flu] && m.bands[flu] === m.bands[ranked[2]?.id]);
+        // Bug 2 (Apr 2026): show the fluent arc only when ranked[1] is meaningfully
+        // higher than ranked[2] in the individual profile (4-pt gap threshold).
+        // Members with very flat profiles (e.g. Nicky — Tend instinctive, all others
+        // close together at Developing) correctly show no arc. Falls back to the
+        // legacy band-equality check when secondEnergyGap isn't available.
+        let hasFluent;
+        if (flu === inst) {
+          hasFluent = false;
+        } else if (m.secondEnergyGap != null) {
+          hasFluent = m.secondEnergyGap >= 4;
+        } else {
+          hasFluent = !(m.bands && m.bands[inst] === m.bands[flu] && m.bands[flu] === m.bands[ranked[2]?.id]);
+        }
         return { ...m, x: pos.x, y: pos.y, col, fluCol, ranked, hasFluent, instEnergy: inst, fluEnergy: flu };
       });
 
+      jitterCollocated(nodes);
       resolveOverlaps(nodes);
 
       // Compute instinctive and fluent counts per energy
@@ -3202,9 +3250,20 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       const callouts = getReachCallouts();
 
-      // Fluent arc props
-      const arcR = nodeR + (nodeR <= 12 ? 3 : 4);
-      const arcStrokeWidth = nodeR <= 12 ? 1 : 1.5;
+      // Bug 3 (Apr 2026): fluent arc sits INSIDE the node, not outside.
+      //   nodeR=14 → arcR=9, nodeR=12 → arcR=8, nodeR=10 → arcR=7
+      // The arc is a dashed semicircle in the lower half of the node interior;
+      // initials sit slightly above centre so they read clearly above the arc.
+      const arcR = nodeR === 14 ? 9 : nodeR === 12 ? 8 : 7;
+      const arcStrokeWidth = nodeR <= 12 ? 1.5 : 1.8;
+
+      // Bug 4 (Apr 2026): suppress reach-callout leader lines that would cross
+      // diagonally opposite quadrants. Diagonal pairs:
+      //   spark (top-right) ↔ tend (bottom-left)
+      //   glow  (bottom-right) ↔ flow (top-left)
+      // A leader from the empty Spark callout to a Tend-instinctive fluent member
+      // would slash diagonally across the whole map and obscure the structure.
+      const DIAGONAL_OPPOSITE = { spark: "tend", tend: "spark", glow: "flow", flow: "glow" };
 
       return React.createElement("div", { style: { width: "100%", maxWidth: 480, margin: "0 auto" } },
         // ─── SVG constellation map ───
@@ -3250,30 +3309,32 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               style: { fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, fill: C.flow, opacity: 0.65, letterSpacing: "0.07em" } }, "Flow"),
             React.createElement("text", { x: 10, y: canvasSize - 8, textAnchor: "start",
               style: { fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, fill: C.tend, opacity: 0.65, letterSpacing: "0.07em" } }, "Tend"),
-            // Fluent arcs (below nodes in z-order, so render first)
-            ...nodes.filter(n => n.hasFluent).map(n => {
-              const fluColour = n.fluEnergy === "glow" ? C.glowOnLight : n.fluCol;
-              return React.createElement("path", {
-                key: `arc-${n.userId}`,
-                d: `M ${n.x - arcR} ${n.y} A ${arcR} ${arcR} 0 0 0 ${n.x + arcR} ${n.y}`,
-                stroke: fluColour, strokeWidth: arcStrokeWidth, strokeDasharray: "2.5 1.5",
-                fill: "none", opacity: 0.85,
-              });
-            }),
-            // Member nodes
+            // Member nodes — Bug 3 (Apr 2026): outer ring (instinctive) + inner arc
+            // (fluent) + initials, all inside one <g>. Inner arc is a dashed
+            // semicircle in the lower half of the node interior; initials sit
+            // above centre (cy - 2) so they clear the arc visually.
             ...nodes.map(n => {
               const label = getLabel(n);
               const fontSize = label.length > 2 ? 8 : 9;
               const instCol = n.instEnergy === "glow" ? C.glowOnLight : n.col;
+              const fluColour = n.fluEnergy === "glow" ? C.glowOnLight : n.fluCol;
               return React.createElement("g", {
                 key: n.userId,
                 onMouseEnter: () => setHovered(n),
                 onMouseLeave: () => setHovered(null),
                 style: { cursor: "pointer" },
               },
-                React.createElement("circle", { cx: n.x, cy: n.y, r: nodeR, fill: C.cream, stroke: instCol, strokeWidth: 2 }),
+                // 1. Outer circle (instinctive energy colour)
+                React.createElement("circle", { cx: n.x, cy: n.y, r: nodeR, fill: C.cream, stroke: instCol, strokeWidth: 2.5 }),
+                // 2. Inner arc (fluent energy colour) — bottom half, inside the node
+                n.hasFluent && React.createElement("path", {
+                  d: `M ${n.x - arcR} ${n.y} A ${arcR} ${arcR} 0 0 0 ${n.x + arcR} ${n.y}`,
+                  fill: "none", stroke: fluColour, strokeWidth: arcStrokeWidth,
+                  strokeDasharray: "3 2", strokeLinecap: "round",
+                }),
+                // 3. Initials, slightly above centre to clear the inner arc
                 React.createElement("text", {
-                  x: n.x, y: n.y + 4, textAnchor: "middle",
+                  x: n.x, y: n.y + 1, textAnchor: "middle",
                   style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize, fontWeight: 700, fill: C.ink },
                 }, label)
               );
@@ -3299,12 +3360,17 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 8, fill: eCol, opacity: 0.7 } },
                   `${co.names} \u00B7 fluent`
                 ),
-                // Dashed leader lines to fluent nodes
-                ...co.members.map(fm => React.createElement("line", {
-                  key: `leader-${fm.userId}`,
-                  x1: qc.x, y1: qc.y + 12, x2: fm.x, y2: fm.y + nodeR + arcR + 2,
-                  stroke: eCol, strokeWidth: 0.8, strokeDasharray: "2 2", opacity: 0.4,
-                }))
+                // Dashed leader lines to fluent nodes — Bug 4 (Apr 2026):
+                // suppress lines that would cross diagonally opposite quadrants.
+                // The arc now lives inside the node, so the line ends at the
+                // node's outer edge (nodeR + small offset) rather than below the arc.
+                ...co.members
+                  .filter(fm => fm.instEnergy !== DIAGONAL_OPPOSITE[co.energy])
+                  .map(fm => React.createElement("line", {
+                    key: `leader-${fm.userId}`,
+                    x1: qc.x, y1: qc.y + 12, x2: fm.x, y2: fm.y - nodeR - 2,
+                    stroke: eCol, strokeWidth: 0.8, strokeDasharray: "2 2", opacity: 0.4,
+                  }))
               );
             })
           ),
@@ -3360,19 +3426,26 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           marginTop: 12, lineHeight: 1.5,
         } }, getGapCallout()),
 
-        // ─── Legend ───
+        // ─── Legend ─── Bug 3 (Apr 2026): legend item 2 shows a node with both
+        // outer ring (instinctive) and inner dashed arc (fluent). Both items use
+        // neutral grey — colour comes from each member's actual energies.
         React.createElement("div", { style: { display: "flex", gap: 20, alignItems: "center", marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.sand}33` } },
-          // Instinctive energy
+          // Instinctive energy — outer ring only
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-            React.createElement("svg", { width: 16, height: 16, viewBox: "0 0 16 16" },
-              React.createElement("circle", { cx: 8, cy: 8, r: 6, fill: C.cream, stroke: C.stone, strokeWidth: 2 })
+            React.createElement("svg", { width: 24, height: 20, viewBox: "0 0 24 20" },
+              React.createElement("circle", { cx: 12, cy: 10, r: 8, fill: C.cream, stroke: C.stone, strokeWidth: 2 })
             ),
             React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, "Instinctive energy")
           ),
-          // Fluent (2nd) energy
+          // Fluent (2nd) energy — outer ring + inner dashed arc (full bottom semicircle)
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-            React.createElement("svg", { width: 24, height: 12, viewBox: "0 0 24 12" },
-              React.createElement("line", { x1: 0, y1: 6, x2: 24, y2: 6, stroke: C.stone, strokeWidth: 2, strokeDasharray: "3 2" })
+            React.createElement("svg", { width: 24, height: 20, viewBox: "0 0 24 20" },
+              React.createElement("circle", { cx: 12, cy: 10, r: 8, fill: C.cream, stroke: C.stone, strokeWidth: 2 }),
+              React.createElement("path", {
+                d: "M 7 10 A 5 5 0 0 0 17 10",
+                fill: "none", stroke: C.stone, strokeWidth: 1.5,
+                strokeDasharray: "3 2", strokeLinecap: "round",
+              })
             ),
             React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone } }, "Fluent (2nd) energy")
           )
