@@ -146,6 +146,7 @@ app.get("/shared/:token", sendApp);
 app.get("/team/:teamId", sendApp);
 app.get("/org/:orgId", sendApp);
 app.get("/account-settings", sendApp);
+app.get("/admin-register", sendApp);
 
 // Marketing page — separate static HTML, no session logic
 app.get("/about", (req, res) => {
@@ -161,6 +162,55 @@ app.get("/privacy", (req, res) => {
   res.set("Pragma", "no-cache");
   res.set("Surrogate-Control", "no-store");
   res.sendFile(join(__dirname, "public", "privacy.html"));
+});
+
+// ─── Platform admin: user register — Simon only, session-auth ───────────────
+app.get("/api/admin/user-report", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user || user.email !== "simon@thechangemakergroup.com") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const users = db.prepare(
+    `SELECT u.id, u.name, u.email, u.user_state, u.assessment_completed_at,
+            u.registered_at, u.dominant_energy
+     FROM users u ORDER BY u.registered_at ASC`
+  ).all();
+
+  const memberships = db.prepare(
+    `SELECT tm.user_id, tm.role, t.name AS team_name
+     FROM team_members tm JOIN teams t ON t.id = tm.team_id`
+  ).all();
+
+  const membershipMap = {};
+  for (const m of memberships) {
+    if (!membershipMap[m.user_id]) membershipMap[m.user_id] = [];
+    membershipMap[m.user_id].push({ team: m.team_name, role: m.role });
+  }
+
+  const pendingInvites = db.prepare(
+    `SELECT i.email, i.org_id, i.team_id, t.name AS team_name, i.invited_at
+     FROM invitations i LEFT JOIN teams t ON t.id = i.team_id
+     WHERE i.status = 'invited' ORDER BY i.invited_at ASC`
+  ).all();
+
+  res.json({
+    total: users.length,
+    users: users.map(u => ({
+      name: u.name,
+      email: u.email,
+      state: u.user_state,
+      assessmentComplete: !!u.assessment_completed_at,
+      dominantEnergy: u.dominant_energy || null,
+      registeredAt: u.registered_at ? new Date(u.registered_at).toISOString().slice(0, 10) : null,
+      teams: membershipMap[u.id] || [],
+    })),
+    pendingInvites: pendingInvites.map(i => ({
+      email: i.email,
+      teamName: i.team_name,
+      invitedAt: new Date(i.invited_at).toISOString().slice(0, 10),
+    })),
+  });
 });
 
 // ─── Temporary admin: delete user by email (remove after beta setup) ────────
