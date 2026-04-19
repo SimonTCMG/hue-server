@@ -5,7 +5,8 @@
       "name": "hue-server",
       "runtimeExecutable": "node",
       "runtimeArgs": ["server.js"],
-      "port": 3001
+      "port": 3001,
+      "autoPort": true
     }
   ]
 }

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A living profile · MyHue</title>
+  <meta name="description" content="The founding statement of MyHue — a living psychometric instrument. Personality is preference, not capability. Profiles develop. The individual owns the data." />
+  <meta property="og:title" content="A living profile">
+  <meta property="og:description" content="The founding statement of MyHue — a living psychometric instrument.">
+  <meta property="og:url" content="https://myhue.co/manifesto">
+  <meta property="og:type" content="article">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,700;9..144,0,900;9..144,1,400;9..144,1,500;9..144,1,700;9..144,1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #FDFAF5;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #1A1410;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+    }
+    a { color: inherit; }
+
+    /* Top-left logo */
+    .logo-wrap {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      z-index: 10;
+    }
+    .logo-wrap a { display: block; }
+
+    /* Hero band */
+    .hero {
+      min-height: 60vh;
+      padding: 120px 24px 72px;
+      max-width: 840px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .hero h1 {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: clamp(2rem, 5vw, 3rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: #1A1410;
+      margin-bottom: 20px;
+    }
+    .hero .subtitle {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
+      line-height: 1.5;
+      color: #1A1410;
+      margin-bottom: 24px;
+      max-width: 640px;
+    }
+    .hero .date {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #9A8F86;
+    }
+
+    /* Four-colour band */
+    .colour-band {
+      display: flex;
+      height: 6px;
+      width: 100%;
+      max-width: 840px;
+      margin: 0 auto;
+    }
+    .colour-band > div { flex: 1; }
+
+    /* Body text column */
+    .body-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 72px 24px 96px;
+    }
+    .body-wrap p {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 18px;
+      line-height: 1.75;
+      color: #73685A;
+      margin-bottom: 24px;
+    }
+    .body-wrap p strong {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      color: #1A1410;
+    }
+    .body-wrap p em {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 400;
+    }
+    .body-wrap p a {
+      color: #1A1410;
+      font-weight: 600;
+      text-decoration: none;
+      border-bottom: 1px solid #1A1410;
+    }
+    .body-wrap p a:hover {
+      text-decoration: none;
+      border-bottom: 1px solid #D92010;
+      color: #D92010;
+    }
+    .body-wrap h2 {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 28px;
+      line-height: 1.25;
+      color: #1A1410;
+      letter-spacing: -0.01em;
+      margin-top: 80px;
+      margin-bottom: 16px;
+      scroll-margin-top: 32px;
+    }
+    .body-wrap h2:first-child { margin-top: 0; }
+
+    .line-break-list {
+      margin-bottom: 24px;
+    }
+    .line-break-list p {
+      margin-bottom: 6px;
+    }
+
+    /* Final CTA block */
+    .cta-block {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+      text-align: left;
+    }
+    .cta-heading {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 28px;
+      line-height: 1.25;
+      color: #1A1410;
+      margin-bottom: 28px;
+    }
+    .cta-button {
+      display: inline-block;
+      background: #D92010;
+      color: #FDFAF5;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 14px 32px;
+      border-radius: 99px;
+      text-decoration: none;
+      transition: opacity 0.2s ease;
+      border: none;
+    }
+    .cta-button:hover {
+      opacity: 0.9;
+    }
+    .cta-tagline {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #73685A;
+      margin-top: 20px;
+    }
+
+    /* ─── Shared footer (used across about, privacy, manifesto) ─── */
+    .shared-footer {
+      background: #FDFAF5;
+      border-top: 1px solid #EAE4DB;
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .shared-footer-inner {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .shared-footer-nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .shared-footer-nav a {
+      color: #73685A;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .shared-footer-nav a:hover {
+      color: #1A1410;
+      text-decoration: underline;
+    }
+    .shared-footer-nav .current {
+      color: #1A1410;
+      font-weight: 600;
+    }
+    .shared-footer-nav .dot {
+      color: #C8BFB2;
+      user-select: none;
+    }
+    .shared-footer-small {
+      margin-top: 24px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      color: #9A8F86;
+    }
+    @media (max-width: 640px) {
+      .shared-footer-nav {
+        flex-direction: column;
+        gap: 16px;
+      }
+      .shared-footer-nav .dot {
+        display: none;
+      }
+    }
+
+    /* Spin animation (respects reduced motion) */
+    @keyframes spinRotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spin-group {
+      transform-origin: 22px 22px;
+      animation: spinRotate 8s linear infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spin-group { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top-left logo → home -->
+  <div class="logo-wrap">
+    <a href="/" aria-label="MyHue home">
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" role="img" aria-hidden="true">
+        <circle cx="22" cy="22" r="21" fill="#FFFFFF" />
+        <g class="spin-group">
+          <circle cx="31.34" cy="12.66" r="3.48" fill="#D92010"/>
+          <circle cx="31.34" cy="31.34" r="3.48" fill="#F5D000"/>
+          <circle cx="12.66" cy="31.34" r="3.48" fill="#1A8C4E"/>
+          <circle cx="12.66" cy="12.66" r="3.48" fill="#1755B8"/>
+        </g>
+        <g fill="#1A1410">
+          <rect x="15.7" y="15.84" width="2.42" height="12.32" rx="0.7"/>
+          <rect x="25.88" y="15.84" width="2.42" height="12.32" rx="0.7"/>
+          <rect x="15.7" y="19.58" width="12.6" height="2.42" rx="0.7"/>
+        </g>
+      </svg>
+    </a>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>A living profile</h1>
+    <p class="subtitle">The founding statement of MyHue — a living psychometric instrument.</p>
+    <p class="date">Published April 2026</p>
+  </section>
+
+  <!-- Four-colour band -->
+  <div class="colour-band" aria-hidden="true">
+    <div style="background:#D92010"></div>
+    <div style="background:#F5D000"></div>
+    <div style="background:#1A8C4E"></div>
+    <div style="background:#1755B8"></div>
+  </div>
+
+  <!-- Body -->
+  <article class="body-wrap">
+
+    <h2 id="you-know">You already know who you are</h2>
+    <p>You know how you move through a room. You know the situations that pull you forward without thinking, the ones that ask a little more of you, the ones that have always felt slightly further away. You know when you're being fully yourself, and you know when you're performing something close to it.</p>
+    <p>You don't need a letter code to tell you.</p>
+
+    <h2 id="the-problem">What the old tools got wrong</h2>
+    <p>For forty years, the instruments designed to help people understand themselves have done something odd. They've taken a human — contextual, developing, layered — and handed back a label.</p>
+    <p>A four-letter acronym. A primary colour. A profile on a printed page that says <em>this is what you are,</em> as if a single Tuesday afternoon in a conference room had settled the question.</p>
+    <p>Then the page went in a drawer.</p>
+    <p>The workshop ended. The team talked about it for a fortnight. Six months later, someone mentioned the colour they'd been assigned and the room laughed, because people had already begun to use the label as shorthand for something diminishing. <em>Oh, she's a red. That's just how they are.</em></p>
+    <p>The tool was built to open a conversation. Somewhere between the questionnaire and the printout, it became a way to close one.</p>
+    <p>And the person who took it? They were never asked again. Not when they changed roles. Not when they changed companies. Not when they changed. The profile travelled through a filing system, then a folder, then an archive. When it stopped being useful, it was because it had stopped being true — and nobody had built a way to notice.</p>
+
+    <h2 id="the-frame">A different frame</h2>
+    <p>We think personality is preference, not capability.</p>
+    <p>That's a small sentence with a large consequence. It means the four dimensions we describe — the action-oriented one, the warmth-oriented one, the steadiness-oriented one, the clarity-oriented one — are not four boxes people live inside. They are four directions any person can reach. Everyone has access to all four. Everyone naturally reaches for some more than others. The pattern of that reaching is what we call a <strong>living profile.</strong></p>
+    <p>We think preferences develop.</p>
+    <p>The pull you feel toward certain ways of showing up is real, and it's shaped by experience, context, and choice. It isn't fixed. The person you were at twenty-eight reaches differently from the person you were at twenty-two, and differently again at forty-five. The instrument that describes you ought to be capable of noticing that. Most aren't. Ours is designed to.</p>
+    <p>We think the person who was assessed should own the result.</p>
+    <p>Not the employer who paid for it. Not the company that built the instrument. You. If you change jobs, the profile travels. If you stop subscribing, the record stays. If you never want to look at it again, that's also your decision. Your profile belongs to you — not your employer, not MyHue.</p>
+    <p>We think an instrument that learns should get better with use.</p>
+    <p>Every existing personality tool reached its final form on the day it was published. Its science is frozen at the point of its last validation study. Ours is designed the opposite way. Every conversation contributes, anonymously and with consent, to an evidence base that grows. The instrument you use next year will be more precise than the instrument you used this year, because the questions it asks will have been sharpened by what a hundred thousand people said back to it. Improvement is built in, not bolted on.</p>
+
+    <h2 id="living-profile">What a living profile actually is</h2>
+    <p>A profile that notices how you reach across four energy directions, at this moment in your life, across the contexts you care about — and then stays with you.</p>
+    <p>Not a snapshot. Not a type. Not a letter you carry. A picture that updates when something genuinely shifts, and leaves itself alone when nothing has. A record of your <strong>flex range</strong> — the energies you draw on most naturally, the ones you move into easily when it helps, the ones you reach for deliberately, and the ones still developing in you. A record of how your <strong>energy expression</strong> changes when the situation changes: at work, at home, under tiredness, on a good day. A record that grows.</p>
+    <p>The positions we use to describe where each energy sits in your profile aren't a ranking of better and worse. They're reach labels — <em>Instinctive, Fluent, Intentional, Developing</em> — and each one names something specific that's real about you. The energy that goes first is how you move through the world without thinking. The energy you move into easily when it helps. The energy that lands with more precision because you chose it deliberately. The energy with the most room still to surprise both you and everyone around you. Four positions. Each one a description, not a verdict.</p>
+    <p>There is no hierarchy. There is no personality type. There is no version of you that this instrument is trying to turn you into.</p>
+    <p>There is only the picture of how you naturally show up now, held accurately enough that you can recognise yourself in it — and held lightly enough that it can change when you do.</p>
+
+    <h2 id="the-commitment">What we're committing to</h2>
+    <p>The shift we're describing is not a refinement of the old model. It's a different category.</p>
+    <div class="line-break-list">
+      <p>From static snapshot to living profile.</p>
+      <p>From employer-administered to individually owned.</p>
+      <p>From borrowed science to evidence generated in real time.</p>
+      <p>From labels that close conversations to instruments that keep them open.</p>
+    </div>
+    <p>We're a small company making a large claim, so we'll put the claim on a clock.</p>
+    <p><strong>In April 2027, twelve months from the publication of this statement, we will publish our first longitudinal research paper.</strong> It will draw on the anonymised, consented patterns in the platform's corpus — how profiles shift, how they hold, what conversation depth predicts about stability, how energy expression moves across contexts, whether the six dimensions our instrument attends to behave as distinct signals or cluster into fewer. It will be public. It will be reviewed. It will name what we've learned, including what we got wrong. We will keep publishing at twelve-month intervals for as long as the platform exists.</p>
+    <p>No existing instrument in this space does this. Their science was settled in papers written decades ago, and then the product shipped. Ours ships, and then the science keeps being written, in the open, from the ground.</p>
+    <p>If you want to know what a living instrument actually looks like, that's what it looks like.</p>
+
+    <h2 id="who-its-for">Who this is for</h2>
+    <p>People who already know themselves well enough to resist being labelled.</p>
+    <p>People whose teams are tired of workshops that end. Coaches and facilitators who've watched the profile get filed away one too many times. Organisations that are ready to stop paying per head for a document and start working with a picture that stays useful.</p>
+    <p>People who, when they try the product, say: <em>yes, that's what I was already noticing. Now show me the part I hadn't seen.</em></p>
+    <p>You'll recognise the frame. You've been living inside it for a while.</p>
+
+  </article>
+
+  <!-- Final CTA -->
+  <section class="cta-block">
+    <h2 class="cta-heading">Ready to see your living profile?</h2>
+    <a href="/" class="cta-button">Start your conversation</a>
+    <p class="cta-tagline">The science is serious. The experience is human. Your profile is yours.</p>
+  </section>
+
+  <!-- SHARED FOOTER v1 — keep in sync across about.html, privacy.html, manifesto.html, and hue.html Welcome screen -->
+  <footer class="shared-footer">
+    <div class="shared-footer-inner">
+      <nav class="shared-footer-nav" aria-label="Site navigation">
+        <a href="/">Welcome</a>
+        <span class="dot" aria-hidden="true">·</span>
+        <a href="/about">About</a>
+        <span class="dot" aria-hidden="true">·</span>
+        <span class="current" aria-current="page">Manifesto</span>
+        <span class="dot" aria-hidden="true">·</span>
+        <a href="/privacy">Privacy</a>
+        <span class="dot" aria-hidden="true">·</span>
+        <a href="mailto:simon@thechangemakergroup.com?subject=MyHue%20for%20teams">For teams and organisations</a>
+      </nav>
+      <p class="shared-footer-small">MyHue · myhue.co · Your profile belongs to you.</p>
+    </div>
+  </footer>
+  <!-- SHARED FOOTER v1 END -->
+
+</body>
+</html>

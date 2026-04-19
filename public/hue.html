@@ -671,6 +671,89 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       );
     }
 
+    // ─── Shared footer (signed-out visitors on Welcome; mirrors about/privacy/manifesto) ───
+    function SharedFooter() {
+      const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 640);
+      useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+      }, []);
+
+      const linkStyle = {
+        color: "#73685A",
+        textDecoration: "none",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        fontSize: 14,
+        fontWeight: 500,
+      };
+      const currentStyle = {
+        color: C.ink,
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        fontSize: 14,
+        fontWeight: 600,
+      };
+      const dotStyle = {
+        color: "#C8BFB2",
+        userSelect: "none",
+      };
+
+      const items = [
+        { label: "Welcome", href: null, current: true },
+        { label: "About", href: "/about" },
+        { label: "Manifesto", href: "/manifesto" },
+        { label: "Privacy", href: "/privacy" },
+        { label: "For teams and organisations", href: "mailto:simon@thechangemakergroup.com?subject=MyHue%20for%20teams" },
+      ];
+
+      return (
+        <footer style={{
+          background: C.cream,
+          borderTop: "1px solid #EAE4DB",
+          padding: "48px 24px",
+          textAlign: "center",
+          marginTop: 32,
+        }}>
+          <div style={{ maxWidth: 960, margin: "0 auto" }}>
+            <nav aria-label="Site navigation" style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: isMobile ? 16 : 14,
+            }}>
+              {items.map((item, i) => (
+                <React.Fragment key={item.label}>
+                  {item.current ? (
+                    <span aria-current="page" style={currentStyle}>{item.label}</span>
+                  ) : (
+                    <a href={item.href} style={linkStyle}
+                      onMouseEnter={e => { e.currentTarget.style.color = C.ink; e.currentTarget.style.textDecoration = "underline"; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = "#73685A"; e.currentTarget.style.textDecoration = "none"; }}
+                    >
+                      {item.label}
+                    </a>
+                  )}
+                  {!isMobile && i < items.length - 1 && (
+                    <span aria-hidden="true" style={dotStyle}>·</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </nav>
+            <p style={{
+              marginTop: 24,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: 12,
+              color: "#9A8F86",
+            }}>
+              MyHue · myhue.co · Your profile belongs to you.
+            </p>
+          </div>
+        </footer>
+      );
+    }
+
     // ─── Welcome screen ───────────────────────────────────────────────────────
     function WelcomeScreen({ onStart, onChat, savedProfile, onSignIn, onSettings, teams = [], user }) {
       const isDesktop = useIsDesktop();
@@ -4771,6 +4854,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                   user={betaUser}
                 />
               )}
+              {/* SHARED FOOTER v1 — signed-out visitors only on Welcome screen.
+                  Keep in sync across about.html, privacy.html, manifesto.html, and hue.html Welcome screen */}
+              {screen === "welcome" && !betaUser && <SharedFooter />}
               {screen === "consent" && (
                 <ConsentScreen onComplete={() => navigate("chat")} />
               )}

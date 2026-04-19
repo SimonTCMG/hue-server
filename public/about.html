@@ -55,6 +55,60 @@
       .spin-group { animation: none !important; transition: none !important; }
       .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
     }
+
+    /* ─── Shared footer (used across about, privacy, manifesto) ─── */
+    .shared-footer {
+      background: #FDFAF5;
+      border-top: 1px solid #EAE4DB;
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .shared-footer-inner {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .shared-footer-nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .shared-footer-nav a {
+      color: #73685A;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .shared-footer-nav a:hover {
+      color: #1A1410;
+      text-decoration: underline;
+    }
+    .shared-footer-nav .current {
+      color: #1A1410;
+      font-weight: 600;
+    }
+    .shared-footer-nav .dot {
+      color: #C8BFB2;
+      user-select: none;
+    }
+    .shared-footer-small {
+      margin-top: 24px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      color: #9A8F86;
+    }
+    @media (max-width: 640px) {
+      .shared-footer-nav {
+        flex-direction: column;
+        gap: 16px;
+      }
+      .shared-footer-nav .dot {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -498,6 +552,27 @@
             </div>
           </section>
 
+          {/* Manifesto signpost — one-sentence pointer to /manifesto */}
+          <div style={{
+            textAlign: "center",
+            padding: "24px 24px",
+            fontFamily: "'Fraunces', serif",
+            fontStyle: "italic",
+            fontSize: 18,
+            lineHeight: 1.5,
+            color: "#73685A",
+          }}>
+            Want the fuller argument for why we built MyHue this way? Read the{" "}
+            <a href="/manifesto" style={{
+              color: C.ink,
+              fontWeight: 600,
+              textDecoration: "underline",
+              textUnderlineOffset: 3,
+            }}>
+              founding statement
+            </a>.
+          </div>
+
           {/* ═══ WIIFM section (Fix 2) — dark background ═══ */}
           <section style={{
             background: C.ink,
@@ -767,49 +842,58 @@
             </div>
           </section>
 
-          {/* ═══ Your privacy ═══ */}
+          {/* ═══ Your profile belongs to you ═══ */}
           <section id="privacy" className="reveal" style={{
             padding: "clamp(80px, 10vw, 120px) 24px",
             textAlign: "left",
           }}>
             <div style={{ maxWidth: 640, margin: "0 auto" }}>
-              <p style={{
-                fontFamily: "'Fraunces', serif",
-                fontSize: "clamp(1.1rem, 2vw, 1.3rem)",
-                fontWeight: 500,
-                fontStyle: "italic",
-                color: C.stone,
-                marginBottom: 12,
-                textAlign: "center",
-              }}>MyHue is your Hue</p>
               <h2 style={{
                 fontFamily: "'Fraunces', serif",
-                fontSize: "clamp(1.8rem, 4vw, 2.4rem)",
-                fontWeight: 900,
+                fontStyle: "italic",
+                fontSize: 28,
+                lineHeight: 1.25,
+                fontWeight: 700,
                 color: C.ink,
-                letterSpacing: "-0.02em",
-                marginBottom: 48,
-                textAlign: "center",
-              }}>Your privacy</h2>
-
-              <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(1.1rem, 2vw, 1.3rem)", fontWeight: 700, color: C.ink, marginBottom: 16 }}>What happens to what I say to MyHue?</h3>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.95rem, 1.8vw, 1.05rem)", lineHeight: 1.75, color: C.ink, marginBottom: 24 }}>Nothing leaves this conversation and reaches another human being. Not one person {"\u2014"} not at MyHue, not anywhere {"\u2014"} reads what you say. There is no moderation team. There is no inbox somewhere filling up with people{"\u2019"}s conversations. Nobody is watching.</p>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.95rem, 1.8vw, 1.05rem)", lineHeight: 1.75, color: C.ink, marginBottom: 32 }}>Here is exactly what happens, step by step.</p>
-
-              <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(1rem, 1.8vw, 1.15rem)", fontWeight: 700, color: C.ink, marginBottom: 12 }}>You type something. It travels to MyHue{"\u2019"}s server.</h3>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.95rem, 1.8vw, 1.05rem)", lineHeight: 1.75, color: C.ink, marginBottom: 32 }}>MyHue{"\u2019"}s server is where your profile lives {"\u2014"} your energy picture, your conversation history. This is what allows MyHue to remember you between sessions. It is stored securely. No one at MyHue accesses individual conversations. Your employer cannot access it. Your manager cannot access it. If you use MyHue through work, all they ever see is a broad picture of team energy {"\u2014"} never what you said, never what was asked, never what MyHue noticed about you. That is not a policy that someone could override. It is how the system is built.</p>
-
-              <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(1rem, 1.8vw, 1.15rem)", fontWeight: 700, color: C.ink, marginBottom: 12 }}>Your words are then sent to the AI to generate a response.</h3>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.95rem, 1.8vw, 1.05rem)", lineHeight: 1.75, color: C.ink, marginBottom: 32 }}>The AI that powers MyHue{"\u2019"}s conversations is made by a company called Anthropic. This is the part people most often worry about {"\u2014"} so here is what actually happens. MyHue never sends your name or email address to Anthropic. The conversation arrives there with no identity attached. Anthropic{"\u2019"}s system has no idea whose conversation it is. It processes your words, generates a response, and that is it. Anthropic does not store it beyond what is needed to run the service. They do not read it. They do not use it to train their AI.</p>
-
-              <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(1rem, 1.8vw, 1.15rem)", fontWeight: 700, color: C.ink, marginBottom: 12 }}>So who actually sees what I say?</h3>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.95rem, 1.8vw, 1.05rem)", lineHeight: 1.75, color: C.ink, marginBottom: 32 }}>Nobody. The AI processes your words, generates a response, and Anthropic does not hold on to it. No human reads it. No human reviews it. What remains is your profile {"\u2014"} held securely on MyHue{"\u2019"}s server, visible only to you.</p>
-
-              <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(1rem, 1.8vw, 1.15rem)", fontWeight: 700, color: C.ink, marginBottom: 12 }}>One thing MyHue will never do.</h3>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.95rem, 1.8vw, 1.05rem)", lineHeight: 1.75, color: C.ink, marginBottom: 32 }}>MyHue is not a crisis service and does not pretend to be. If a conversation starts to feel heavier than an energy tool is the right place for, MyHue will say so {"\u2014"} warmly, honestly {"\u2014"} and point you toward somewhere better placed to help. That is the extent of it. Nothing gets reported. Nobody gets notified. The conversation remains yours.</p>
-
-              <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(1rem, 1.8vw, 1.15rem)", fontWeight: 700, color: C.ink, marginBottom: 12 }}>The short version, if you want it.</h3>
-              <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.95rem, 1.8vw, 1.05rem)", lineHeight: 1.75, color: C.ink, marginBottom: 0 }}>No human reads your conversations. Ever. The AI processes them and Anthropic does not hold on to them. Your name is never attached to them. Your employer never sees them. MyHue is your Hue {"\u2014"} and what you share here stays here.</p>
+                letterSpacing: "-0.01em",
+                marginBottom: 20,
+              }}>
+                Your profile belongs to you.
+              </h2>
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(1rem, 1.8vw, 1.05rem)",
+                lineHeight: 1.75,
+                color: "#73685A",
+                marginBottom: 16,
+              }}>
+                Not your employer. Not MyHue. You.
+              </p>
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(1rem, 1.8vw, 1.05rem)",
+                lineHeight: 1.75,
+                color: "#73685A",
+                marginBottom: 16,
+              }}>
+                Your conversations stay private. Your profile travels with you if you change jobs. It stays yours if you stop subscribing.
+              </p>
+              <p style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(1rem, 1.8vw, 1.05rem)",
+                lineHeight: 1.75,
+                color: "#73685A",
+                marginBottom: 0,
+              }}>
+                <a href="/privacy" style={{
+                  color: C.ink,
+                  fontWeight: 600,
+                  textDecoration: "underline",
+                  textUnderlineOffset: 3,
+                }}>
+                  Read the full privacy commitment →
+                </a>
+              </p>
             </div>
           </section>
 
@@ -827,28 +911,31 @@
             </a>
           </section>
 
-          {/* ═══ Footer ═══ */}
-          <footer style={{
-            padding: "32px 24px",
-            textAlign: "center",
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: 13,
-            color: C.stone,
-          }}>
-            <div style={{ display: "flex", justifyContent: "center", gap: 24 }}>
-              <a href="/privacy" style={{ color: C.stone, textDecoration: "none" }}>Privacy</a>
-              <span style={{ color: C.sand }}>&middot;</span>
-              <a href="/terms" style={{ color: C.stone, textDecoration: "none" }}>Terms</a>
-              <span style={{ color: C.sand }}>&middot;</span>
-              <a href="mailto:hello@myhue.co" style={{ color: C.stone, textDecoration: "none" }}>Contact</a>
-            </div>
-          </footer>
-
         </div>
       );
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<AboutPage />);
   </script>
+
+  <!-- SHARED FOOTER v1 — keep in sync across about.html, privacy.html, manifesto.html, and hue.html Welcome screen -->
+  <footer class="shared-footer">
+    <div class="shared-footer-inner">
+      <nav class="shared-footer-nav" aria-label="Site navigation">
+        <a href="/">Welcome</a>
+        <span class="dot" aria-hidden="true">·</span>
+        <span class="current" aria-current="page">About</span>
+        <span class="dot" aria-hidden="true">·</span>
+        <a href="/manifesto">Manifesto</a>
+        <span class="dot" aria-hidden="true">·</span>
+        <a href="/privacy">Privacy</a>
+        <span class="dot" aria-hidden="true">·</span>
+        <a href="mailto:simon@thechangemakergroup.com?subject=MyHue%20for%20teams">For teams and organisations</a>
+      </nav>
+      <p class="shared-footer-small">MyHue · myhue.co · Your profile belongs to you.</p>
+    </div>
+  </footer>
+  <!-- SHARED FOOTER v1 END -->
+
 </body>
 </html>
