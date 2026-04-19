@@ -4,6 +4,24 @@ All notable changes to the MyHue product. Ordered by date, most recent first. Ea
 
 ---
 
+## 19 April 2026 — Team invite + registration bug fixes (#99–101)
+
+### Team registration silent failure (#99)
+- When `teamId` is submitted but `getTeam(teamId)` returns null or `team.org_id` doesn't match the submitted `orgCode`, the old code created the user account but added them to no team — silent failure with no error
+- Root cause in production: users invited to Team Hue Demo (the second team in TCMG org) were registered but not appearing on the Team Hue Demo dashboard
+- Fix: added `else` branch that logs a warning with full diagnostic detail (team found, `org_id` value, user email) and falls back to the first team in the org so the user is never stranded
+- Affected user (Nick, `iss52219@gmail.com`) recovered via one-time admin endpoint — added to Team Hue Demo with energy bands synced. Original invitation (`iss52218@gmail.com`) marked as registered.
+
+### Pending-invites filter (#100)
+- `GET /api/team/:teamId` had a broken filter: `!memberList.some(m => m.name && members.find(mm => mm.email === inv.email))` — logically convoluted, checked `memberList` names rather than directly comparing emails
+- Simplified to `!members.some(m => m.email === inv.email)` — matches the org admin endpoint pattern exactly
+
+### Copy-invite-link team label (#101)
+- "Copy invite link" button in org admin had no indication of which team the link was for — easy to accidentally share the wrong team's link when the dropdown defaulted to the first team
+- Now shows "Link is for: **[Team Name]**" inline, dynamically reflecting the currently selected team in the invite dropdown
+
+---
+
 ## 16 April 2026 — MyHue rebrand + daily email energy rotation
 
 ### MyHue rebrand (#93–98)

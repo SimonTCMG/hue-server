@@ -582,6 +582,12 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 97. ✅ Home screen: large "Hue" display heading and stone tagline replaced with MyHue wordmark in Fraunces (no static spin logo — animated SpinMark above is sufficient), tagline promoted to hero weight (Fraunces 28px italic bold, ink colour). Animated SpinMark, date line, energy dots, buttons all unchanged
 98. ✅ Project documents updated: CLAUDE.md, hue-voice-v1.md, hue-email-strategy-v1.md — all reflect MyHue naming throughout
 
+**Team invite + registration bug fixes — completed 19 April 2026:**
+
+99. ✅ Team registration silent failure fixed: when `teamId` is provided but the team check fails (team not found or `org_id` mismatch), the old code created the user with no team membership and no error. Now logs a warning with full diagnostic detail and falls back to the first team in the org so the user is never stranded without a team.
+100. ✅ Pending-invites filter fixed on `GET /api/team/:teamId`: simplified to `!members.some(m => m.email === inv.email)` — the previous expression was logically convoluted (checked `memberList` names rather than emails) and matched the wrong pattern vs the org admin endpoint.
+101. ✅ Copy-invite-link button now shows "Link is for: **[Team Name]**" inline — org admin can see which team the link is for before copying, preventing wrong-team links being shared.
+
 ---
 
 ## DATABASE MIGRATION — TODO (before significant user growth)
