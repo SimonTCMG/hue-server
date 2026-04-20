@@ -16,6 +16,35 @@ Fixes:
 
 ---
 
+## 20 April 2026 — Header consistency pass (#115)
+
+All team and org pages now use the same sticky header pattern as the Results screen.
+
+### Team dashboard sticky header
+- Left: SpinMark (38px, paused) + "Hue" wordmark (Fraunces 20px 700) — identical to Results page
+- Centre: team name, truncated with ellipsis
+- Right: `checkin` + `share` + `home` NavIcons for leads/admins; `home` only for members
+- `checkin` NavIcon: new type added to `NavIcon` component — circle + exclamation mark. Shows active (tinted) state when a check-in is currently open or the ad-hoc panel is open
+- Old pill-style "Check-in" and "Share" buttons removed entirely
+- Padding changed to `20px 40px` / `16px 20px` to match Results exactly
+- `overflowX: "hidden"` removed from outer wrapper — this property creates a new scroll context and silently breaks `position: sticky` on child elements. This was the root cause of the header scrolling away
+
+### Org admin sticky header (#115)
+- New sticky header: SpinMark + "Hue" left, org name centred, home NavIcon right
+- No share button — share is team-level, not org-level
+- Back arrow removed; home NavIcon replaces it for navigation
+- Org name heading (`h1`) retained in page body below the header
+- Outer wrapper `overflowX: "hidden"` removed (same sticky fix as above)
+
+### Shared team sticky header (#115)
+- New sticky header: SpinMark + "Hue" left, team name + "Read only" badge centred, `myhue.co` text link right
+- No home NavIcon — shared team links are unauthenticated; `myhue.co` is the appropriate exit
+
+### NavIcon component
+- New `checkin` type added alongside existing `home`, `share`, `save`
+
+---
+
 ## 19 April 2026 — Team invite + registration bug fixes (#99–101)
 
 ### Team registration silent failure (#99)
