@@ -615,4 +615,258 @@ export function clearSubscriptionPause(userId) {
   ).run(userId);
 }
 
+// ─── Team notification email (routing preference — Pipeline 3) ─────────────
+// Personal email = identity anchor (users.email). Never changes without user action.
+// Team notification email = routing preference, set by the user only, never the employer.
+// All personal-scope emails use users.email. All team-scope emails use
+// team_notification_email (with fallback to personal email when null).
+try { db.exec(`ALTER TABLE users ADD COLUMN team_notification_email TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN team_notification_preference TEXT DEFAULT 'personal'`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN team_notification_bounce_count INTEGER DEFAULT 0`); } catch {}
+
+export function updateTeamNotificationEmail(userId, teamEmail, preference) {
+  return db.prepare(
+    "UPDATE users SET team_notification_email = ?, team_notification_preference = ?, team_notification_bounce_count = 0 WHERE id = ?"
+  ).run(teamEmail || null, preference || "personal", userId);
+}
+
+export function incrementTeamNotificationBounce(userId) {
+  const user = getUser(userId);
+  if (!user) return;
+  const newCount = (user.team_notification_bounce_count || 0) + 1;
+  if (newCount >= 3) {
+    // Auto-revert to personal email after 3 bounces
+    db.prepare(
+      "UPDATE users SET team_notification_email = NULL, team_notification_preference = 'personal', team_notification_bounce_count = 0 WHERE id = ?"
+    ).run(userId);
+    console.log(`Team notification email auto-reverted for user ${userId} after 3 bounces`);
+  } else {
+    db.prepare(
+      "UPDATE users SET team_notification_bounce_count = ? WHERE id = ?"
+    ).run(newCount, userId);
+  }
+}
+
+// ─── Part B: Team share tokens ────────────────────────────────────────────
+// Extends the individual share token pattern to team dashboards.
+// Only link tokens (30-day, multi-use) in v1. Session tokens deferred to v2.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_share_tokens (
+    token          TEXT PRIMARY KEY,
+    team_id        TEXT NOT NULL,
+    created_by     TEXT NOT NULL,
+    created_at     INTEGER NOT NULL,
+    expires_at     INTEGER NOT NULL,
+    revoked_at     INTEGER,
+    last_accessed_at INTEGER,
+    FOREIGN KEY (team_id)    REFERENCES teams(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  )
+`);
+
+export function createTeamShareToken(teamId, createdBy, expiresAt) {
+  const token = uuidv4();
+  db.prepare(
+    `INSERT INTO team_share_tokens (token, team_id, created_by, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(token, teamId, createdBy, Date.now(), expiresAt);
+  return token;
+}
+
+export function getTeamShareToken(token) {
+  return db.prepare("SELECT * FROM team_share_tokens WHERE token = ?").get(token) || null;
+}
+
+export function revokeTeamShareToken(token, userId) {
+  return db.prepare(
+    "UPDATE team_share_tokens SET revoked_at = ? WHERE token = ? AND created_by = ? AND revoked_at IS NULL"
+  ).run(Date.now(), token, userId);
+}
+
+export function getActiveTeamShareTokens(teamId) {
+  const now = Date.now();
+  return db.prepare(
+    "SELECT * FROM team_share_tokens WHERE team_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY created_at DESC"
+  ).all(teamId, now);
+}
+
+export function touchTeamShareToken(token) {
+  return db.prepare(
+    "UPDATE team_share_tokens SET last_accessed_at = ? WHERE token = ?"
+  ).run(Date.now(), token);
+}
+
+// ─── Part C: Team check-ins — Pipeline 3 ─────────────────────────────────
+// Pipeline 3 (team-layer state) is architecturally separate from:
+//   Pipeline 1 (team-layer preference — bands, dimensions)
+//   Pipeline 2 (personal companion — full individual profile + history)
+// Individual check-in responses (team_checkin_responses) are NEVER exposed to
+// team leads, org admins, or any role other than the respondent themselves.
+// Only aggregated readbacks (cached at close) are shown to the team.
+
+// New columns on teams for check-in configuration
+try { db.exec(`ALTER TABLE teams ADD COLUMN checkin_cadence TEXT DEFAULT 'fortnightly'`); } catch {}
+try { db.exec(`ALTER TABLE teams ADD COLUMN checkin_timezone TEXT DEFAULT 'Europe/London'`); } catch {}
+try { db.exec(`ALTER TABLE teams ADD COLUMN checkin_trigger_time TEXT DEFAULT '15:00'`); } catch {}
+try { db.exec(`ALTER TABLE teams ADD COLUMN checkin_min_responses INTEGER DEFAULT 8`); } catch {}
+try { db.exec(`ALTER TABLE teams ADD COLUMN checkin_paused INTEGER DEFAULT 0`); } catch {}
+try { db.exec(`ALTER TABLE teams ADD COLUMN checkin_adhoc_count_this_month INTEGER DEFAULT 0`); } catch {}
+try { db.exec(`ALTER TABLE teams ADD COLUMN checkin_adhoc_month TEXT`); } catch {}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_checkins (
+    id              TEXT PRIMARY KEY,
+    team_id         TEXT NOT NULL,
+    triggered_by    TEXT,
+    context_note    TEXT,
+    opened_at       INTEGER NOT NULL,
+    closed_at       INTEGER,
+    cadence_type    TEXT NOT NULL,
+    readback_slot_1 TEXT,
+    readback_slot_2 TEXT,
+    readback_slot_3 TEXT,
+    response_count  INTEGER DEFAULT 0,
+    status          TEXT DEFAULT 'open',
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_checkin_responses (
+    id            TEXT PRIMARY KEY,
+    checkin_id    TEXT NOT NULL,
+    user_id       TEXT NOT NULL,
+    q1_dimensions TEXT NOT NULL,
+    q2_landing    TEXT NOT NULL,
+    q3_helped     TEXT,
+    q4_carrying   TEXT,
+    submitted_at  INTEGER NOT NULL,
+    UNIQUE (checkin_id, user_id),
+    FOREIGN KEY (checkin_id) REFERENCES team_checkins(id),
+    FOREIGN KEY (user_id)    REFERENCES users(id)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_notification_log (
+    id                TEXT PRIMARY KEY,
+    team_id           TEXT NOT NULL,
+    notification_type TEXT NOT NULL,
+    sent_at           INTEGER NOT NULL,
+    suppressed        INTEGER DEFAULT 0,
+    suppressed_reason TEXT,
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+  )
+`);
+
+// ─── Check-in CRUD ────────────────────────────────────────────────────────
+
+export function createCheckin(teamId, cadenceType, triggeredBy = null, contextNote = null) {
+  const id = uuidv4();
+  const openedAt = Date.now();
+  // Window: ad-hoc = 48h; scheduled = Friday 3pm → Monday 9am (handled by close cron)
+  db.prepare(
+    `INSERT INTO team_checkins (id, team_id, triggered_by, context_note, opened_at, cadence_type, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'open')`
+  ).run(id, teamId, triggeredBy, contextNote, openedAt, cadenceType);
+  return id;
+}
+
+export function getOpenCheckin(teamId) {
+  return db.prepare(
+    "SELECT * FROM team_checkins WHERE team_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1"
+  ).get(teamId);
+}
+
+export function getCheckin(checkinId) {
+  return db.prepare("SELECT * FROM team_checkins WHERE id = ?").get(checkinId);
+}
+
+export function closeCheckin(checkinId, readback1, readback2, readback3, responseCount) {
+  return db.prepare(
+    `UPDATE team_checkins
+     SET status = 'closed', closed_at = ?, readback_slot_1 = ?,
+         readback_slot_2 = ?, readback_slot_3 = ?, response_count = ?
+     WHERE id = ?`
+  ).run(Date.now(), readback1, readback2, readback3, responseCount, checkinId);
+}
+
+export function submitCheckinResponse(checkinId, userId, q1Dimensions, q2Landing, q3Helped, q4Carrying) {
+  const id = uuidv4();
+  db.prepare(
+    `INSERT OR REPLACE INTO team_checkin_responses
+       (id, checkin_id, user_id, q1_dimensions, q2_landing, q3_helped, q4_carrying, submitted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, checkinId, userId, JSON.stringify(q1Dimensions), q2Landing, q3Helped || null, q4Carrying || null, Date.now());
+  // Update cached response count on the parent checkin
+  db.prepare(
+    "UPDATE team_checkins SET response_count = (SELECT COUNT(*) FROM team_checkin_responses WHERE checkin_id = ?) WHERE id = ?"
+  ).run(checkinId, checkinId);
+  return id;
+}
+
+export function hasUserRespondedToCheckin(checkinId, userId) {
+  return !!db.prepare(
+    "SELECT 1 FROM team_checkin_responses WHERE checkin_id = ? AND user_id = ?"
+  ).get(checkinId, userId);
+}
+
+export function getCheckinResponses(checkinId) {
+  // Returns aggregated data only — never exposing individual user_id in practice.
+  // The user_id is stored for deduplication only.
+  return db.prepare(
+    "SELECT q1_dimensions, q2_landing FROM team_checkin_responses WHERE checkin_id = ?"
+  ).all(checkinId);
+}
+
+export function getRecentCheckins(teamId, limit = 6) {
+  return db.prepare(
+    "SELECT * FROM team_checkins WHERE team_id = ? AND status = 'closed' ORDER BY closed_at DESC LIMIT ?"
+  ).all(teamId, limit);
+}
+
+export function getOpenCheckins() {
+  return db.prepare("SELECT * FROM team_checkins WHERE status = 'open'").all();
+}
+
+export function updateCheckinSettings(teamId, cadence, timezone, triggerTime) {
+  return db.prepare(
+    "UPDATE teams SET checkin_cadence = ?, checkin_timezone = ?, checkin_trigger_time = ? WHERE id = ?"
+  ).run(cadence, timezone, triggerTime, teamId);
+}
+
+export function pauseNextCheckin(teamId) {
+  return db.prepare("UPDATE teams SET checkin_paused = 1 WHERE id = ?").run(teamId);
+}
+
+export function clearCheckinPause(teamId) {
+  return db.prepare("UPDATE teams SET checkin_paused = 0 WHERE id = ?").run(teamId);
+}
+
+// Track ad-hoc check-in count per month (soft cap: 4/month)
+export function incrementAdHocCount(teamId) {
+  const team = getTeam(teamId);
+  if (!team) return 0;
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = team.checkin_adhoc_month;
+  const currentCount = currentMonth === thisMonth ? (team.checkin_adhoc_count_this_month || 0) : 0;
+  const newCount = currentCount + 1;
+  db.prepare(
+    "UPDATE teams SET checkin_adhoc_count_this_month = ?, checkin_adhoc_month = ? WHERE id = ?"
+  ).run(newCount, thisMonth, teamId);
+  return newCount;
+}
+
+export function logTeamNotification(teamId, type, suppressed = false, reason = null) {
+  return db.prepare(
+    "INSERT INTO team_notification_log (id, team_id, notification_type, sent_at, suppressed, suppressed_reason) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(uuidv4(), teamId, type, Date.now(), suppressed ? 1 : 0, reason);
+}
+
+export function hasNotificationBeenSent(teamId, type, sinceMs) {
+  return !!db.prepare(
+    "SELECT 1 FROM team_notification_log WHERE team_id = ? AND notification_type = ? AND sent_at > ? AND suppressed = 0"
+  ).get(teamId, type, sinceMs);
+}
+
 export default db;

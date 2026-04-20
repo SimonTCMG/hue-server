@@ -1,5 +1,5 @@
 # CLAUDE.md — MyHue / myhue.co
-*Master brief for all Claude sessions. Last updated: 19 April 2026 (Constellation live-build fixes — arc inside node, second_energy data layer, jitter, diagonal leader line suppression).*
+*Master brief for all Claude sessions. Last updated: 20 April 2026 (Team sticky headers, share tokens, weekly check-in system — DB, API, cron, frontend).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -75,12 +75,21 @@ MyHue is an AI-conducted colour energy assessment and ongoing companion. Through
 - Restricted view for members when leader_only visibility is set
 - Dashboard reveal gate: dashboard hidden from members until team lead reveals it. Team lead sees the full live dashboard with a reveal banner at top (progress bar, "X of Y profiles complete", reveal button). Members see only a progress screen ("Your team's energy picture is being built"). When all profiles are in, prompt changes to "Everyone's in. Ready to share the team picture?" Once revealed, permanently visible — future team changes reflected organically. `dashboard_revealed` column on teams table, PUT `/api/team/:teamId/reveal` endpoint.
 - Observations threshold notice: below 8 members, shows progress message
+- Sticky header on all team-scoped views: `position: sticky; top: 0; zIndex: 100; background: #FDFAF4; borderBottom: 1px solid sand`. Home NavIcon (left), team name centred with ellipsis, Share + Check-in buttons (right, team-lead/org-admin only). Appears on loading, error, reveal-gate, and main dashboard states.
+- Team share tokens: Share button (lead/admin only) opens modal — copy link + revoke. 30-day tokens. `/api/team/:teamId/share` (POST create), `/api/shared-team/:token` (GET resolve — no auth required), `/api/team/:teamId/share/:token` (DELETE revoke). `team_share_tokens` DB table. `/shared-team/:token` served as SPA route, renders `SharedTeamScreen` (read-only, "Shared view — read only" banner, no actions). Routing detects `window.location.pathname.match(/^\/shared-team\/([^/]+)$/)`.
+- Weekly check-in system (Pipeline 3): team-layer state data, architecturally separate from personal companion pipeline. `team_checkins` and `team_checkin_responses` DB tables. Four questions: Q1 pick 1–3 dimensions from 32 (default 12 visible, "Show all" toggle), Q2 landing (heavier/expected/lighter/unsure), Q3/Q4 optional free text 200 chars. Anonymous — responses never attributed to individuals. Anonymity threshold `checkin_min_responses` per team (default 8, TCMG set to 6 for beta). Check-in flow is a `position: fixed` full-screen overlay rendered within `TeamDashboardScreen` via `showCheckinFlow` state flag.
+- Check-in cadence: `checkin_cadence` column on teams (default 'fortnightly'). Friday 15:00 cron opens check-in, sends notification email to all members. Sunday 18:00 sends reminder to non-responders. Monday 09:00 closes check-in, generates readback, sends readback-ready email. Ad-hoc check-ins: lead-triggered from dashboard, 48h window, soft cap 4/month.
+- Readback: three slots. Slot 1 = template-based aggregate (top Q1 dimensions + Q2 landing distribution). Slot 2 = curated observation stubs (`[DRAFT — needs voice review]` prefix — 40 sentences to be written with Simon before TCMG launch). Slot 3 = keyed prompt from `CHECKIN_SLOT3_PROMPTS` dict (stretch/matched/mixed/quiet/celebratory). Memory scope: last 6 check-ins for pattern detection. Readback only shown once check-in is closed and `response_count >= checkin_min_responses`. `TeamCheckinReadback` component renders 3-slot card between 32-dimension panel and constellation on the dashboard.
+- Team notification email routing: `team_notification_email` + `team_notification_preference` ('personal'|'work'|'both') + `team_notification_bounce_count` columns on users. `resolveTeamEmail(user)` returns array of addresses. Auto-reverts to 'personal' after 3 bounces. Set during org registration (step 2 of 2-step OrgRegisterScreen) and editable anytime via `PUT /api/team/:teamId/checkin/notification-email`. Org registration step 2 asks "Where should team reminders go?" with three radio-style options.
+- Check-in dimensions config: `checkin-dimensions.json` — 32 entries with key, label, energy, defaultVisible (true for 12), sortOrder. Default visible 12: Decision/Momentum/Courage (Spark), Collaboration/Communication/Celebration (Glow), Accountability/Wellbeing/Trust (Tend), Planning/Clarity/Reflection (Flow). All 32 available via "Show all" toggle in Q1.
 
 ### Team data model and architecture
-- DB tables: `organisations`, `teams`, `team_members`, `team_energy_bands`
+- DB tables: `organisations`, `teams`, `team_members`, `team_energy_bands`, `team_share_tokens`, `team_checkins`, `team_checkin_responses`
 - `team_energy_bands` columns: `spark_band`, `glow_band`, `tend_band`, `flow_band` (band labels), `second_energy` (TEXT — individual profile's ranked[1] energy), `second_energy_gap` (INTEGER — pct gap between ranked[1] and ranked[2] in the individual profile). `second_energy` and `second_energy_gap` are the only team-layer data derived from individual scores — they are stored as a label and an integer gap, never as raw percentages. Added Apr 2026.
+- `teams` additional columns: `checkin_cadence` (default 'fortnightly'), `checkin_timezone` (default 'Europe/London'), `checkin_trigger_time` (default '15:00'), `checkin_min_responses` (default 8), `checkin_paused` (boolean).
+- `users` additional columns: `team_notification_email`, `team_notification_preference` (default 'personal'), `team_notification_bounce_count` (default 0).
 - Band calculation: 33%+ Naturally present, 22–32% Intentionally present, <22% Developing (percentage-of-total model — 4 energies sum to 100%, baseline 25%)
-- Two strict data pipelines enforced at DB level — team layer stores bands only, never raw scores
+- Three strict data pipelines enforced at DB level: Pipeline 1 (team bands — aggregate, never raw scores), Pipeline 2 (personal companion — never crosses to team), Pipeline 3 (team check-in state — anonymous responses only, never attributed to individuals)
 - Sub-team support: user can belong to multiple teams, profile contributes independently to each
 - Roles: org-admin (all teams), team-lead (their teams), member
 - Aggregate function: band counts per energy, observations suppressed below 8 members
@@ -588,6 +597,17 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 99. ✅ Team registration silent failure fixed: when `teamId` is provided but the team check fails (team not found or `org_id` mismatch), the old code created the user with no team membership and no error. Now logs a warning with full diagnostic detail and falls back to the first team in the org so the user is never stranded without a team.
 100. ✅ Pending-invites filter fixed on `GET /api/team/:teamId`: simplified to `!members.some(m => m.email === inv.email)` — the previous expression was logically convoluted (checked `memberList` names rather than emails) and matched the wrong pattern vs the org admin endpoint.
 101. ✅ Copy-invite-link button now shows "Link is for: **[Team Name]**" inline — org admin can see which team the link is for before copying, preventing wrong-team links being shared.
+
+**Team dashboard sticky headers, share tokens, check-in system — completed 20 April 2026:**
+
+107. ✅ Sticky header on all team-scoped views — Home NavIcon, team name (ellipsis), Share + Check-in buttons (leads only). Appears on loading, error, reveal-gate, and main states.
+108. ✅ Team share tokens — `team_share_tokens` DB table, POST/GET/DELETE endpoints, Share modal (copy + revoke), `SharedTeamScreen` read-only view at `/shared-team/:token`, routing in App component.
+109. ✅ Weekly check-in system — Pipeline 3 (team state, anonymous). `team_checkins` + `team_checkin_responses` tables. `checkin-dimensions.json` config (32 dims, 12 default). 4 cron jobs (Friday open, Sunday reminder, Monday close, ad-hoc 24h). MailerSend templates (open, reminder, readback-ready). `resolveTeamEmail()` helper. `generateReadback()` — Slot 1 template, Slot 2 stubbed, Slot 3 from prompts dict.
+110. ✅ Check-in frontend — `TeamCheckinFlow` full-screen overlay (4 questions, dimension chips grouped by energy, Q2 radio, Q3/Q4 optional textarea). `TeamCheckinReadback` 3-slot card on dashboard (between 32-dimension panel and constellation). Check-in notification banner. Ad-hoc trigger panel (leads only).
+111. ✅ Org registration 2-step flow — Step 1 (name/email/org code), Step 2 ("Where should team reminders go?" — personal/work/both with work email input). `teamNotificationEmail` + `teamNotificationPreference` passed to `/api/register-org`.
+112. ✅ `/api/team/:teamId/checkin/latest` endpoint — returns most recent closed check-in readback, respects dashboard reveal gate and anonymity threshold.
+113. ⬜ Slot 2 check-in observation library — ~40 curated sentences to write with Simon before TCMG launch. Currently stubbed with `[DRAFT — needs voice review]` prefix.
+114. ⬜ Account settings: team notification email editable post-registration (shows current routing, links to change)
 
 **Constellation live-build fixes — completed 19 April 2026:**
 

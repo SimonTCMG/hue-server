@@ -2941,11 +2941,16 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     // ─── Org member registration ──────────────────────────────────────────────
     function OrgRegisterScreen({ onRegistered, onSignIn }) {
       const isDesktop = useIsDesktop();
+      const [step,    setStep]    = useState(1);
       const [name,    setName]    = useState("");
       const [email,   setEmail]   = useState("");
       const [orgCode, setOrgCode] = useState("");
       const [loading, setLoading] = useState(false);
       const [error,   setError]   = useState(null);
+
+      // Step 2 — notification routing
+      const [notifPref,  setNotifPref]  = useState("personal");
+      const [workEmail,  setWorkEmail]  = useState("");
 
       const [teamIdFromUrl, setTeamIdFromUrl] = useState("");
       const [orgFromUrl, setOrgFromUrl] = useState(false);
@@ -2969,14 +2974,27 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         color: C.ink, outline: "none", width: "100%", boxSizing: "border-box",
       };
 
-      const submit = async () => {
+      const advanceToStep2 = () => {
         if (!name.trim() || !email.trim()) { setError("Please enter your name and email."); return; }
         if (!orgCode.trim()) { setError("Please enter your organisation code."); return; }
+        setError(null);
+        setStep(2);
+      };
+
+      const submit = async () => {
+        if ((notifPref === "work" || notifPref === "both") && !workEmail.trim()) {
+          setError("Please enter your work email address."); return;
+        }
         setLoading(true); setError(null);
+        const teamNotificationEmail = (notifPref === "work" || notifPref === "both") ? workEmail.trim() : null;
         try {
           const res = await fetch("/api/register-org", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: name.trim(), email: email.trim(), orgCode: orgCode.trim(), teamId: teamIdFromUrl || undefined, invitedEmail: invitedEmailFromUrl || undefined }),
+            body: JSON.stringify({
+              name: name.trim(), email: email.trim(), orgCode: orgCode.trim(),
+              teamId: teamIdFromUrl || undefined, invitedEmail: invitedEmailFromUrl || undefined,
+              teamNotificationEmail, teamNotificationPreference: notifPref,
+            }),
           });
           const data = await res.json();
           if (!res.ok) { setError(data.error || "Something went wrong. Please try again."); return; }
@@ -2985,6 +3003,90 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         } catch { setError("Something went wrong. Please try again."); }
         finally { setLoading(false); }
       };
+
+      const notifOptions = [
+        { value: "personal", label: "Personal email", detail: email.trim() || "The address you just entered" },
+        { value: "work",     label: "Work email",     detail: "A different address — handy if work is where you'll act on it" },
+        { value: "both",     label: "Both",           detail: "Send to both addresses" },
+      ];
+
+      if (step === 2) return (
+        <div style={{
+          minHeight: "100vh", background: C.cream,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: isDesktop ? "64px 32px" : "48px 24px", textAlign: "center",
+        }}>
+          <SpinMark size={isDesktop ? 72 : 56} speed={8} />
+          <h1 style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: isDesktop ? 38 : 30, fontWeight: 900,
+            color: C.ink, letterSpacing: "-0.03em",
+            lineHeight: 1.1, marginTop: isDesktop ? 24 : 18,
+          }}>Where should team reminders go?</h1>
+          <p style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: isDesktop ? 16 : 14, color: C.stone,
+            lineHeight: 1.65, maxWidth: 360,
+            marginTop: 12,
+          }}>
+            When your team has a check-in open, we'll let you know. Pick wherever you're most likely to see it.
+          </p>
+
+          <div style={{ marginTop: 28, width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 10 }}>
+            {notifOptions.map(opt => {
+              const active = notifPref === opt.value;
+              return React.createElement("button", {
+                key: opt.value,
+                onClick: () => setNotifPref(opt.value),
+                style: {
+                  background: active ? C.ink : "#fff",
+                  border: `1.5px solid ${active ? C.ink : C.sand}`,
+                  borderRadius: 14, padding: "14px 18px",
+                  textAlign: "left", cursor: "pointer",
+                  transition: "background 0.12s, border-color 0.12s",
+                  width: "100%",
+                },
+              },
+                React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 15, color: active ? C.cream : C.ink } }, opt.label),
+                React.createElement("div", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: active ? `${C.cream}99` : C.stone, marginTop: 2 } }, opt.detail)
+              );
+            })}
+
+            {(notifPref === "work" || notifPref === "both") && (
+              <input type="email" placeholder="Work email address" value={workEmail}
+                onChange={e => setWorkEmail(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && submit()}
+                style={{ ...inputStyle, marginTop: 4 }}
+                onFocus={e => e.target.style.borderColor = C.ink}
+                onBlur={e  => e.target.style.borderColor = C.sand}
+              />
+            )}
+
+            {error && <p style={{ fontSize: 13, color: C.spark, textAlign: "left", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{error}</p>}
+
+            <button onClick={submit} disabled={loading} style={{
+              background: loading ? C.sand : C.ink,
+              color: loading ? C.stone : C.cream,
+              border: "none", borderRadius: 99, padding: "16px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16,
+              cursor: loading ? "default" : "pointer",
+              transition: "background 0.15s",
+              marginTop: 4,
+            }}>
+              {loading ? "One moment…" : "Finish setup"}
+            </button>
+
+            <button onClick={() => { setStep(1); setError(null); }} style={{
+              background: "none", border: "none", color: C.stone,
+              fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif",
+              marginTop: 4, cursor: "pointer", textDecoration: "underline",
+            }}>
+              Back
+            </button>
+          </div>
+        </div>
+      );
 
       return (
         <div style={{
@@ -2999,7 +3101,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             fontSize: isDesktop ? 48 : 36, fontWeight: 900,
             color: C.ink, letterSpacing: "-0.03em",
             lineHeight: 1, marginTop: isDesktop ? 28 : 20,
-          }}>Your team uses Hue.</h1>
+          }}>Your team uses MyHue.</h1>
           <p style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif",
             fontSize: isDesktop ? 17 : 15, color: C.stone,
@@ -3022,21 +3124,21 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             />
             {!orgFromUrl && <input type="text" placeholder="Organisation code" value={orgCode}
               onChange={e => setOrgCode(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && submit()}
+              onKeyDown={e => e.key === "Enter" && advanceToStep2()}
               style={inputStyle}
               onFocus={e => e.target.style.borderColor = C.ink}
               onBlur={e  => e.target.style.borderColor = C.sand}
             />}
             {error && <p style={{ fontSize: 13, color: C.spark, textAlign: "left", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{error}</p>}
-            <button onClick={submit} disabled={loading || !name.trim() || !email.trim() || !orgCode.trim()} style={{
-              background: name.trim() && email.trim() && orgCode.trim() && !loading ? C.ink : C.sand,
-              color: name.trim() && email.trim() && orgCode.trim() && !loading ? C.cream : C.stone,
+            <button onClick={advanceToStep2} disabled={!name.trim() || !email.trim() || !orgCode.trim()} style={{
+              background: name.trim() && email.trim() && orgCode.trim() ? C.ink : C.sand,
+              color: name.trim() && email.trim() && orgCode.trim() ? C.cream : C.stone,
               border: "none", borderRadius: 99, padding: "16px",
               fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16,
-              cursor: name.trim() && email.trim() && orgCode.trim() && !loading ? "pointer" : "default",
+              cursor: name.trim() && email.trim() && orgCode.trim() ? "pointer" : "default",
               transition: "background 0.15s",
             }}>
-              {loading ? "One moment…" : "Get started"}
+              Continue
             </button>
           </div>
 
@@ -3069,6 +3171,341 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── Team Dashboard ──────────────────────────────────────────────────────
+
+    // ─── SharedTeamScreen ─────────────────────────────────────────────────────
+    function SharedTeamScreen({ token }) {
+      const isDesktop = useIsDesktop();
+      const [data, setData]     = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [error, setError]   = useState(null);
+
+      useEffect(() => {
+        fetch(`/api/shared-team/${token}`)
+          .then(r => { if (!r.ok) throw r; return r.json(); })
+          .then(d => { setData(d); setLoading(false); })
+          .catch(async e => {
+            let msg = "This link has expired or is no longer valid.";
+            try { const d = await e.json(); if (d.error === "revoked") msg = "This link has been revoked."; } catch {}
+            setError(msg); setLoading(false);
+          });
+      }, [token]);
+
+      if (loading) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.cream } },
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone } }, "Loading\u2026")
+      );
+      if (error || !data) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.cream, padding: 32 } },
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone, textAlign: "center", maxWidth: 400 } }, error || "Unable to load this team view."),
+        React.createElement("a", { href: "/", style: { marginTop: 20, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone } }, "Go to MyHue")
+      );
+
+      const { team, aggregate, members, notYetRevealedInternally } = data;
+
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, display: "flex", flexDirection: "column" } },
+        // Sticky header — read-only, no actions
+        React.createElement("div", {
+          style: {
+            position: "sticky", top: 0, zIndex: 100,
+            background: C.cream, borderBottom: `1px solid ${C.sand}`,
+            display: "flex", alignItems: "center",
+            padding: isDesktop ? "14px 32px" : "12px 20px",
+            gap: 12,
+          }
+        },
+          React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 10 } },
+            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 15, color: C.ink } }, team.name),
+            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}66`, padding: "3px 10px", borderRadius: 99 } }, "Shared view \u2014 read only")
+          ),
+          React.createElement("a", { href: "https://myhue.co", style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, textDecoration: "none", flexShrink: 0 } }, "MyHue")
+        ),
+        notYetRevealedInternally && React.createElement("div", {
+          style: { background: `${C.glowOnLight}15`, borderBottom: `1px solid ${C.glowOnLight}30`, padding: "10px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.ink, textAlign: "center" }
+        }, "This team hasn\u2019t yet shared the dashboard internally \u2014 you\u2019re seeing the leader\u2019s view."),
+        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "32px 32px 48px" : "24px 20px 48px", width: "100%" } },
+          aggregate.memberCount > 0 && React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}`, marginBottom: 24 } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 24 } }, "Team energy picture"),
+            ["spark", "glow", "tend", "flow"].map(energy => {
+              const col = C[energy];
+              const e = ENERGIES.find(x => x.id === energy);
+              const counts = aggregate[energy];
+              const total = aggregate.memberCount;
+              return React.createElement("div", { key: energy, style: { marginBottom: 20 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+                  React.createElement("div", { style: { width: 12, height: 12, borderRadius: "50%", background: col } }),
+                  React.createElement("span", { style: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 18, color: C.ink } },
+                    React.createElement(EnergyWord, { name: e.name })
+                  )
+                ),
+                ["Naturally present", "Intentionally present", "Developing"].map(band => {
+                  const count = counts[band] || 0;
+                  const pct = total > 0 ? (count / total) * 100 : 0;
+                  return React.createElement("div", { key: band, style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 6 } },
+                    React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, width: isDesktop ? 140 : 100, flexShrink: 0 } }, band),
+                    React.createElement("div", { style: { flex: 1, height: 20, background: `${col}11`, borderRadius: 10, overflow: "hidden" } },
+                      React.createElement("div", { style: { width: `${Math.max(pct, 2)}%`, height: "100%", background: col, borderRadius: 10, transition: "width 0.5s ease" } })
+                    ),
+                    React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.ink, width: 24, textAlign: "right" } }, count)
+                  );
+                })
+              );
+            })
+          ),
+          members.filter(m => m.assessmentComplete).length >= 2 && React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}` } },
+            React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 8 } }, "Team constellation"),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginBottom: 20 } }, "Each person positioned by their instinctive energy."),
+            React.createElement(TeamConstellation, { members, isDesktop })
+          )
+        )
+      );
+    }
+
+    // ─── TeamCheckinReadback ──────────────────────────────────────────────────
+    function TeamCheckinReadback({ teamId, isLead, isDesktop }) {
+      const [readbackData, setReadbackData] = useState(null);
+      const [loading, setLoading]           = useState(true);
+      const [checkinId, setCheckinId]       = useState(null);
+
+      useEffect(() => {
+        // First get the most recent closed check-in
+        fetch(`/api/team/${teamId}/checkin/current`)
+          .then(r => r.json())
+          .then(d => {
+            // If there's a closed check-in from last week, fetch its readback
+            if (d.lastClosedId) setCheckinId(d.lastClosedId);
+            setLoading(false);
+          })
+          .catch(() => setLoading(false));
+      }, [teamId]);
+
+      // Fetch readback once we have a checkin ID
+      const [readback, setReadback]     = useState(null);
+      const [rbLoading, setRbLoading]   = useState(false);
+
+      useEffect(() => {
+        if (!checkinId) return;
+        setRbLoading(true);
+        fetch(`/api/team/${teamId}/checkin/${checkinId}/readback`)
+          .then(r => r.json())
+          .then(d => { setReadback(d); setRbLoading(false); })
+          .catch(() => setRbLoading(false));
+      }, [checkinId]);
+
+      // Also fetch the latest closed check-in directly
+      useEffect(() => {
+        fetch(`/api/team/${teamId}/checkin/latest`)
+          .then(r => r.json())
+          .then(d => { if (d.checkin) { setCheckinId(d.checkin.id); } })
+          .catch(() => {});
+      }, [teamId]);
+
+      if (!checkinId || rbLoading) return null;
+      if (!readback?.readback) return null;
+      const { slot1, slot2, slot3 } = readback.readback;
+      if (!slot1) return null;
+
+      return React.createElement("div", {
+        style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` }
+      },
+        React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 8px" } }, "This week"),
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: C.stone, margin: "0 0 16px" } },
+          `${readback.responseCount} responses`
+        ),
+        React.createElement("div", { style: { borderLeft: `3px solid ${C.tend}`, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 14 } },
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 600, color: C.ink, margin: 0 } }, slot1),
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, lineHeight: 1.7, color: C.ink, margin: 0 } }, slot2),
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic", margin: 0 } }, slot3)
+        )
+      );
+    }
+
+    // ─── TeamCheckinFlow ─────────────────────────────────────────────────────
+    function TeamCheckinFlow({ teamId, checkinData, onDone, onBack, isDesktop }) {
+      const [step, setStep]           = useState(1);
+      const [q1,   setQ1]             = useState([]);
+      const [q2,   setQ2]             = useState(null);
+      const [q3,   setQ3]             = useState("");
+      const [q4,   setQ4]             = useState("");
+      const [showAll, setShowAll]     = useState(false);
+      const [submitting, setSubmitting] = useState(false);
+      const [done, setDone]           = useState(false);
+      const [error, setError]         = useState(null);
+
+      const dimensions = checkinData?.dimensions || [];
+      const checkin    = checkinData?.checkin;
+
+      const ENERGY_COLORS = { spark: C.spark, glow: C.glowOnLight, tend: C.tend, flow: C.flow };
+      const defaultDims   = dimensions.filter(d => d.defaultVisible);
+      const extraDims     = dimensions.filter(d => !d.defaultVisible);
+      const displayedDims = showAll ? dimensions : defaultDims;
+
+      // Group by energy for the picker display
+      const byEnergy = { spark: [], glow: [], tend: [], flow: [] };
+      for (const d of displayedDims) {
+        if (byEnergy[d.energy]) byEnergy[d.energy].push(d);
+      }
+
+      const toggleDim = (key) => {
+        setQ1(prev => prev.includes(key) ? prev.filter(k => k !== key) : prev.length < 3 ? [...prev, key] : prev);
+      };
+
+      const handleSubmit = async () => {
+        if (!q1.length || !q2) { setError("Please answer the first two questions."); return; }
+        setSubmitting(true); setError(null);
+        try {
+          const res = await fetch(`/api/team/${teamId}/checkin/${checkin.id}/respond`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ q1Dimensions: q1, q2Landing: q2, q3Helped: q3 || null, q4Carrying: q4 || null }),
+          });
+          const d = await res.json();
+          if (d.ok) { setDone(true); }
+          else if (d.error === "closed") { setError("This check-in has closed while you were filling it in. The team readback is now on the dashboard."); }
+          else { setError(d.error || "Something went wrong."); }
+        } catch { setError("Something went wrong. Please try again."); }
+        finally { setSubmitting(false); }
+      };
+
+      if (done) return React.createElement("div", {
+        style: { position: "fixed", inset: 0, background: C.cream, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, zIndex: 50 }
+      },
+        React.createElement(SpinMark, { size: 72, paused: true }),
+        React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 900, color: C.ink, marginTop: 24, textAlign: "center" } }, "Done."),
+        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, color: C.stone, marginTop: 12, textAlign: "center", maxWidth: 360, lineHeight: 1.6 } },
+          "Your answers are in. The team readback will be available on Monday once the window closes."
+        ),
+        React.createElement("button", {
+          onClick: onDone,
+          style: { marginTop: 28, background: C.ink, color: C.cream, border: "none", borderRadius: 99, padding: "14px 32px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 600, cursor: "pointer" }
+        }, "Back to dashboard")
+      );
+
+      const inputStyle = {
+        width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14,
+        padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${C.sand}`,
+        background: "#fff", color: C.ink, outline: "none", boxSizing: "border-box",
+        resize: "none",
+      };
+
+      return React.createElement("div", {
+        style: { position: "fixed", inset: 0, background: C.cream, overflowY: "auto", zIndex: 50 }
+      },
+        // Header
+        React.createElement("div", {
+          style: { position: "sticky", top: 0, zIndex: 10, background: C.cream, borderBottom: `1px solid ${C.sand}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isDesktop ? "14px 32px" : "12px 20px" }
+        },
+          React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
+          React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 15, color: C.ink } }, "This week\u2019s check-in"),
+          React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone } }, "60 seconds")
+        ),
+        React.createElement("div", {
+          style: { maxWidth: 560, margin: "0 auto", padding: isDesktop ? "40px 32px 80px" : "28px 20px 80px" }
+        },
+          // Q1
+          React.createElement("div", { style: { marginBottom: 36 } },
+            React.createElement("p", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 6px" } },
+              "What did this week mostly ask of the team?"
+            ),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, margin: "0 0 20px" } }, "Pick up to three."),
+            ["spark", "glow", "tend", "flow"].map(energy => {
+              const col = ENERGY_COLORS[energy];
+              const items = byEnergy[energy] || [];
+              if (!items.length) return null;
+              return React.createElement("div", { key: energy, style: { marginBottom: 16 } },
+                React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: col, margin: "0 0 8px" } },
+                  ENERGIES.find(e => e.id === energy)?.name
+                ),
+                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+                  items.map(dim => {
+                    const selected = q1.includes(dim.key);
+                    const atMax = q1.length >= 3 && !selected;
+                    return React.createElement("button", {
+                      key: dim.key,
+                      onClick: () => !atMax && toggleDim(dim.key),
+                      style: {
+                        fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: selected ? 600 : 400,
+                        padding: "7px 14px", borderRadius: 99, cursor: atMax ? "default" : "pointer",
+                        background: selected ? col : "#fff",
+                        color: selected ? (energy === "glow" ? C.ink : "#fff") : C.ink,
+                        border: `1.5px solid ${selected ? col : C.sand}`,
+                        opacity: atMax ? 0.4 : 1, transition: "all 0.12s ease",
+                      }
+                    }, dim.label);
+                  })
+                )
+              );
+            }),
+            !showAll && extraDims.length > 0 && React.createElement("button", {
+              onClick: () => setShowAll(true),
+              style: { marginTop: 12, background: "none", border: "none", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, cursor: "pointer", textDecoration: "underline" }
+            }, `Show all ${dimensions.length} options`)
+          ),
+
+          // Q2
+          React.createElement("div", { style: { marginBottom: 36 } },
+            React.createElement("p", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 16px" } },
+              "How did the week feel for you?"
+            ),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+              [
+                { key: "heavier", label: "Heavier than expected" },
+                { key: "expected", label: "About what I expected" },
+                { key: "lighter", label: "Lighter than expected" },
+                { key: "unsure", label: "Hard to say" },
+              ].map(opt => React.createElement("button", {
+                key: opt.key,
+                onClick: () => setQ2(opt.key),
+                style: {
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, textAlign: "left",
+                  padding: "14px 18px", borderRadius: 12, cursor: "pointer",
+                  background: q2 === opt.key ? C.ink : "#fff",
+                  color: q2 === opt.key ? C.cream : C.ink,
+                  border: `1.5px solid ${q2 === opt.key ? C.ink : C.sand}`,
+                  fontWeight: q2 === opt.key ? 600 : 400,
+                }
+              }, opt.label))
+            )
+          ),
+
+          // Q3
+          React.createElement("div", { style: { marginBottom: 36 } },
+            React.createElement("p", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 6px" } },
+              "One thing that helped this week"
+            ),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, margin: "0 0 12px" } }, "Optional"),
+            React.createElement("textarea", {
+              value: q3, onChange: e => setQ3(e.target.value), maxLength: 200, rows: 3,
+              placeholder: "Something that made the week work better\u2026",
+              style: inputStyle,
+            })
+          ),
+
+          // Q4
+          React.createElement("div", { style: { marginBottom: 36 } },
+            React.createElement("p", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 6px" } },
+              "One thing you\u2019re carrying into next week"
+            ),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, margin: "0 0 12px" } }, "Optional"),
+            React.createElement("textarea", {
+              value: q4, onChange: e => setQ4(e.target.value), maxLength: 200, rows: 3,
+              placeholder: "A task, a conversation, something unfinished\u2026",
+              style: inputStyle,
+            })
+          ),
+
+          error && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.spark, margin: "0 0 16px" } }, error),
+
+          React.createElement("button", {
+            onClick: handleSubmit, disabled: submitting || !q1.length || !q2,
+            style: {
+              width: "100%", background: q1.length && q2 && !submitting ? C.ink : C.sand,
+              color: q1.length && q2 && !submitting ? C.cream : C.stone,
+              border: "none", borderRadius: 99, padding: "16px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16,
+              cursor: q1.length && q2 && !submitting ? "pointer" : "default", transition: "background 0.15s",
+            }
+          }, submitting ? "Submitting\u2026" : "Done")
+        )
+      );
+    }
+
     const DIMENSIONS_32 = {
       spark: { label: "What the team drives", items: ["Purpose","Vision","Decision","Transformation","Momentum","Courage","Ambition","Challenge"] },
       glow:  { label: "How the team connects", items: ["Collaboration","Communication","Environment","Team Meetings","Celebration","Inclusion","Belonging","Energy"] },
@@ -3569,6 +4006,22 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [revealed, setRevealed] = useState(false);
       const [revealing, setRevealing] = useState(false);
 
+      // Part B: share token state
+      const [shareOpen,    setShareOpen]    = useState(false);
+      const [shareResult,  setShareResult]  = useState(null);
+      const [shareLoading, setShareLoading] = useState(false);
+      const [shareCopied,  setShareCopied]  = useState(false);
+      const [shareRevoked, setShareRevoked] = useState(false);
+
+      // Part C: check-in state
+      const [checkinOpen,     setCheckinOpen]     = useState(false);  // current open check-in
+      const [checkinData,     setCheckinData]      = useState(null);
+      const [showCheckinFlow, setShowCheckinFlow]  = useState(false);
+      const [adHocOpen,       setAdHocOpen]        = useState(false);
+      const [adHocNote,       setAdHocNote]        = useState("");
+      const [adHocLoading,    setAdHocLoading]     = useState(false);
+      const [adHocMsg,        setAdHocMsg]         = useState(null);
+
       useEffect(() => {
         fetch(`/api/team/${teamId}`).then(r => r.json()).then(d => {
           setData(d);
@@ -3576,17 +4029,126 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           setRevealed(!!d.team?.dashboardRevealed);
           setLoading(false);
         }).catch(() => setLoading(false));
+        // Check for open check-in
+        fetch(`/api/team/${teamId}/checkin/current`)
+          .then(r => r.json())
+          .then(d => { setCheckinData(d); setCheckinOpen(!!d.checkin); })
+          .catch(() => {});
       }, [teamId]);
 
-      if (loading) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.cream } },
-        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone } }, "Loading team dashboard...")
+      // Part B: share handlers
+      const handleTeamShareCreate = async () => {
+        setShareLoading(true);
+        try {
+          const res = await fetch(`/api/team/${teamId}/share`, { method: "POST", headers: { "Content-Type": "application/json" } });
+          const d = await res.json();
+          if (d.url) { setShareResult(d); setShareRevoked(false); setShareCopied(false); }
+        } catch {} finally { setShareLoading(false); }
+      };
+      const handleTeamShareCopy = async () => {
+        if (!shareResult?.url) return;
+        await navigator.clipboard.writeText(shareResult.url).catch(() => {});
+        setShareCopied(true); setTimeout(() => setShareCopied(false), 2000);
+      };
+      const handleTeamShareRevoke = async () => {
+        if (!shareResult?.token) return;
+        await fetch(`/api/team/${teamId}/share/${shareResult.token}`, { method: "DELETE" }).catch(() => {});
+        setShareRevoked(true); setShareResult(null);
+      };
+
+      // Part C: ad-hoc check-in trigger
+      const handleAdHocTrigger = async () => {
+        setAdHocLoading(true); setAdHocMsg(null);
+        try {
+          const res = await fetch(`/api/team/${teamId}/checkin`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contextNote: adHocNote.trim() || undefined }),
+          });
+          const d = await res.json();
+          if (d.ok) {
+            setAdHocMsg({ type: "success", text: "Check-in opened. Team members have been notified." });
+            setAdHocOpen(false); setAdHocNote("");
+            setCheckinOpen(true);
+          } else if (d.warning) {
+            setAdHocMsg({ type: "warn", text: d.message });
+          } else {
+            setAdHocMsg({ type: "error", text: d.error || "Could not open check-in." });
+          }
+        } catch { setAdHocMsg({ type: "error", text: "Something went wrong." }); }
+        finally { setAdHocLoading(false); }
+      };
+
+      // Sticky header used by all sub-views (loading, error, reveal-gate, main dashboard)
+      const StickyHeader = ({ teamName, isLead: isLeadArg }) => React.createElement("div", {
+        style: {
+          position: "sticky", top: 0, zIndex: 100,
+          background: C.cream, borderBottom: `1px solid ${C.sand}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: isDesktop ? "14px 32px" : "12px 20px",
+          minWidth: 0,
+        }
+      },
+        // Left: Home icon
+        React.createElement(NavIcon, { type: "home", onClick: onBack }),
+        // Centre: team name
+        React.createElement("span", {
+          style: {
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: isDesktop ? 16 : 15,
+            color: C.ink, flex: 1, textAlign: "center",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            margin: "0 12px", minWidth: 0,
+          }
+        }, teamName || ""),
+        // Right: share + ad-hoc buttons (leads only)
+        isLeadArg ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
+          // Ad-hoc check-in button
+          React.createElement("button", {
+            onClick: () => setAdHocOpen(o => !o),
+            title: "Open a check-in",
+            style: {
+              background: checkinOpen ? `${C.tend}18` : "none",
+              border: `1.5px solid ${C.sand}`, borderRadius: 99,
+              padding: isDesktop ? "6px 14px" : "6px 10px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+              color: C.ink, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            }
+          },
+            React.createElement("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: C.ink, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
+              React.createElement("circle", { cx: 12, cy: 12, r: 10 }),
+              React.createElement("path", { d: "M12 8v4M12 16h.01" })
+            ),
+            isDesktop ? (checkinOpen ? "Check-in open" : "Check-in") : null
+          ),
+          // Share button
+          React.createElement("button", {
+            onClick: () => { setShareOpen(true); setShareResult(null); setShareRevoked(false); },
+            style: {
+              background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99,
+              padding: isDesktop ? "6px 14px" : "6px 10px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+              color: C.ink, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            }
+          },
+            React.createElement(NavIcon, { type: "share", onClick: null }),
+            isDesktop ? "Share" : null
+          )
+        ) : React.createElement("div", { style: { width: 36 } }) // spacer to keep name centred
       );
 
-      if (!data || !data.team || data.error || data.restricted) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.cream, padding: 32 } },
-        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone, textAlign: "center", maxWidth: 400 } },
-          data?.error || (data?.restricted ? "Your team lead has set this dashboard to leader-only visibility. Ask them about sharing the team energy picture with everyone." : "Unable to load this dashboard.")
-        ),
-        React.createElement("button", { onClick: onBack, style: { marginTop: 24, background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99, padding: "12px 28px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer", color: C.ink } }, "Back")
+      if (loading) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", background: C.cream } },
+        React.createElement(StickyHeader, { teamName: "", isLead: false }),
+        React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center" } },
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone } }, "Loading team dashboard…")
+        )
+      );
+
+      if (!data || !data.team || data.error || data.restricted) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", background: C.cream } },
+        React.createElement(StickyHeader, { teamName: data?.team?.name || "", isLead: false }),
+        React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 } },
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.stone, textAlign: "center", maxWidth: 400 } },
+            data?.error || (data?.restricted ? "Your team lead has set this dashboard to leader-only visibility. Ask them about sharing the team energy picture with everyone." : "Unable to load this dashboard.")
+          )
+        )
       );
 
       const { team, role, aggregate, members, progress, pendingInvitations = [] } = data;
@@ -3598,27 +4160,36 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       // Members see progress screen until revealed; team leads see full dashboard with reveal banner
       if (!revealed && !isLead0) {
-        return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.cream, padding: 32 } },
-          React.createElement(SpinMark, { size: 72, paused: true }),
-          React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 900, color: C.ink, marginTop: 24, textAlign: "center" } }, team.name),
-          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 17, color: C.stone, textAlign: "center", maxWidth: 400, marginTop: 12, lineHeight: 1.6 } },
-            "Your team\u2019s energy picture is being built."
-          ),
-          React.createElement("div", { style: { marginTop: 28, display: "flex", alignItems: "center", gap: 12 } },
-            React.createElement("div", { style: { width: 200, height: 8, background: `${C.sand}`, borderRadius: 99, overflow: "hidden" } },
-              React.createElement("div", { style: { width: `${progress && progress.total > 0 ? (progress.completed / progress.total) * 100 : 0}%`, height: "100%", background: C.tend, borderRadius: 99, transition: "width 0.5s ease" } })
+        return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", background: C.cream } },
+          React.createElement(StickyHeader, { teamName: team.name, isLead: false }),
+          React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 } },
+            React.createElement(SpinMark, { size: 72, paused: true }),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 17, color: C.stone, textAlign: "center", maxWidth: 400, marginTop: 24, lineHeight: 1.6 } },
+              "Your team\u2019s energy picture is being built."
             ),
-            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink } },
-              `${(progress && progress.completed) || 0} of ${(progress && progress.total) || 0}`
-            )
-          ),
-          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginTop: 8 } },
-            allComplete ? "Everyone\u2019s in." : "Profiles complete"
-          ),
-          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginTop: 24, textAlign: "center", maxWidth: 340 } },
-            "Your team lead will share the energy picture once everyone\u2019s completed their conversation."
-          ),
-          React.createElement("button", { onClick: onBack, style: { marginTop: 20, background: "none", border: "none", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, cursor: "pointer", textDecoration: "underline" } }, "\u2190 Back")
+            React.createElement("div", { style: { marginTop: 28, display: "flex", alignItems: "center", gap: 12 } },
+              React.createElement("div", { style: { width: 200, height: 8, background: C.sand, borderRadius: 99, overflow: "hidden" } },
+                React.createElement("div", { style: { width: `${progress && progress.total > 0 ? (progress.completed / progress.total) * 100 : 0}%`, height: "100%", background: C.tend, borderRadius: 99, transition: "width 0.5s ease" } })
+              ),
+              React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: C.ink } },
+                `${(progress && progress.completed) || 0} of ${(progress && progress.total) || 0}`
+              )
+            ),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginTop: 8 } },
+              allComplete ? "Everyone\u2019s in." : "Profiles complete"
+            ),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, marginTop: 24, textAlign: "center", maxWidth: 340 } },
+              "Your team lead will share the energy picture once everyone\u2019s completed their conversation."
+            ),
+            checkinOpen && !checkinData?.alreadyResponded && React.createElement("button", {
+              onClick: () => setShowCheckinFlow(true),
+              style: {
+                marginTop: 24, background: C.ink, color: C.cream, border: "none", borderRadius: 99,
+                padding: "12px 28px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 14, fontWeight: 600, cursor: "pointer",
+              }
+            }, "This week\u2019s check-in is open \u2014 complete it")
+          )
         );
       }
 
@@ -3758,13 +4329,118 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         );
       };
 
-      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, overflowX: "hidden" } },
-        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px", minWidth: 0, overflowX: "hidden" } },
-          // Header
-          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, minWidth: 0 } },
-            React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
-            React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em" } }, team.name)
+      // Part B: team share modal
+      const TeamShareModal = () => {
+        if (!shareOpen) return null;
+        return React.createElement("div", {
+          onClick: () => setShareOpen(false),
+          style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(26,20,16,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }
+        },
+          React.createElement("div", {
+            onClick: e => e.stopPropagation(),
+            style: {
+              background: "#fff", borderRadius: isDesktop ? 24 : "24px 24px 0 0",
+              padding: isDesktop ? "36px 40px" : "32px 24px 40px",
+              width: isDesktop ? 480 : "100%", maxWidth: "100%",
+              marginBottom: isDesktop ? 32 : 0, animation: "fadeUp 0.25s ease both",
+            }
+          },
+            React.createElement("p", { style: { fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 700, color: C.ink, margin: "0 0 6px" } }, "Share this dashboard"),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, lineHeight: 1.6, color: C.stone, margin: "0 0 20px" } },
+              "Send this link to anyone who needs to see the team picture. They won\u2019t need a MyHue account. The link expires in 30 days \u2014 you can revoke it any time."
+            ),
+            shareRevoked && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic", margin: "0 0 16px" } }, "Link revoked."),
+            shareResult && !shareRevoked ? React.createElement("div", null,
+              React.createElement("div", { style: { background: C.cream, borderRadius: 12, padding: "14px 16px", border: `1.5px solid ${C.sand}`, marginBottom: 10 } },
+                React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, margin: "0 0 6px", wordBreak: "break-all" } }, shareResult.url),
+                React.createElement("button", {
+                  onClick: handleTeamShareCopy,
+                  style: { background: C.ink, color: "#fff", border: "none", borderRadius: 99, padding: "7px 18px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer" }
+                }, shareCopied ? "Copied!" : "Copy link")
+              ),
+              React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, margin: "0 0 8px" } }, "Link active for 30 days"),
+              React.createElement("button", {
+                onClick: handleTeamShareRevoke,
+                style: { background: "none", border: "none", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, textDecoration: "underline", cursor: "pointer", opacity: 0.7 }
+              }, "Revoke")
+            ) : !shareRevoked && React.createElement("button", {
+              disabled: shareLoading,
+              onClick: handleTeamShareCreate,
+              style: {
+                width: "100%", background: C.ink, color: "#fff", border: "none", borderRadius: 14,
+                padding: "16px 20px", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 14, fontWeight: 600, cursor: shareLoading ? "default" : "pointer",
+                textAlign: "left", opacity: shareLoading ? 0.6 : 1,
+              }
+            },
+              React.createElement("div", null, "Create a shareable link"),
+              React.createElement("div", { style: { fontSize: 12, fontWeight: 400, opacity: 0.7, marginTop: 3 } }, "30-day link — read-only view, no account needed")
+            ),
+            React.createElement("button", {
+              onClick: () => setShareOpen(false),
+              style: { display: "block", marginTop: 20, background: "none", border: "none", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, cursor: "pointer", opacity: 0.6 }
+            }, "Close")
+          )
+        );
+      };
+
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, overflowX: "hidden", display: "flex", flexDirection: "column" } },
+        // Sticky header
+        React.createElement(StickyHeader, { teamName: team.name, isLead }),
+        React.createElement(TeamShareModal, null),
+
+        // If check-in flow is open, show it full-screen
+        showCheckinFlow && React.createElement(TeamCheckinFlow, {
+          teamId, checkinData,
+          onDone: () => { setShowCheckinFlow(false); setCheckinData(d => d ? { ...d, alreadyResponded: true } : d); },
+          onBack: () => setShowCheckinFlow(false),
+          isDesktop,
+        }),
+
+        !showCheckinFlow && React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "32px 32px 48px" : "24px 20px 48px", minWidth: 0, overflowX: "hidden", width: "100%" } },
+
+          // Ad-hoc check-in panel (lead only)
+          isLead && adHocOpen && React.createElement("div", {
+            style: { background: "white", borderRadius: 16, padding: "20px 24px", border: `1.5px solid ${C.sand}`, marginBottom: 20 }
+          },
+            React.createElement("p", { style: { fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: C.ink, margin: "0 0 8px" } }, "Open a check-in"),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, margin: "0 0 14px", lineHeight: 1.5 } },
+              "An optional note helps the team understand why this check-in is happening now."
+            ),
+            React.createElement("input", {
+              type: "text", placeholder: "Context note (optional)", value: adHocNote,
+              onChange: e => setAdHocNote(e.target.value), maxLength: 120,
+              style: { width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.sand}`, background: C.cream, color: C.ink, outline: "none", boxSizing: "border-box", marginBottom: 12 }
+            }),
+            adHocMsg && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: adHocMsg.type === "error" ? C.spark : adHocMsg.type === "warn" ? C.glowOnLight : C.tend, margin: "0 0 10px" } }, adHocMsg.text),
+            React.createElement("div", { style: { display: "flex", gap: 10 } },
+              React.createElement("button", {
+                onClick: handleAdHocTrigger, disabled: adHocLoading,
+                style: { background: C.ink, color: C.cream, border: "none", borderRadius: 99, padding: "10px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: adHocLoading ? "default" : "pointer", opacity: adHocLoading ? 0.6 : 1 }
+              }, adHocLoading ? "Opening\u2026" : "Open check-in"),
+              React.createElement("button", {
+                onClick: () => { setAdHocOpen(false); setAdHocNote(""); setAdHocMsg(null); },
+                style: { background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99, padding: "10px 20px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, cursor: "pointer" }
+              }, "Cancel")
+            )
           ),
+
+          // Open check-in notification (member: invite to respond)
+          checkinOpen && !checkinData?.alreadyResponded && React.createElement("div", {
+            style: { background: `${C.tend}10`, border: `1.5px solid ${C.tend}30`, borderRadius: 14, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }
+          },
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.ink, margin: 0 } },
+              "This week\u2019s check-in is open."
+            ),
+            React.createElement("button", {
+              onClick: () => setShowCheckinFlow(true),
+              style: { background: C.ink, color: C.cream, border: "none", borderRadius: 99, padding: "8px 20px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }
+            }, "Complete it \u2014 60 seconds")
+          ),
+
+          checkinOpen && checkinData?.alreadyResponded && React.createElement("p", {
+            style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic", marginBottom: 16, textAlign: "center" }
+          }, "You\u2019ve completed this week\u2019s check-in. The readback will be available on Monday."),
 
           // Reveal banner (team lead sees this at top of dashboard when not yet revealed to members)
           !revealed && isLead0 && React.createElement("div", { style: {
@@ -3838,6 +4514,9 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               )
             )
           ),
+
+          // ─── Check-in readback card ───
+          React.createElement(TeamCheckinReadback, { teamId, isLead, isDesktop }),
 
           // ─── Constellation view ───
           assessedMembers.length >= 2 && React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` } },
@@ -4651,6 +5330,10 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const sharedPathMatch = window.location.pathname.match(/^\/shared\/([^/]+)$/);
       const sharedToken = sharedPathMatch ? sharedPathMatch[1] : null;
 
+      // Shared team path — /shared-team/:token
+      const sharedTeamPathMatch = window.location.pathname.match(/^\/shared-team\/([^/]+)$/);
+      const sharedTeamToken = sharedTeamPathMatch ? sharedTeamPathMatch[1] : null;
+
       // Org member registration path — /register-org
       const isOrgRegister = window.location.pathname === "/register-org";
 
@@ -4820,6 +5503,8 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               orgId={orgPathId}
               onBack={() => { window.history.replaceState({}, "", "/"); setScreen("welcome"); window.location.reload(); }}
             />
+          ) : sharedTeamToken ? (
+            <SharedTeamScreen token={sharedTeamToken} />
           ) : sharedToken ? (
             <SharedProfileScreen token={sharedToken} />
           ) : betaChecked && betaUser?.userState === "individual-trial-expired" ? (
