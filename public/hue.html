@@ -179,6 +179,11 @@
           React.createElement("path", { d: "M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" }),
           React.createElement("path", { d: "M17 21v-8H7v8M7 3v5h8" })
         )
+      ) : type === "checkin" ? (
+        React.createElement("svg", svgProps,
+          React.createElement("circle", { cx: 12, cy: 12, r: 9 }),
+          React.createElement("path", { d: "M12 8v4M12 16h.01" })
+        )
       ) : null;
 
       return <button onClick={onClick} style={btnStyle}>{icon}</button>;
@@ -3199,21 +3204,27 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const { team, aggregate, members, notYetRevealedInternally } = data;
 
       return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, display: "flex", flexDirection: "column" } },
-        // Sticky header — read-only, no actions
+        // Sticky header — matches Results page pattern; no home button (unauthenticated view)
         React.createElement("div", {
           style: {
             position: "sticky", top: 0, zIndex: 100,
             background: C.cream, borderBottom: `1px solid ${C.sand}`,
-            display: "flex", alignItems: "center",
-            padding: isDesktop ? "14px 32px" : "12px 20px",
-            gap: 12,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: isDesktop ? "20px 40px" : "16px 20px",
           }
         },
-          React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 10 } },
-            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 15, color: C.ink } }, team.name),
-            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}66`, padding: "3px 10px", borderRadius: 99 } }, "Shared view \u2014 read only")
+          // Left: Hue mark + wordmark
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexShrink: 0 } },
+            React.createElement(SpinMark, { size: 38, paused: true }),
+            React.createElement("span", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink } }, "Hue")
           ),
-          React.createElement("a", { href: "https://myhue.co", style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: C.stone, textDecoration: "none", flexShrink: 0 } }, "MyHue")
+          // Centre: team name + read-only badge
+          React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, overflow: "hidden", margin: "0 16px", minWidth: 0 } },
+            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: isDesktop ? 16 : 15, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, team.name),
+            React.createElement("span", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: C.stone, background: `${C.sand}66`, padding: "3px 10px", borderRadius: 99, flexShrink: 0 } }, "Read only")
+          ),
+          // Right: myhue.co link (no auth, so no home NavIcon)
+          React.createElement("a", { href: "https://myhue.co", style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: C.stone, textDecoration: "none", flexShrink: 0 } }, "myhue.co")
         ),
         notYetRevealedInternally && React.createElement("div", {
           style: { background: `${C.glowOnLight}15`, borderBottom: `1px solid ${C.glowOnLight}30`, padding: "10px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.ink, textAlign: "center" }
@@ -4082,55 +4093,37 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           position: "sticky", top: 0, zIndex: 100,
           background: C.cream, borderBottom: `1px solid ${C.sand}`,
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: isDesktop ? "14px 32px" : "12px 20px",
+          padding: isDesktop ? "20px 40px" : "16px 20px",
           minWidth: 0,
         }
       },
-        // Left: Home icon
-        React.createElement(NavIcon, { type: "home", onClick: onBack }),
-        // Centre: team name
+        // Left: Hue mark + wordmark — matches Results page
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexShrink: 0 } },
+          React.createElement(SpinMark, { size: 38, paused: true }),
+          React.createElement("span", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink } }, "Hue")
+        ),
+        // Centre: team name, truncated
         React.createElement("span", {
           style: {
             fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: isDesktop ? 16 : 15,
             color: C.ink, flex: 1, textAlign: "center",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            margin: "0 12px", minWidth: 0,
+            margin: "0 16px", minWidth: 0,
           }
         }, teamName || ""),
-        // Right: share + ad-hoc buttons (leads only)
-        isLeadArg ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
-          // Ad-hoc check-in button
-          React.createElement("button", {
+        // Right: check-in + share + home (leads); home only (members)
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
+          isLeadArg && React.createElement(NavIcon, {
+            type: "checkin",
+            active: adHocOpen || checkinOpen,
             onClick: () => setAdHocOpen(o => !o),
-            title: "Open a check-in",
-            style: {
-              background: checkinOpen ? `${C.tend}18` : "none",
-              border: `1.5px solid ${C.sand}`, borderRadius: 99,
-              padding: isDesktop ? "6px 14px" : "6px 10px",
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
-              color: C.ink, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-            }
-          },
-            React.createElement("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: C.ink, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
-              React.createElement("circle", { cx: 12, cy: 12, r: 10 }),
-              React.createElement("path", { d: "M12 8v4M12 16h.01" })
-            ),
-            isDesktop ? (checkinOpen ? "Check-in open" : "Check-in") : null
-          ),
-          // Share button
-          React.createElement("button", {
+          }),
+          isLeadArg && React.createElement(NavIcon, {
+            type: "share",
             onClick: () => { setShareOpen(true); setShareResult(null); setShareRevoked(false); },
-            style: {
-              background: "none", border: `1.5px solid ${C.sand}`, borderRadius: 99,
-              padding: isDesktop ? "6px 14px" : "6px 10px",
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
-              color: C.ink, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-            }
-          },
-            React.createElement(NavIcon, { type: "share", onClick: null }),
-            isDesktop ? "Share" : null
-          )
-        ) : React.createElement("div", { style: { width: 36 } }) // spacer to keep name centred
+          }),
+          React.createElement(NavIcon, { type: "home", onClick: onBack })
+        )
       );
 
       if (loading) return React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", background: C.cream } },
@@ -4382,7 +4375,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         );
       };
 
-      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, overflowX: "hidden", display: "flex", flexDirection: "column" } },
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, display: "flex", flexDirection: "column" } },
         // Sticky header
         React.createElement(StickyHeader, { teamName: team.name, isLead }),
         React.createElement(TeamShareModal, null),
@@ -4767,13 +4760,29 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         background: C.ink, color: C.cream,
       };
 
-      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, overflowX: "hidden" } },
-        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "48px 32px" : "32px 20px", minWidth: 0, overflowX: "hidden" } },
-          // Header
-          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, minWidth: 0 } },
-            React.createElement("button", { onClick: onBack, style: { background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: C.stone, cursor: "pointer" } }, "\u2190 Back"),
-            React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em" } }, org.name)
+      return React.createElement("div", { style: { minHeight: "100vh", background: isDesktop ? "#F7F3ED" : C.cream, display: "flex", flexDirection: "column" } },
+        // Sticky header — matches Results page pattern
+        React.createElement("div", { style: {
+          position: "sticky", top: 0, zIndex: 100,
+          background: C.cream, borderBottom: `1px solid ${C.sand}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: isDesktop ? "20px 40px" : "16px 20px",
+        }},
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexShrink: 0 } },
+            React.createElement(SpinMark, { size: 38, paused: true }),
+            React.createElement("span", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink } }, "Hue")
           ),
+          React.createElement("span", { style: {
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: isDesktop ? 16 : 15,
+            color: C.ink, flex: 1, textAlign: "center",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            margin: "0 16px", minWidth: 0,
+          }}, org.name),
+          React.createElement(NavIcon, { type: "home", onClick: onBack })
+        ),
+        React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", padding: isDesktop ? "32px 32px 48px" : "24px 20px 48px", minWidth: 0, width: "100%" } },
+          // Org name heading in body
+          React.createElement("h1", { style: { fontFamily: "'Fraunces', serif", fontSize: isDesktop ? 32 : 24, fontWeight: 900, color: C.ink, letterSpacing: "-0.02em", marginBottom: 32 } }, org.name),
 
           // ─── Teams ───
           React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, border: `1px solid ${C.sand}`, marginBottom: 24 } },
