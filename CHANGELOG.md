@@ -4,6 +4,18 @@ All notable changes to the MyHue product. Ordered by date, most recent first. Ea
 
 ---
 
+## 20 April 2026 — Retake date drift (#75 follow-up)
+
+The 11 April fix was incomplete. Backend stored `retest_available_at` correctly at assessment completion; frontend correctly preferred the server value when present. But pre-11-April users had `retest_available_at = NULL` in the database (the column was added but never backfilled), and the frontend fallback path (`retakeAvailableDate`) used localStorage's `savedAt` — which was rewritten to `Date.now()` on every server hydration. Result: affected users saw the retake date slide forward by one day per session.
+
+Fixes:
+- Backfill migration: `retest_available_at = assessment_completed_at + 90 days` for all users with a completed assessment and null retest date. Runs at startup in `db.js`.
+- `retakeAvailableDate()` fallback changed from `Date.now()` to `null`. Missing date is safer than invented date.
+- `saveProfile()` now accepts an explicit `savedAt` so hydration from server data uses `assessment_completed_at`, not the moment of hydration.
+- `formatUserResponse` now exposes `assessmentCompletedAt` for frontend use.
+
+---
+
 ## 19 April 2026 — Team invite + registration bug fixes (#99–101)
 
 ### Team registration silent failure (#99)

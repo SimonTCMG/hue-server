@@ -505,7 +505,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 72. ✅ Results screen nav pinned (sticky) — Home icon always reachable
 73. ✅ Constellation positioning formula — zone-based placement (replaces ratio formula, April 2026 redesign)
 74. ✅ Results energy cards collapse/expand — card 1 open, cards 2-4 collapsed, independent More/Less toggle
-75. ✅ Registration date stored at registration. Retest date (`retest_available_at`) stored at assessment completion in `/api/complete` — 90 days after assessment, not registration. Updated on every retake. Never recomputed at render time.
+75. ✅ Registration date stored at registration. Retest date (`retest_available_at`) stored at assessment completion in `/api/complete` — 90 days after assessment, not registration. Updated on every retake. Never recomputed at render time. Frontend reads `user.retestAvailableAt` as single source of truth; localStorage fallback only runs when the server value is absent and returns null rather than inventing a date. Backfill migration ensures pre-fix users have the column populated.
 76. ✅ Legend dots fixed (14px circles, not ovals) — own visually separated row, larger text, subtle background
 77. ✅ Additional result cards four-colour gradient border — ink headings, cream background, EnergyWord unchanged
 

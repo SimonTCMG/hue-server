@@ -68,6 +68,13 @@ try { db.exec(`ALTER TABLE users ADD COLUMN trial_started_at INTEGER`); } catch 
 try { db.exec(`ALTER TABLE users ADD COLUMN user_state TEXT`); } catch {}
 // Issue 7: store retest date at registration, not computed at render time
 try { db.exec(`ALTER TABLE users ADD COLUMN retest_available_at TEXT`); } catch {}
+// Backfill retest_available_at for users who completed assessment before this column existed
+db.exec(`
+  UPDATE users
+  SET retest_available_at = strftime('%Y-%m-%dT%H:%M:%SZ', datetime(assessment_completed_at / 1000 + 90 * 86400, 'unixepoch'))
+  WHERE assessment_completed_at IS NOT NULL
+    AND retest_available_at IS NULL
+`);
 
 // Migrate Root → Tend in existing user records (one-time, idempotent)
 db.exec(`

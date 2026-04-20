@@ -199,11 +199,11 @@
     const STORAGE_KEY = "hue_profile_v1";
     const RETAKE_LOCKOUT_DAYS = 90;
 
-    function saveProfile(scores, ranked) {
+    function saveProfile(scores, ranked, savedAt = Date.now()) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-          savedAt: Date.now(),
+          date: new Date(savedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+          savedAt,
           scores,
           rankedIds: ranked.map(e => e.id),
         }));
@@ -236,10 +236,8 @@
     }
 
     function retakeAvailableDate(saved) {
-      if (!saved) return null;
-      // Fall back to now if savedAt missing (profile pre-dates this field)
-      const savedAt = saved.savedAt || Date.now();
-      const unlockMs = savedAt + RETAKE_LOCKOUT_DAYS * 24 * 60 * 60 * 1000;
+      if (!saved || !saved.savedAt) return null;
+      const unlockMs = saved.savedAt + RETAKE_LOCKOUT_DAYS * 24 * 60 * 60 * 1000;
       return unlockMs > Date.now() ? new Date(unlockMs) : null;
     }
 
@@ -5317,7 +5315,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 const rankedIds = Object.entries(data.user.labels)
                   .sort(([, a], [, b]) => labelOrder[a] - labelOrder[b])
                   .map(([id]) => id);
-                saveProfile(data.user.scores, rankedIds.map(id => ({ id })));
+                saveProfile(data.user.scores, rankedIds.map(id => ({ id })), data.user.assessmentCompletedAt);
                 setSavedProfile(loadProfile());
               }
             }
@@ -5406,7 +5404,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           const rankedIds = Object.entries(user.labels)
             .sort(([, a], [, b]) => labelOrder[a] - labelOrder[b])
             .map(([id]) => id);
-          saveProfile(user.scores, rankedIds.map(id => ({ id })));
+          saveProfile(user.scores, rankedIds.map(id => ({ id })), user.assessmentCompletedAt);
           setSavedProfile(loadProfile());
         }
         navigate("welcome");

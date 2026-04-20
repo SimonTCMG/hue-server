@@ -366,6 +366,7 @@ function formatUserResponse(user) {
     // Issue 7: serve stored dates — never recomputed at request time
     registeredAt: user.registered_at || null,
     retestAvailableAt: user.retest_available_at || null,
+    assessmentCompletedAt: user.assessment_completed_at || null,
   };
 }
 
