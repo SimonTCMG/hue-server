@@ -556,6 +556,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 64. ✅ Glow two-context rendering: `#F5D000` for fills/borders, `#C8960C` (glowOnLight) for text on light backgrounds — system-wide
 65. ✅ Team dashboard instinctive energy: uses stored `dominant_energy` (band-level label) with band-rank fallback — fixes faint/missing avatar colour for members whose top energy isn't "Naturally present"
 66. ✅ Daily email: context block marked internal-only to prevent profile data leaking into email body; explicit no-markdown rule added to system prompt; `stripMarkdown()` safety net strips any residual markdown before template injection
+67. ✅ Voice rules architecture: `HUE_VOICE_RULES` shared const in server.js is the single source of truth for voice, language, reserved words, and banned phrases. Appended server-side to all AI prompts including `/api/chat` (companion). Frontend companion prompt (`buildCompanionPrompt` in hue.html) now contains only companion-specific rules: persona/identity, coaching register, response length/style, topic menu ban, colour energy in coaching, ask-vs-answer, pre/post situation, privacy, observation library. All shared voice rules (reserved words, banned phrases, autonomy voice, energy framing, no-markdown) are handled server-side only — do not duplicate them in the frontend prompt.
 
 **Privacy + PII — completed 15 April 2026:**
 
