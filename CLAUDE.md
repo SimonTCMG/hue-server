@@ -21,7 +21,7 @@ MyHue is an AI-conducted colour energy assessment and ongoing companion. Through
 **Railway billing: Hobby plan ($5/month). Stable. See RAILWAY BILLING section below.**
 
 ### Working and live
-- Full assessment conversation flow (AI-conducted, 6–8 exchanges, six scoring dimensions in system prompt)
+- Full assessment conversation flow (AI-conducted, adaptive 12–18 exchanges, coverage-driven completion gate, six scoring dimensions in system prompt)
 - Four energy scores generated from conversation
 - Results screen: redesigned — bespoke observation at top ("only you", always shown in full), four energy cards each with position-specific celebratory framing (Instinctive/Fluent/Intentional/Developing) plus sub-labels ("This is where you go first" / "You move here easily when it helps" / "You reach for this when the situation calls for it" / "There's more here for you when you're ready"), flex and surprise cards, extended observations. Long observations truncated at ~200 chars at sentence boundary (180–220 range, always at full sentence end) with "Read more" / "Read less" inline toggle. Learn-more prompt uses accessible language (no framework vocabulary in navigation). Card 1 (Instinctive) expanded by default, cards 2-4 collapsed with prominent "More" / "Less" toggle in energy colour (not accordion — cards toggle independently). Nav bar pinned at top (sticky) so Home icon is always reachable. Extended/additional cards (flex, surprise, misread, profile shape, etc.) use four-colour gradient border (Spark→Glow→Tend→Flow) with ink headings and cream background — not instinctive energy colour
 - Bespoke observation: second API call generates one unrepeatable observation from the specific conversation
@@ -290,7 +290,7 @@ The results experience must celebrate all four energies with equal presence — 
 
 ## KEY PRODUCT DECISIONS (all resolved)
 
-**Assessment format:** Conversational, AI-conducted, 6–8 exchanges per energy exploration. Behavioural questions ("what did you do") not hypothetical ("what would you prefer"). See `hue-psychology-foundations-v1.md` for the theoretical basis (Mischel, Gosling).
+**Assessment format:** Conversational, AI-conducted, adaptive 12–18 exchanges (median 14). Minimum floor 12 exchanges. Coverage gate: five counters (valence ≥2, crossContext ≥2, recovery ≥2, updateMechanism ≥1, identityInSuccess ≥1) must all pass before completion JSON is emitted. Ceiling 18: JSON emitted regardless of coverage at exchange 18. Question bank: 7 original topics + Q9–Q16 (8 new questions, each tagged to a coverage counter). Exchanges 1–8 draw from original bank; exchanges 9–11 bias toward lowest counter; exchanges 12+ are strictly coverage-driven. Behavioural questions ("what did you do") not hypothetical ("what would you prefer"). See `hue-psychology-foundations-v1.md` for the theoretical basis (Mischel, Gosling). See `hue-assessment-v2-code-brief.md` for the full v2 spec.
 
 **Trial model:** 14-day free trial — all four energies explored, full access. Clock starts at sign-up, not first conversation. Card required at sign-up for individuals (auto-converts or cancels). No card required for org/team members — access managed under org contract.
 
@@ -493,6 +493,7 @@ The answer is almost always: "We did a workshop, people liked it, and then nothi
 34. ✅ Voice input — Web Speech API on assessment and companion chat, mic button, no backend changes
 35. ✅ Observation truncation — long observations in energy cards truncated at sentence boundary, Read more/less inline, bespoke obs always full
 36. ✅ hue-voice-v1.md integrated — master voice reference, redundant sections in language guide and email strategy replaced with pointers
+116. ✅ Assessment v2 — adaptive 12–18 exchange format, 8 new questions (Q9–Q16), coverage-driven completion gate (5 counters), ceiling enforcement at 18. Time estimates updated in consent conversation and home screen. See `hue-assessment-v2-code-brief.md`. (21 April 2026)
 37. ✅ Dashboard reveal gate — hidden from members until team lead reveals, team lead sees live dashboard with banner, permanent once revealed
 38. Write `hue-launch-checklist.md`
 39. Engage Nigel Evans — share `hue-psychology-foundations-v1.md` as starting brief for joint paper

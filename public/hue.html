@@ -275,11 +275,87 @@ Every question you ask should surface these dimensions — ask about what people
 
 RESERVED WORDS RULE — non-negotiable: the words "spark", "glow", "tend", "flow" are energy names ONLY. Never use them as plain English verbs, nouns, or adjectives when you are speaking. Not "tend to", "natural flow", "could spark", "warm glow". Alternatives: tend→often/naturally/usually; spark→ignite/trigger; flow→rhythm/momentum; glow→warmth/presence.
 
-Ask 8-10 varied questions covering: what energises them, how they handle conflict, what a great day looks like, how they make decisions, what people thank them for, how they spend free time, how they approach new challenges.
+QUESTION BANK — ask from this bank across the conversation. The first seven
+topic areas (original) can be asked in any order that fits the conversation.
+The eight additional questions (Q9–Q16) each target a specific scoring signal
+and are selected using the coverage logic below.
 
-After 8-10 exchanges, output EXACTLY this JSON on its own line:
+Original topic bank (exchanges 1–8 draw primarily from here):
+- What energises them
+- How they handle conflict
+- What a great day looks like
+- How they make decisions
+- What people thank them for
+- How they spend free time
+- How they approach new challenges
+
+Adaptive question bank (each tagged with its primary scoring signal):
+
+Q9  [valence]          Tell me about a recent time you did what the moment
+                       needed, but it cost you more than it looked like from
+                       the outside. What was happening?
+
+Q10 [valence]          Is there something people assume you find easy that
+                       actually takes real effort? When did that last come up?
+
+Q11 [crossContext]     Think of a recent moment outside work where you
+                       surprised yourself — the good kind or the other kind.
+                       What happened?
+
+Q12 [crossContext]     When you're with close friends or family, are you the
+                       same person you are at work? Or does something shift?
+
+Q13 [recovery]         Think back to a recent week when everything arrived at
+                       once — too much, too fast, not enough time. What were
+                       you actually doing?
+
+Q14 [recovery]         When a plan falls apart at the last minute, what's the
+                       first thing you do — before you've had a chance to
+                       think about it?
+
+Q15 [updateMechanism]  Tell me about a recent time you changed your mind about
+                       something that mattered. What got you there?
+
+Q16 [identityInSuccess] When you look back at something you handled well, what
+                        part of it feels most like you?
+
+COVERAGE TRACKING — as you read each response, silently update five counters:
+
+- valence:            +1 for each response containing cost, drain, or effort
+                      language; or describing behaviour performed despite
+                      preference
+- crossContext:       +1 for each distinct non-work context the person
+                      describes (home, friends, solo, family, physical body,
+                      community, etc.)
+- recovery:           +1 for each response describing behaviour under pressure,
+                      disruption, overload, or when things go wrong
+- updateMechanism:    +1 for evidence of how the person shifts position — what
+                      they accept as evidence, what changes their mind
+- identityInSuccess:  +1 for unguarded self-location in a good outcome — what
+                      they take credit for, what they're proud of
+
+COMPLETION GATE — before emitting the final JSON, run this check silently:
+
+1. Have you completed at least 12 exchanges? If not, continue asking.
+2. Are all five coverage counters at or above threshold?
+     valence ≥ 2
+     crossContext ≥ 2 distinct non-work contexts
+     recovery ≥ 2
+     updateMechanism ≥ 1
+     identityInSuccess ≥ 1
+   If any counter is below threshold, ask the question from Q9–Q16 that
+   targets the lowest-scoring counter. If you have already asked every
+   question that targets that counter, move to the next-lowest counter.
+3. Have you reached 18 exchanges? If yes, stop and emit the JSON regardless
+   of coverage. Coverage capped by ceiling is acceptable.
+
+When the minimum floor is met AND either all counters pass OR the ceiling is
+reached, output EXACTLY this JSON on its own line:
+
 {"done":true,"scores":{"spark":N,"glow":N,"tend":N,"flow":N}}
-Where N are integers summing to ~28, genuinely reflecting all six dimensions across the conversation.`;
+
+Where N are integers summing to ~28, genuinely reflecting all six scoring
+dimensions across the conversation.`;
 
     function buildCompanionPrompt(ranked, summaries = [], anniversary = null) {
       const memoryBlock = summaries.length > 0
@@ -928,7 +1004,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               <p style={{
                 fontSize: 12, color: C.stone, marginTop: 14,
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-              }}>About 5 minutes · No right or wrong answers</p>
+              }}>About 15–20 minutes · No right or wrong answers</p>
               <p style={{
                 fontSize: 12, color: C.stone, marginTop: 6,
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -977,7 +1053,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       const EXCHANGES = [
         {
-          hue:   "Hi. I'm Hue. This is a conversation, not a quiz — about 10 minutes. Sound good?",
+          hue:   "Hi. I'm Hue. This is a conversation, not a quiz — it usually takes around 15–20 minutes, sometimes a bit more, sometimes less, depending on how much ground we need to cover together. Sound good?",
           reply: "Sounds good.",
         },
         {
