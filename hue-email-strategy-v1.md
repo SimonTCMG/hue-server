@@ -231,7 +231,7 @@ Instinctive and fluent appear twice per week; intentional twice; developing once
 Three content types cycle independently by day of week:
 
 - **A thought for today** — single observation worth noticing
-- **A question to sit with** — single question, no answer needed
+- **A question to hold** — single question, no answer needed
 - **A small experiment** — one thing to notice today, never advice
 
 ### Two-facts technique (live — 16 April 2026)

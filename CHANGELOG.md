@@ -4,6 +4,37 @@ All notable changes to the MyHue product. Ordered by date, most recent first. Ea
 
 ---
 
+## 21 April 2026 — Shared voice rules across all AI-generated copy
+
+The daily subscriber email for 21 April included the banned phrase "That's not about control. It's about care." — spotted by Simon. Root cause: every AI call site in `server.js` had its own hand-written partial voice rules pasted into its system prompt. Each version was slightly different — the daily email prompt only banned "This isn't X. It's Y."; the bespoke observation prompt banned both that and "That's not X. It's Y."; none of them carried the full 15 April 2026 banned-phrase list.
+
+Fix: one shared `HUE_VOICE_RULES` constant declared once at the top of `server.js`, referenced by all six Anthropic API call sites.
+
+### Rules now enforced in one place
+- The read-it-aloud test
+- Autonomy voice — no outcome forecasting, no instructions to pause / reflect / sit with
+- Energies describe preferences, not capabilities — no "leads with" as a verb tied to one colour, no "can't do X", no framing any energy as unavailable to anyone
+- Reserved words rule (spark, glow, tend, flow — energy names only, never plain English)
+- Full banned-phrase list including both forms "This isn't X. It's Y." AND "That's not X. It's Y." (both forms, in any tense, including softened variants)
+- All April 15 additions: "sit with", "when you're ready", "people will notice", "bring something deliberately", "two engines running in parallel", "that's not a tension", direct instructions to pause
+- Position labels (Instinctive / Fluent / Intentional / Developing) — never as fixed identity
+- Flex mechanic language — "reaching for", "deliberately drawing on", never "switching to" or "unlocking"
+
+### Call sites updated
+- `/api/summarise` — conversation summary
+- `/api/one-sentence` — one-sentence distillation
+- `/api/bespoke-observation` — unrepeatable observation
+- `/api/chat` — companion chat (proxy, appended server-side to whatever the client sends — defence in depth)
+- `generateEmailContent()` — daily subscriber email
+
+### Content type rename
+The daily email content type "A question to sit with" renamed to "A question to hold". The phrase "sit with" is on the banned list (15 April 2026) and was leaking cues into generated output. Updated in `CONTENT_TYPES`, the `contentInstruction` map, and `hue-email-strategy-v1.md`.
+
+### Why this matters
+Voice drift across AI calls was inevitable with four hand-maintained partial copies. A rule added to one prompt would be forgotten in another. The new pattern makes voice update = one edit.
+
+---
+
 ## 20 April 2026 — Retake date drift (#75 follow-up)
 
 The 11 April fix was incomplete. Backend stored `retest_available_at` correctly at assessment completion; frontend correctly preferred the server value when present. But pre-11-April users had `retest_available_at = NULL` in the database (the column was added but never backfilled), and the frontend fallback path (`retakeAvailableDate`) used localStorage's `savedAt` — which was rewritten to `Date.now()` on every server hydration. Result: affected users saw the retake date slide forward by one day per session.
