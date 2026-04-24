@@ -876,4 +876,23 @@ export function hasNotificationBeenSent(teamId, type, sinceMs) {
   ).get(teamId, type, sinceMs);
 }
 
+// Returns team members with their notification routing preferences (for cron email sends)
+export function getTeamMembersForNotification(teamId) {
+  return db.prepare(
+    `SELECT tm.user_id, tm.role, u.name, u.email,
+            u.team_notification_email, u.team_notification_preference, u.team_notification_bounce_count
+     FROM team_members tm
+     JOIN users u ON u.id = tm.user_id
+     WHERE tm.team_id = ?
+     ORDER BY u.name`
+  ).all(teamId);
+}
+
+// Returns all teams where scheduled check-ins are not paused
+export function getTeamsEligibleForCheckin() {
+  return db.prepare(
+    "SELECT * FROM teams WHERE COALESCE(checkin_paused, 0) = 0"
+  ).all();
+}
+
 export default db;

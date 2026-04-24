@@ -65,7 +65,29 @@ import db, {
   updateUserEmail,
   pauseSubscription,
   clearSubscriptionPause,
+  // Check-in system (Pipeline 3)
+  createCheckin,
+  getOpenCheckin,
+  getCheckin,
+  closeCheckin,
+  submitCheckinResponse,
+  hasUserRespondedToCheckin,
+  getCheckinResponses,
+  getOpenCheckins,
+  getRecentCheckins,
+  incrementAdHocCount,
+  logTeamNotification,
+  hasNotificationBeenSent,
+  updateTeamNotificationEmail,
+  getTeamMembersForNotification,
+  getTeamsEligibleForCheckin,
 } from "./db.js";
+
+// Check-in dimensions config — 32 entries, 12 defaultVisible
+const CHECKIN_DIMENSIONS = JSON.parse(
+  readFileSync(join(__dirname, "checkin-dimensions.json"), "utf8")
+);
+const DIMENSION_KEYS = new Set(CHECKIN_DIMENSIONS.map(d => d.key));
 
 import { upsertSubscriber } from "./mailerlite.js";
 import { sendEmail } from "./mailersend.js";
@@ -1989,6 +2011,230 @@ app.put("/api/team/:teamId/reveal", (req, res) => {
   res.json({ ok: true, dashboardRevealed: true });
 });
 
+// ─── Check-in API (Pipeline 3 — anonymous team state) ────────────────────────
+
+// GET /api/team/:teamId/checkin/current
+// Returns the open check-in for this team and whether the auth'd user has already responded.
+// Individual responses are never surfaced — anonymity is preserved at the DB query level.
+app.get("/api/team/:teamId/checkin/current", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId } = req.params;
+  const role = getUserRole(user.id, teamId);
+  if (!role) return res.status(403).json({ error: "Not a member of this team" });
+
+  const checkin = getOpenCheckin(teamId);
+  if (!checkin) return res.json({ checkin: null });
+
+  const alreadyResponded = hasUserRespondedToCheckin(checkin.id, user.id);
+  res.json({ checkin, dimensions: CHECKIN_DIMENSIONS, alreadyResponded });
+});
+
+// POST /api/team/:teamId/checkin
+// Ad-hoc check-in trigger — lead/admin only. Soft cap: 4/month.
+app.post("/api/team/:teamId/checkin", async (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId } = req.params;
+  const role = getUserRole(user.id, teamId);
+  if (!role || role === "member") {
+    return res.status(403).json({ error: "Only team leads and org admins can trigger a check-in" });
+  }
+
+  // Prevent opening if one is already open
+  const existing = getOpenCheckin(teamId);
+  if (existing) return res.status(409).json({ error: "A check-in is already open for this team" });
+
+  const team = getTeam(teamId);
+  if (!team) return res.status(404).json({ error: "Team not found" });
+
+  // Check soft cap (4 ad-hoc check-ins per month)
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const currentCount = team.checkin_adhoc_month === thisMonth
+    ? (team.checkin_adhoc_count_this_month || 0)
+    : 0;
+  if (currentCount >= 4) {
+    return res.json({ warning: true, message: "Your team has reached the limit of 4 ad-hoc check-ins this month." });
+  }
+
+  const { contextNote } = req.body;
+  const checkinId = createCheckin(teamId, "adhoc", user.id, contextNote || null);
+  const newCount = incrementAdHocCount(teamId);
+  logTeamNotification(teamId, "checkin_open_adhoc", false, null);
+
+  // Email all members
+  const members = getTeamMembersForNotification(teamId);
+  for (const member of members) {
+    const emails = resolveTeamEmail(member);
+    const firstName = member.name.trim().split(" ")[0];
+    const openingLine = contextNote
+      ? `<p style="margin:0 0 16px">${contextNote}</p>`
+      : `<p style="margin:0 0 16px">Your team has opened a check-in.</p>`;
+    for (const email of emails) {
+      await sendEmail({
+        to: email,
+        toName: firstName,
+        subject: "Your team's check-in is open",
+        html: checkinEmailHtml({
+          firstName,
+          body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+${openingLine}<p style="margin:0 0 16px">Three short questions — takes about two minutes. Your answers are anonymous.</p>
+<p style="margin:0 0 16px">Your profile belongs to you — not your employer, not MyHue.</p>`,
+          ctaText: "Open the check-in",
+          ctaUrl: `${APP_URL}/team/${teamId}`,
+        }),
+      }).catch(err => console.error(`Ad-hoc checkin open email failed for ${email}:`, err));
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
+
+  if (newCount >= 4) {
+    return res.json({ ok: true, checkinId, warning: "This was your last ad-hoc check-in for this month." });
+  }
+  res.json({ ok: true, checkinId });
+});
+
+// POST /api/team/:teamId/checkin/:checkinId/respond
+// Submit a check-in response. Anonymous — user_id stored for deduplication only, never surfaced.
+app.post("/api/team/:teamId/checkin/:checkinId/respond", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId, checkinId } = req.params;
+  const role = getUserRole(user.id, teamId);
+  if (!role) return res.status(403).json({ error: "Not a member of this team" });
+
+  const checkin = getCheckin(checkinId);
+  if (!checkin || checkin.team_id !== teamId) return res.status(404).json({ error: "Check-in not found" });
+  if (checkin.status !== "open") return res.status(409).json({ error: "This check-in is no longer open" });
+  if (hasUserRespondedToCheckin(checkinId, user.id)) {
+    return res.status(409).json({ error: "You have already responded to this check-in" });
+  }
+
+  const { q1Dimensions, q2Landing, q3Helped, q4Carrying } = req.body;
+
+  // Validate Q1
+  if (!Array.isArray(q1Dimensions) || q1Dimensions.length < 1 || q1Dimensions.length > 3) {
+    return res.status(400).json({ error: "q1Dimensions must be an array of 1–3 items" });
+  }
+  for (const key of q1Dimensions) {
+    if (!DIMENSION_KEYS.has(key)) {
+      return res.status(400).json({ error: `Unknown dimension key: ${key}` });
+    }
+  }
+
+  // Validate Q2
+  const validLandings = ["heavier", "expected", "lighter", "unsure"];
+  if (!q2Landing || !validLandings.includes(q2Landing)) {
+    return res.status(400).json({ error: "q2Landing must be one of: heavier, expected, lighter, unsure" });
+  }
+
+  // Validate free text (≤200 chars each)
+  if (q3Helped && q3Helped.length > 200) {
+    return res.status(400).json({ error: "q3Helped must be 200 characters or fewer" });
+  }
+  if (q4Carrying && q4Carrying.length > 200) {
+    return res.status(400).json({ error: "q4Carrying must be 200 characters or fewer" });
+  }
+
+  submitCheckinResponse(checkinId, user.id, q1Dimensions, q2Landing, q3Helped, q4Carrying);
+  res.json({ ok: true });
+});
+
+// GET /api/team/:teamId/checkin/:checkinId/readback
+// Returns readback only when: closed + threshold met + reveal gate respected.
+// Leads may view between close and reveal; members wait for reveal.
+app.get("/api/team/:teamId/checkin/:checkinId/readback", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId, checkinId } = req.params;
+  const role = getUserRole(user.id, teamId);
+  if (!role) return res.status(403).json({ error: "Not a member of this team" });
+
+  const checkin = getCheckin(checkinId);
+  if (!checkin || checkin.team_id !== teamId) return res.status(404).json({ error: "Check-in not found" });
+
+  if (checkin.status !== "closed") return res.json({ gated: true, reason: "closed" });
+
+  const team = getTeam(teamId);
+  if ((checkin.response_count || 0) < (team.checkin_min_responses || 8)) {
+    return res.json({ gated: true, reason: "threshold" });
+  }
+
+  if (!team.dashboard_revealed && role === "member") {
+    return res.json({ gated: true, reason: "reveal" });
+  }
+
+  res.json({
+    checkinId: checkin.id,
+    openedAt: checkin.opened_at,
+    closedAt: checkin.closed_at,
+    responseCount: checkin.response_count,
+    slot1: checkin.readback_slot_1,
+    slot2: checkin.readback_slot_2,
+    slot3: checkin.readback_slot_3,
+  });
+});
+
+// GET /api/team/:teamId/checkin/latest
+// Returns the most recent closed check-in's readback, same gating as above.
+app.get("/api/team/:teamId/checkin/latest", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId } = req.params;
+  const role = getUserRole(user.id, teamId);
+  if (!role) return res.status(403).json({ error: "Not a member of this team" });
+
+  const [checkin] = getRecentCheckins(teamId, 1);
+  if (!checkin) return res.json({ checkin: null });
+
+  const team = getTeam(teamId);
+  if ((checkin.response_count || 0) < (team.checkin_min_responses || 8)) {
+    return res.json({ gated: true, reason: "threshold" });
+  }
+
+  if (!team.dashboard_revealed && role === "member") {
+    return res.json({ gated: true, reason: "reveal" });
+  }
+
+  res.json({
+    checkinId: checkin.id,
+    openedAt: checkin.opened_at,
+    closedAt: checkin.closed_at,
+    responseCount: checkin.response_count,
+    slot1: checkin.readback_slot_1,
+    slot2: checkin.readback_slot_2,
+    slot3: checkin.readback_slot_3,
+  });
+});
+
+// PUT /api/team/:teamId/checkin/notification-email
+// Update the authenticated user's own notification routing. Self only.
+app.put("/api/team/:teamId/checkin/notification-email", (req, res) => {
+  const user = getUserFromCookie(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+  const { teamId } = req.params;
+  const role = getUserRole(user.id, teamId);
+  if (!role) return res.status(403).json({ error: "Not a member of this team" });
+
+  const { teamEmail, preference } = req.body;
+  const validPrefs = ["personal", "work", "both"];
+  if (!validPrefs.includes(preference)) {
+    return res.status(400).json({ error: "preference must be one of: personal, work, both" });
+  }
+  if ((preference === "work" || preference === "both") && !teamEmail) {
+    return res.status(400).json({ error: "teamEmail is required when preference is work or both" });
+  }
+
+  updateTeamNotificationEmail(user.id, teamEmail || null, preference);
+  res.json({ ok: true });
+});
+
 // ─── Org admin endpoints ─────────────────────────────────────────────────────
 
 // Create organisation + first team
@@ -2581,6 +2827,266 @@ cron.schedule("0 9 * * *", sendTrialEmails, {
   timezone: "Europe/London",
 });
 
+// ─── Check-in helpers ─────────────────────────────────────────────────────────
+
+// Reuse the existing email HTML wrapper for check-in emails
+const checkinEmailHtml = trialEmailHtml;
+
+// Resolve the email address(es) to send team notifications to for a given user.
+// Returns an array: one or two addresses depending on the user's preference.
+function resolveTeamEmail(user) {
+  const pref = user.team_notification_preference || "personal";
+  const personal = user.email;
+  const work = user.team_notification_email;
+  if (pref === "both" && work) return [personal, work];
+  if (pref === "work" && work) return [work];
+  return [personal];
+}
+
+// ISO week number (1–53) for a given date — used for fortnightly cadence parity.
+// Even-numbered ISO weeks are the "on" weeks for fortnightly teams.
+function getISOWeek(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+
+// Slot 3 keyed prompts — one per Q2 landing distribution pattern.
+// Slot 2 is null until Simon writes the ~40-sentence observation library.
+// TODO: wire in Slot 2 observations from hue-observations-v1.md when ready.
+const CHECKIN_SLOT3_PROMPTS = {
+  stretch: "This was a stretching week — the kind that asks more than usual. Notice what the team reached for and what helped. That pattern is worth holding on to.",
+  matched: "The week landed close to expectations. There's something steady in that — a team that reads its own rhythm accurately is a team that can trust its own signals.",
+  celebratory: "Something in this week's picture stands out. The team arrived lighter than expected, and that's worth naming — not just as relief, but as a signal about what's working.",
+  quiet: "The week left a lot of people unsure about how to describe it. That's a useful signal in itself — sometimes ambiguity is the thing worth sitting with as a team.",
+  mixed: "This week showed up differently for different people. That range is part of the team picture too — and worth acknowledging rather than averaging away.",
+};
+
+// Generate the three readback slots for a closed check-in.
+// Slot 1: template aggregate from actual responses.
+// Slot 2: null (observation library not yet written — frontend renders 2-slot layout).
+// Slot 3: keyed prompt based on Q2 landing distribution.
+function generateReadback(teamId, checkinId) {
+  const responses = getCheckinResponses(checkinId);
+  const total = responses.length;
+
+  // Tally Q1 dimension mentions
+  const dimCounts = {};
+  for (const r of responses) {
+    const dims = JSON.parse(r.q1_dimensions || "[]");
+    for (const key of dims) {
+      dimCounts[key] = (dimCounts[key] || 0) + 1;
+    }
+  }
+
+  // Top 3 dimensions by frequency, mapped to labels
+  const topDims = Object.entries(dimCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([key]) => {
+      const dim = CHECKIN_DIMENSIONS.find(d => d.key === key);
+      return dim ? dim.label : key;
+    });
+
+  // Q2 landing distribution
+  const landingCounts = { heavier: 0, expected: 0, lighter: 0, unsure: 0 };
+  for (const r of responses) {
+    if (r.q2_landing && Object.prototype.hasOwnProperty.call(landingCounts, r.q2_landing)) {
+      landingCounts[r.q2_landing]++;
+    }
+  }
+  const pct = k => (total > 0 ? Math.round((landingCounts[k] / total) * 100) : 0);
+
+  // Slot 1 — template sentence
+  let slot1;
+  if (topDims.length > 0) {
+    const dimList =
+      topDims.length === 1 ? topDims[0]
+      : topDims.length === 2 ? `${topDims[0]} and ${topDims[1]}`
+      : `${topDims[0]}, ${topDims[1]} and ${topDims[2]}`;
+    slot1 = `This week, the team noticed ${dimList}.`;
+  } else {
+    slot1 = "This week's check-in captured the team's overall shape.";
+  }
+  slot1 += ` The week felt ${pct("heavier")}% heavier than expected, ${pct("expected")}% as expected, ${pct("lighter")}% lighter, and ${pct("unsure")}% were unsure.`;
+
+  // Slot 2 — null until observation library is written
+  const slot2 = null;
+
+  // Slot 3 — keyed prompt based on Q2 majority
+  let slot3Key = "mixed";
+  if (pct("heavier") >= 50) slot3Key = "stretch";
+  else if (pct("lighter") >= 50) slot3Key = "celebratory";
+  else if (pct("expected") >= 50) slot3Key = "matched";
+  else if (pct("unsure") >= 50) slot3Key = "quiet";
+  const slot3 = CHECKIN_SLOT3_PROMPTS[slot3Key];
+
+  return { slot1, slot2, slot3, responseCount: total };
+}
+
+// ─── Check-in cron jobs ────────────────────────────────────────────────────────
+
+// Friday 15:00 — open scheduled check-ins for eligible teams.
+// Fortnightly cadence: even ISO weeks are "on" (e.g. weeks 18, 20, 22…).
+// Weekly cadence: opens every Friday.
+async function openScheduledCheckins() {
+  const teams = getTeamsEligibleForCheckin();
+  const isoWeek = getISOWeek(new Date());
+
+  for (const team of teams) {
+    try {
+      // Fortnightly cadence — skip odd weeks
+      if (team.checkin_cadence === "fortnightly" && isoWeek % 2 !== 0) {
+        logTeamNotification(team.id, "checkin_open", true, "fortnightly_off_week");
+        continue;
+      }
+
+      // Skip if already has an open check-in
+      const existing = getOpenCheckin(team.id);
+      if (existing) {
+        logTeamNotification(team.id, "checkin_open", true, "already_open");
+        continue;
+      }
+
+      // Skip if team has fewer active members than the anonymity threshold
+      const members = getTeamMembersForNotification(team.id);
+      if (members.length < (team.checkin_min_responses || 8)) {
+        logTeamNotification(team.id, "checkin_open", true, `below_threshold_${members.length}`);
+        console.log(`Checkin suppressed for team ${team.id} — ${members.length} members < threshold ${team.checkin_min_responses}`);
+        continue;
+      }
+
+      const checkinId = createCheckin(team.id, "scheduled");
+      logTeamNotification(team.id, "checkin_open", false, null);
+
+      for (const member of members) {
+        const emails = resolveTeamEmail(member);
+        const firstName = member.name.trim().split(" ")[0];
+        for (const email of emails) {
+          await sendEmail({
+            to: email,
+            toName: firstName,
+            subject: "Your team's check-in is open",
+            html: checkinEmailHtml({
+              firstName,
+              body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Your team's weekly check-in is now open. Three short questions — takes about two minutes.</p>
+<p style="margin:0 0 16px">Your answers are anonymous. The team sees the picture together on Monday, not individual responses.</p>
+<p style="margin:0 0 16px">Your profile belongs to you — not your employer, not MyHue.</p>`,
+              ctaText: "Open the check-in",
+              ctaUrl: `${APP_URL}/team/${team.id}`,
+            }),
+          }).catch(err => console.error(`Checkin open email failed for ${email}:`, err));
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+
+      console.log(`Checkin opened for team ${team.id} (${team.name || team.id}), ISO week ${isoWeek}`);
+    } catch (err) {
+      console.error(`openScheduledCheckins error for team ${team.id}:`, err);
+    }
+  }
+}
+
+// Sunday 18:00 — send a gentle reminder to members who haven't responded yet.
+// Only fires for scheduled check-ins (not ad-hoc). Never guilt-inducing.
+async function sendCheckinReminders() {
+  const openCheckins = getOpenCheckins();
+
+  for (const checkin of openCheckins) {
+    if (checkin.cadence_type !== "scheduled") continue;
+
+    const team = getTeam(checkin.team_id);
+    if (!team) continue;
+
+    const members = getTeamMembersForNotification(checkin.team_id);
+
+    for (const member of members) {
+      if (hasUserRespondedToCheckin(checkin.id, member.user_id)) continue;
+
+      const emails = resolveTeamEmail(member);
+      const firstName = member.name.trim().split(" ")[0];
+      for (const email of emails) {
+        await sendEmail({
+          to: email,
+          toName: firstName,
+          subject: "A note — your team's check-in is still open",
+          html: checkinEmailHtml({
+            firstName,
+            body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">Your team's check-in closes tomorrow morning.</p>
+<p style="margin:0 0 16px">It's completely optional — if you'd rather sit this one out, that's fine. The team picture will still be there.</p>`,
+            ctaText: "Open the check-in",
+            ctaUrl: `${APP_URL}/team/${checkin.team_id}`,
+          }),
+        }).catch(err => console.error(`Checkin reminder email failed for ${email}:`, err));
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+  }
+}
+
+// Monday 09:00 — close all open check-ins, generate readbacks, notify leads/admins.
+// Members see the readback on their dashboard; only leads/admins receive an email.
+async function closeCheckinsAndGenerateReadbacks() {
+  const openCheckins = getOpenCheckins();
+
+  for (const checkin of openCheckins) {
+    const team = getTeam(checkin.team_id);
+    if (!team) continue;
+
+    try {
+      const { slot1, slot2, slot3, responseCount } = generateReadback(checkin.team_id, checkin.id);
+      closeCheckin(checkin.id, slot1, slot2, slot3, responseCount);
+      logTeamNotification(checkin.team_id, "checkin_close", false, null);
+
+      console.log(`Checkin closed for team ${checkin.team_id} (${team.name || team.id}), ${responseCount} responses`);
+
+      // Only email leads/admins if threshold was met — members see it on the dashboard
+      if (responseCount >= (team.checkin_min_responses || 8)) {
+        const members = getTeamMembersForNotification(checkin.team_id);
+        const leads = members.filter(m => m.role === "team-lead" || m.role === "org-admin");
+
+        for (const lead of leads) {
+          const emails = resolveTeamEmail(lead);
+          const firstName = lead.name.trim().split(" ")[0];
+          for (const email of emails) {
+            await sendEmail({
+              to: email,
+              toName: firstName,
+              subject: "Your team's check-in readback is ready",
+              html: checkinEmailHtml({
+                firstName,
+                body: `<p style="margin:0 0 16px">Hi ${firstName},</p>
+<p style="margin:0 0 16px">The week's check-in has closed. The readback is on your team dashboard.</p>
+<p style="margin:0 0 16px">Members will see it the next time they open their team view.</p>`,
+                ctaText: "View the readback",
+                ctaUrl: `${APP_URL}/team/${checkin.team_id}`,
+              }),
+            }).catch(err => console.error(`Checkin readback email failed for ${email}:`, err));
+            await new Promise(r => setTimeout(r, 200));
+          }
+        }
+      } else {
+        logTeamNotification(checkin.team_id, "checkin_readback_suppressed", true, `below_threshold_${responseCount}`);
+      }
+    } catch (err) {
+      console.error(`closeCheckinsAndGenerateReadbacks error for team ${checkin.team_id}:`, err);
+    }
+  }
+}
+
+// Friday 15:00 — open scheduled check-ins for eligible teams
+cron.schedule("0 15 * * 5", openScheduledCheckins, { timezone: "Europe/London" });
+
+// Sunday 18:00 — send reminder to non-responders (scheduled check-ins only)
+cron.schedule("0 18 * * 0", sendCheckinReminders, { timezone: "Europe/London" });
+
+// Monday 09:00 — close open check-ins, generate readbacks, send readback-ready email to leads
+cron.schedule("0 9 * * 1", closeCheckinsAndGenerateReadbacks, { timezone: "Europe/London" });
+
 // ─── Start ──────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
@@ -2595,4 +3101,22 @@ app.listen(PORT, () => {
       console.log("Backfilled Simon into org email sequence (Day 0 marked as sent)");
     }
   } catch (e) { /* ignore if user doesn't exist yet */ }
+
+  // TCMG first-run check-in configuration — runs once on first deploy after check-in system ships.
+  // Skips if already configured (checkin_cadence already set to 'weekly').
+  try {
+    const tcmg = getTeam("tcmg-team-001");
+    if (tcmg && tcmg.checkin_cadence !== "weekly") {
+      db.prepare(
+        `UPDATE teams
+         SET checkin_cadence = 'weekly',
+             checkin_timezone = 'Europe/London',
+             checkin_trigger_time = '15:00',
+             checkin_min_responses = 6,
+             checkin_paused = 0
+         WHERE id = 'tcmg-team-001'`
+      ).run();
+      console.log("TCMG: first-run check-in configuration applied (weekly, min 6, unpaused)");
+    }
+  } catch (e) { /* ignore if team doesn't exist in this environment */ }
 });
