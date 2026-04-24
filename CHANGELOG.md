@@ -4,6 +4,53 @@ All notable changes to the MyHue product. Ordered by date, most recent first. Ea
 
 ---
 
+## 24 April 2026 — Check-in backend complete (Pipeline 3) — TCMG first run 1 May 2026
+
+The check-in system was previously DB-complete (all CRUD helpers in `db.js`, frontend components in `hue.html`) but had no wired backend. This session verified that gap, then built everything needed for TCMG's first real check-in on Friday 1 May at 15:00 UK.
+
+**Verification finding:** CLAUDE.md items 109/110/112 described the system as complete. In reality, no cron jobs and no API routes existed. DB layer was confirmed live. Frontend components were confirmed live. Backend was missing entirely. (See instruction file `CODE_INSTRUCTION_checkin_first_run.md`.)
+
+### What was built (CLAUDE.md items 109, 112)
+
+**6 API routes added to `server.js`:**
+- `GET /api/team/:teamId/checkin/current` — open check-in + 32 dimensions + alreadyResponded flag for auth'd user
+- `POST /api/team/:teamId/checkin` — ad-hoc trigger (lead/admin only), soft cap 4/month, emails all members
+- `POST /api/team/:teamId/checkin/:checkinId/respond` — validated anonymous response (Q1: 1–3 valid dimension keys; Q2: enum; Q3/Q4: ≤200 chars)
+- `GET /api/team/:teamId/checkin/:checkinId/readback` — gated: status=closed + threshold + reveal gate (leads bypass reveal)
+- `GET /api/team/:teamId/checkin/latest` — most recent closed readback, same gating
+- `PUT /api/team/:teamId/checkin/notification-email` — self-only notification routing update
+
+**3 cron jobs added:**
+- `0 15 * * 5` (Friday 15:00 UK) — `openScheduledCheckins`: filters paused teams, checks fortnightly parity (even ISO weeks are "on"), skips teams below threshold, creates check-in, emails all members
+- `0 18 * * 0` (Sunday 18:00 UK) — `sendCheckinReminders`: gentle optional reminder to non-responders only; scheduled check-ins only
+- `0 9 * * 1` (Monday 09:00 UK) — `closeCheckinsAndGenerateReadbacks`: generates readback, closes check-in, emails leads/admins only if threshold met
+
+**`generateReadback(teamId, checkinId)`:**
+- Slot 1: template aggregate — top 3 Q1 dimensions by frequency + Q2 landing distribution as percentages
+- Slot 2: `null` — observation library (~40 sentences) not yet written; frontend renders 2-slot layout
+- Slot 3: keyed prompt from `CHECKIN_SLOT3_PROMPTS` (stretch/matched/celebratory/quiet/mixed) based on Q2 majority (≥50%)
+
+**Helpers added to `server.js`:** `resolveTeamEmail()`, `getISOWeek()`, `CHECKIN_SLOT3_PROMPTS`, `checkinEmailHtml` (alias of `trialEmailHtml`)
+
+**2 functions added to `db.js`:** `getTeamMembersForNotification()` (includes notification routing columns), `getTeamsEligibleForCheckin()` (teams where `checkin_paused = 0`)
+
+### TCMG first-run configuration
+
+Startup migration added to `app.listen` block — runs once on first deploy, idempotent (skips if `checkin_cadence` already set):
+```
+checkin_cadence = 'weekly', checkin_timezone = 'Europe/London',
+checkin_trigger_time = '15:00', checkin_min_responses = 6, checkin_paused = 0
+```
+Applied to `tcmg-team-001`. No manual SQL required — will apply automatically on Railway startup.
+
+### What was deliberately left out
+
+- Slot 2 copy — suppressed entirely (null), not stubbed. No placeholder visible to users.
+- No ad-hoc 24h auto-close cron — TCMG is weekly; the Monday close handles all scheduled check-ins. Ad-hoc check-ins stay open until Monday close.
+- No changes to frontend — `TeamCheckinFlow` and `TeamCheckinReadback` components were already present.
+
+---
+
 ## 22 April 2026 — Static pages voice pass + manifesto goes live
 
 Simon spotted "lands" language on the About page ("Something that didn't land", "didn't land the way you meant") and asked for a voice pass across all static pages (About, Privacy, Manifesto). Did a full scan for banned phrasing, reserved-word misuse, and AI-cadence patterns. Results:
