@@ -3119,4 +3119,15 @@ app.listen(PORT, () => {
       console.log("TCMG: first-run check-in configuration applied (weekly, min 6, unpaused)");
     }
   } catch (e) { /* ignore if team doesn't exist in this environment */ }
+
+  // TCMG check-in cancellation — the 24 April 2026 check-in opened accidentally
+  // because the cron fired on the same day we deployed. Cancel it so the intended
+  // first run is Friday 1 May 2026. Remove this block after 1 May deploy.
+  try {
+    const accidental = getOpenCheckin("tcmg-team-001");
+    if (accidental) {
+      closeCheckin(accidental.id, null, null, null, 0);
+      console.log("TCMG: accidental 24 April check-in cancelled — intended first run is 1 May 2026");
+    }
+  } catch (e) { console.error("TCMG check-in cancellation error:", e); }
 });
