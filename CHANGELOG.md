@@ -4,6 +4,30 @@ All notable changes to the MyHue product. Ordered by date, most recent first. Ea
 
 ---
 
+## 22 April 2026 — Static pages voice pass + manifesto goes live
+
+Simon spotted "lands" language on the About page ("Something that didn't land", "didn't land the way you meant") and asked for a voice pass across all static pages (About, Privacy, Manifesto). Did a full scan for banned phrasing, reserved-word misuse, and AI-cadence patterns. Results:
+
+### About page — 3 fixes
+1. Hero supporting copy: "Something that didn't land" → "Something that didn't go the way you meant"
+2. WIIFM statement 4: "It's not a personality quiz. It's a conversation" → "A conversation, not a personality quiz" (banned "It's not X. It's Y." cadence; rewritten as appositional contrast)
+3. Step 4 italic teaser + body: two instances of "didn't land the way you meant" → "didn't go the way you meant"
+
+### Privacy page — clean
+Full scan found no banned phrasing, no reserved-word misuse, no AI cadence. No changes.
+
+### Manifesto — 2 fixes + now a live page
+The manifesto was previously a source markdown doc only. No `/manifesto` route existed. Two voice fixes made before conversion:
+1. Line 51: "aren't a ranking of better and worse. They're reach labels..." → "are reach labels... rather than a ranking of better and worse" (banned "not X. It's Y." cadence rewritten as appositional qualifier)
+2. Line 59: "is not a refinement of the old model. It's a different category." → "is a different category altogether — not a refinement of the old model, but a different kind of instrument." (banned cadence rewritten as single assertion with dash-clarifier)
+
+The fixed markdown was then converted to `public/manifesto.html`, matching the Privacy page's visual scaffolding (same fonts, colours, shared footer). Added `/manifesto` route to `server.js`. Footer navigation on all three static pages already contained the manifesto link (present in earlier shared-footer work); page now resolves.
+
+### Pattern for future static-page voice updates
+Markdown source stays canonical in `hue-manifesto-v1.md`. If the manifesto copy ever changes, the source is edited first, and `public/manifesto.html` is regenerated from it — not edited in parallel. Same principle applies if we convert About or Privacy back to markdown-sourced in future.
+
+---
+
 ## 21 April 2026 — Shared voice rules across all AI-generated copy
 
 The daily subscriber email for 21 April included the banned phrase "That's not about control. It's about care." — spotted by Simon. Root cause: every AI call site in `server.js` had its own hand-written partial voice rules pasted into its system prompt. Each version was slightly different — the daily email prompt only banned "This isn't X. It's Y."; the bespoke observation prompt banned both that and "That's not X. It's Y."; none of them carried the full 15 April 2026 banned-phrase list.

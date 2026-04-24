@@ -48,7 +48,7 @@ A profile that notices how you reach across four energy directions, at this mome
 
 Not a snapshot. Not a type. Not a letter you carry. A picture that updates when something genuinely shifts, and leaves itself alone when nothing has. A record of your **flex range** — the energies you draw on most naturally, the ones you move into easily when it helps, the ones you reach for deliberately, and the ones still developing in you. A record of how your **energy expression** changes when the situation changes: at work, at home, under tiredness, on a good day. A record that grows.
 
-The positions we use to describe where each energy sits in your profile aren't a ranking of better and worse. They're reach labels — *Instinctive, Fluent, Intentional, Developing* — and each one names something specific that's real about you. The energy that goes first is how you move through the world without thinking. The energy you move into easily when it helps. The energy that lands with more precision because you chose it deliberately. The energy with the most room still to surprise both you and everyone around you. Four positions. Each one a description, not a verdict.
+The positions we use to describe where each energy sits in your profile are reach labels — *Instinctive, Fluent, Intentional, Developing* — rather than a ranking of better and worse. Each one names something specific that's real about you. The energy that goes first is how you move through the world without thinking. The energy you move into easily when it helps. The energy that carries more precision because you chose it deliberately. The energy with the most room still to surprise both you and everyone around you. Four positions. Each one a description, not a verdict.
 
 There is no hierarchy. There is no personality type. There is no version of you that this instrument is trying to turn you into.
 
@@ -56,7 +56,7 @@ There is only the picture of how you naturally show up now, held accurately enou
 
 ## What we're committing to
 
-The shift we're describing is not a refinement of the old model. It's a different category.
+The shift we're describing is a different category altogether — not a refinement of the old model, but a different kind of instrument.
 
 From static snapshot to living profile.
 From employer-administered to individually owned.
