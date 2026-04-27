@@ -190,6 +190,23 @@ Then open `http://localhost:3001`
 
 ---
 
+## FILE EDITING WORKFLOW — non-negotiable
+
+**Claude Code is the only thing that touches files in this repo.** claude.ai Project chats are thinking partners and copywriters; their file outputs are drafts, never deployable artefacts.
+
+**Never deploy by copying from `claude-project-files/` to the repo root.** That folder is a snapshot for reference and WILL drift behind the live code over time. A blind copy can silently overwrite work added since the snapshot was taken.
+
+**When a Project chat has produced an updated version of a file:**
+1. Don't `cp` it across. Open the live repo file via Claude Code instead.
+2. Identify the intended changes (what's actually different in spirit — voice rules, copy edits, new section, etc.).
+3. Apply just those changes surgically to the live file via Edit.
+4. Run `git diff --stat` and read the change. If the diff size doesn't match the stated intent (e.g. "voice rules only" but +15/−536), stop. Investigate before staging.
+5. Stage the intended files by name (`git add server.js hue-language-guide-v1.md`), never `git add .` — the repo has untracked working files (`claude-project-files/`, `.DS_Store`, `FILES-TO-LOAD.txt`) that must not be committed.
+
+**Why this rule exists:** On 27 April 2026 a snapshot of `server.js` from 21 April (in `claude-project-files/`) was nearly deployed as a "voice rules" update. It pre-dated the check-in backend added on 24 April (commit `bfb5e62`) and would have wiped 6 API routes, 3 cron jobs, `generateReadback()`, `resolveTeamEmail()`, the TCMG startup migration, and `checkin-dimensions.json` references in production. The diff stat (`15 insertions, 536 deletions`) was the only signal that anything was wrong.
+
+---
+
 ## THE FOUR ENERGIES
 
 | Energy | Colour | Description |
