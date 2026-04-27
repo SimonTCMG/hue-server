@@ -94,6 +94,16 @@ If a user says "I feel like I flow through conversations easily" or "I tend to o
 | 3rd | Intentional | Weak |
 | 4th | Developing | Lacking / Low |
 
+**Critical rule — position labels are modifiers, never substitutes for energy names.** The position labels (*Instinctive, Fluent, Intentional, Developing*) describe **where** an energy sits in someone's profile. They are never used as the noun in a sentence. The energy name (Spark, Glow, Tend, Flow) is always the subject.
+
+| Wrong | Right |
+|-------|-------|
+| "You reach for Fluent when..." | "You reach for Glow when..." (if Glow is their Fluent energy) |
+| "Your Instinctive carries you..." | "Tend carries you..." (if Tend is their Instinctive energy) |
+| "Your Developing shows up..." | "Spark shows up..." (if Spark is their Developing energy) |
+
+The error to avoid: treating position labels as proper-noun-like and using them as standalone references. They modify; they do not stand alone.
+
 ### Describing the flex mechanic
 | Use | Never use |
 |-----|-----------|
@@ -107,7 +117,7 @@ If a user says "I feel like I flow through conversations easily" or "I tend to o
 | Use | Never use |
 |-----|-----------|
 | your energy profile | your type |
-| how you tend to show up | who you are |
+| how you naturally show up | who you are |
 | your preference | your personality (as fixed) |
 | the picture that's emerging | your result (as final) |
 | what your conversation revealed | what the test found |
@@ -187,7 +197,7 @@ The growth frontier — not a gap, not a weakness. The energy with the most room
 | The collective picture | The team type |
 
 **The team buyer conversation script:**
-> "We're giving everyone access to an AI tool that helps you understand your own working patterns — how you naturally tend to show up, and how to flex that when the situation calls for it. Your profile is completely private. We can't see your individual result. We'll see the team picture — the aggregate — and use that to have better conversations about how we work together."
+> "We're giving everyone access to an AI tool that helps you understand your own working patterns — how you naturally show up, and how to flex that when the situation calls for it. Your profile is completely private. We can't see your individual result. We'll see the team picture — the aggregate — and use that to have better conversations about how we work together."
 
 **For the gap radar:**
 Never frame a missing energy as a team deficit or weakness. Frame it as a dimension the team reaches for with more intention than others — and an opportunity to build deliberate practice or bring in complementary energy.
@@ -210,6 +220,40 @@ Hue must never describe itself as a psychometric test in clinical or regulatory 
 ## 11. Tone, Voice, and Accessibility
 
 *Now fully covered in `hue-voice-v1.md` sections 1 and 3. That document is the master reference for what Hue sounds like, the accessibility test, and all voice/tone decisions.*
+
+---
+
+## 12. Life-Domain Neutrality and British English
+
+Hue is a living profile that travels with the person across every part of their life — work, home, parenting, caring, study, retirement, between roles, on sabbatical, running a household, anything. The language must reflect that. Every time a piece of copy assumes the reader is in an office, has colleagues, runs meetings, or works in tech, it narrows Hue's audience and quietly tells some readers this product isn't for them.
+
+### Don't default to workplace situations
+
+When a piece of copy needs an example situation, prefer ones that work across domains.
+
+| Avoid (workplace-default) | Prefer (domain-neutral) |
+|---------------------------|--------------------------|
+| your next 1:1 / your team meeting | a conversation that's been on your mind |
+| the morning standup | the start of a busy day |
+| your direct reports | the people around you |
+| a difficult colleague | a difficult conversation |
+| the all-hands / the deck / the deck review | something you've been preparing |
+| your manager said... | someone said... |
+| at work today | this week |
+
+The default reader is a literate adult. That's all we assume. Not a colleague, not a manager, not direct reports, not an office, not an employer, not school-age children, not a partner, not a particular religion or family structure.
+
+### Don't use American tech-startup vocabulary
+
+Hue is built in the UK and the language must travel. American tech-startup register narrows the audience to a slice of one industry in one country.
+
+**Banned (American tech-startup):** standup, 1:1 (use "one-to-one"), all-hands, town hall, OKRs, the deck, rockstar, ninja, circle back, loop in, table stakes, low-hanging fruit, hop on a call, ping me, blocker, stakeholder buy-in, sync, touch base, take it offline, dial in, deck review, drop a line.
+
+**Use British English spelling and idiom throughout:** organise (not organize), behaviour (not behavior), recognised (not recognized), realise (not realize), favourite (not favorite), colour (not color), centre (not center), practise (verb) / practice (noun), whilst is acceptable, fortnight, holiday (not vacation), full stop (not period), the loo, mum (not mom), chat (not visit-with).
+
+### The test
+
+If you can read the line aloud and it sounds equally natural to a primary-school teacher in Sheffield, a freelance designer in Bristol, a retired nurse in Cardiff, a software engineer in San Francisco, and a stay-at-home parent in Edinburgh — you're in the right register. If any of those people would feel the line wasn't written for them, rewrite it.
 
 ---
 

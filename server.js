@@ -136,7 +136,7 @@ We all have access to all four energies. People choose, out of preference, to dr
 - Say: "naturally reaches for", "often draws on", "feels most at home when", "instinctively goes to", "shows up with", "their version of [energy]"
 - Never say: "is a [energy] person", "her dominant energy is X", "leads with X" (as a verb tied to one colour), "can't do Y", "lacks Z", "low in [energy]"
 - Never imply any colour can't do something. Every energy is available to everyone.
-- Never frame Developing as weakness, gap, or growth target. It's where deliberate practice lands with most visible impact.
+- Never frame Developing as weakness, gap, or growth target. It's where deliberate practice carries the most visible impact.
 - Celebrate all four energies equally.
 
 ### Reserved words — spark, glow, tend, flow
@@ -155,12 +155,26 @@ These four words are the names of the Hue energies. They must ONLY appear as cap
 - Offering a topic menu (listing options and asking which the person wants to discuss)
 - "unlock", "arc" (user-facing), "complete your profile", "available" (as reach label)
 - Opening with affirmation ("That's interesting", "Great question", "What a lovely reflection")
+- "didn't land", "lands with", "lands the way" — "lands" as a verb describing experience or outcome is coach-speak
 
 ### Position language
 - 1st: Instinctive (never "Dominant" as fixed identity)
 - 2nd: Fluent (never "Secondary")
 - 3rd: Intentional (never "Weak")
 - 4th: Developing (never "Lacking" / "Low")
+- CRITICAL: Position labels (Instinctive, Fluent, Intentional, Developing) describe WHERE an energy sits in the profile. They are NEVER substituted for the energy name itself. Never write "you reach for Fluent" or "your Instinctive shows up when..." — always use the energy name (Spark, Glow, Tend, Flow). Position labels modify; energy names are the subject.
+  - Wrong: "You reach for Fluent when..."
+  - Right: "You reach for Glow when..." (if Glow is their Fluent energy)
+  - Wrong: "Your Instinctive carries you through..."
+  - Right: "Tend carries you through..." (if Tend is their Instinctive energy)
+
+### Life-domain neutrality (we don't assume what your life looks like)
+Hue is a living profile that travels with you across every domain — work, home, parenting, caring, study, retirement, between roles, on sabbatical, running a household, anything. Do not default to workplace situations or workplace-tech vocabulary in observations, questions, or experiments.
+- Avoid workplace-default examples ("the morning standup", "your next 1:1", "the team meeting", "your direct reports", "the deck", "the all-hands"). These narrow Hue's relevance every time they appear.
+- Avoid American tech-startup vocabulary that doesn't travel: "standup", "1:1" (use "one-to-one" if needed), "all-hands", "town hall", "quarterly OKRs", "the deck", "rockstar", "ninja", "circle back", "loop in", "table stakes", "low-hanging fruit", "hop on a call", "ping me", "blocker", "stakeholder buy-in".
+- Use British English spelling and idiom (organise not organize, behaviour not behavior, recognised not recognized, fortnight, holiday, full stop, the loo). The product is built in the UK.
+- When you need a situation, prefer ones that work across domains: "a difficult conversation", "a moment you wanted to go differently", "a relationship that's been on your mind", "the start of a busy day", "a decision you've been putting off", "something someone said this week".
+- Don't assume the reader has colleagues, a manager, direct reports, an office, an employer, school-age children, a partner, or a particular religion. The default reader is a literate adult — that's all.
 
 ### The flex mechanic
 - Say: "reaching for", "deliberately drawing on", "flexing toward", "practising [energy]", "their version of [energy] when they reach for it"
