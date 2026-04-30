@@ -1308,7 +1308,7 @@ ${HUE_VOICE_RULES}`;
         "x-api-key": process.env.ANTHROPIC_API_KEY,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 200,
         system,
         messages: [{ role: "user", content: `Summarise this conversation:\n\n${transcript}` }],
@@ -1381,7 +1381,7 @@ Do not include quotation marks. Do not explain. Return only the sentence.`;
         "x-api-key": process.env.ANTHROPIC_API_KEY,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 100,
         system,
         messages: [{ role: "user", content: prompt }],
@@ -1457,7 +1457,7 @@ ${HUE_VOICE_RULES}
         "x-api-key": process.env.ANTHROPIC_API_KEY,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 200,
         system,
         messages: [{ role: "user", content: prompt }],
@@ -1587,7 +1587,7 @@ app.post("/api/chat", async (req, res) => {
         "x-api-key": process.env.ANTHROPIC_API_KEY,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 800,
         system: systemWithVoice,
         messages,
@@ -1749,7 +1749,7 @@ ${HUE_VOICE_RULES}
         "anthropic-version": "2023-06-01",
         "x-api-key": process.env.ANTHROPIC_API_KEY,
       },
-      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 200, system, messages }),
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, system, messages }),
     });
 
     if (!response.ok) return null;
