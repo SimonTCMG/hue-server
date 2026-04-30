@@ -1,5 +1,5 @@
 # CLAUDE.md — MyHue / myhue.co
-*Master brief for all Claude sessions. Last updated: 24 April 2026 (Check-in backend complete — 6 API routes, 3 cron jobs, generateReadback, resolveTeamEmail, TCMG first-run startup migration deployed).*
+*Master brief for all Claude sessions. Last updated: 30 April 2026 (Pre-flight for first TCMG check-in run on Friday 1 May: TeamCheckinReadback frontend bug fixed (API/component shape mismatch + conditional slot2 render), accidental-cancellation startup block removed, dashboard_revealed flipped to true for TCMG so all six members see the Monday 4 May readback.).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
@@ -113,6 +113,7 @@ MyHue is an AI-conducted colour energy assessment and ongoing companion. Through
 - Invitations table: tracks pending invitations, visible on both org admin and team dashboard. Invited-but-not-registered members show as "Invited" with pending styling
 - Temp admin delete endpoint: `DELETE /api/admin/delete-user/:email` (authenticated via SESSION_SECRET header) — used for beta testing cleanup, to be removed post-beta
 - Beta tester flow tested: simon@simesco.co.uk registered as beta-user, skipped payment screen, received welcome email, completed assessment
+- TCMG first check-in run: scheduled Friday 1 May 2026 15:00 UK (open), Sunday 3 May 18:00 UK (reminder), Monday 4 May 09:00 UK (close + readback). `dashboard_revealed = true` so all six members see the Monday 4 May readback. Idempotent reveal migration in startup block at end of `app.listen` callback (remove after first run confirmed on prod).
 
 ### Production environment — complete
 - Stripe env vars live in Railway ✓

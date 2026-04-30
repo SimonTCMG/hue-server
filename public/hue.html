@@ -3321,47 +3321,21 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── TeamCheckinReadback ──────────────────────────────────────────────────
-    function TeamCheckinReadback({ teamId, isLead, isDesktop }) {
-      const [readbackData, setReadbackData] = useState(null);
-      const [loading, setLoading]           = useState(true);
-      const [checkinId, setCheckinId]       = useState(null);
+    function TeamCheckinReadback({ teamId, isDesktop }) {
+      const [readback, setReadback] = useState(null);
+      const [loading, setLoading]   = useState(true);
 
-      useEffect(() => {
-        // First get the most recent closed check-in
-        fetch(`/api/team/${teamId}/checkin/current`)
-          .then(r => r.json())
-          .then(d => {
-            // If there's a closed check-in from last week, fetch its readback
-            if (d.lastClosedId) setCheckinId(d.lastClosedId);
-            setLoading(false);
-          })
-          .catch(() => setLoading(false));
-      }, [teamId]);
-
-      // Fetch readback once we have a checkin ID
-      const [readback, setReadback]     = useState(null);
-      const [rbLoading, setRbLoading]   = useState(false);
-
-      useEffect(() => {
-        if (!checkinId) return;
-        setRbLoading(true);
-        fetch(`/api/team/${teamId}/checkin/${checkinId}/readback`)
-          .then(r => r.json())
-          .then(d => { setReadback(d); setRbLoading(false); })
-          .catch(() => setRbLoading(false));
-      }, [checkinId]);
-
-      // Also fetch the latest closed check-in directly
       useEffect(() => {
         fetch(`/api/team/${teamId}/checkin/latest`)
           .then(r => r.json())
-          .then(d => { if (d.checkin) { setCheckinId(d.checkin.id); } })
-          .catch(() => {});
+          .then(d => { setReadback(d); setLoading(false); })
+          .catch(() => setLoading(false));
       }, [teamId]);
 
-      if (!checkinId || rbLoading) return null;
-      if (!readback?.readback) return null;
-      const { slot1, slot2, slot3 } = readback.readback;
+      if (loading || !readback) return null;
+      // No check-in yet, or gated (closed/threshold/reveal handled server-side).
+      if (readback.checkin === null || readback.gated) return null;
+      const { slot1, slot2, slot3, responseCount } = readback;
       if (!slot1) return null;
 
       return React.createElement("div", {
@@ -3369,11 +3343,11 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       },
         React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 8px" } }, "This week"),
         React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: C.stone, margin: "0 0 16px" } },
-          `${readback.responseCount} responses`
+          `${responseCount} responses`
         ),
         React.createElement("div", { style: { borderLeft: `3px solid ${C.tend}`, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 14 } },
           React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 600, color: C.ink, margin: 0 } }, slot1),
-          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, lineHeight: 1.7, color: C.ink, margin: 0 } }, slot2),
+          slot2 && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, lineHeight: 1.7, color: C.ink, margin: 0 } }, slot2),
           React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic", margin: 0 } }, slot3)
         )
       );
@@ -4560,7 +4534,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           ),
 
           // ─── Check-in readback card ───
-          React.createElement(TeamCheckinReadback, { teamId, isLead, isDesktop }),
+          React.createElement(TeamCheckinReadback, { teamId, isDesktop }),
 
           // ─── Constellation view ───
           assessedMembers.length >= 2 && React.createElement("div", { style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` } },

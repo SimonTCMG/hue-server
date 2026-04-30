@@ -3134,14 +3134,15 @@ app.listen(PORT, () => {
     }
   } catch (e) { /* ignore if team doesn't exist in this environment */ }
 
-  // TCMG check-in cancellation — the 24 April 2026 check-in opened accidentally
-  // because the cron fired on the same day we deployed. Cancel it so the intended
-  // first run is Friday 1 May 2026. Remove this block after 1 May deploy.
+  // TCMG dashboard reveal — Simon decided 30 April 2026 to let the first check-in
+  // run with full reveal so all six members see the readback on Monday 4 May.
+  // Idempotent: only flips if currently false. Safe to leave in place; remove
+  // alongside the first-run config block once both have demonstrably run on prod.
   try {
-    const accidental = getOpenCheckin("tcmg-team-001");
-    if (accidental) {
-      closeCheckin(accidental.id, null, null, null, 0);
-      console.log("TCMG: accidental 24 April check-in cancelled — intended first run is 1 May 2026");
+    const tcmgReveal = getTeam("tcmg-team-001");
+    if (tcmgReveal && !tcmgReveal.dashboard_revealed) {
+      db.prepare("UPDATE teams SET dashboard_revealed = 1 WHERE id = 'tcmg-team-001'").run();
+      console.log("TCMG: dashboard revealed for first check-in run");
     }
-  } catch (e) { console.error("TCMG check-in cancellation error:", e); }
+  } catch (e) { console.error("TCMG dashboard reveal error:", e); }
 });
