@@ -268,6 +268,14 @@ app.get("/manifesto", (req, res) => {
   res.sendFile(join(__dirname, "public", "manifesto.html"));
 });
 
+// Visual system — Anyan design reference, standalone static HTML
+app.get("/visual-system", (req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Surrogate-Control", "no-store");
+  res.sendFile(join(__dirname, "public", "visual-system.html"));
+});
+
 // ─── Platform admin: user register — Simon only, session-auth ───────────────
 app.get("/api/admin/user-report", (req, res) => {
   const user = getUserFromCookie(req);
