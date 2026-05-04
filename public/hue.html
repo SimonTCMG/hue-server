@@ -3446,6 +3446,14 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── TeamCheckinReadback ──────────────────────────────────────────────────
+    // Renders the latest closed-cycle readback for the team. Prefers the new
+    // three-part schema (reading + threads + question + confidence) introduced
+    // in the 4 May 2026 redesign; falls back to the legacy 3-slot schema
+    // (slot1/slot2/slot3) for cycles closed before the redesign.
+    //
+    // Leads/admins additionally see a lead-only block beneath the team-facing
+    // readback containing confidence and notes_for_lead. The block is gated
+    // server-side: members never receive these fields in the API payload.
     function TeamCheckinReadback({ teamId, isDesktop }) {
       const [readback, setReadback] = useState(null);
       const [loading, setLoading]   = useState(true);
@@ -3460,20 +3468,76 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       if (loading || !readback) return null;
       // No check-in yet, or gated (closed/threshold/reveal handled server-side).
       if (readback.checkin === null || readback.gated) return null;
-      const { slot1, slot2, slot3, responseCount } = readback;
-      if (!slot1) return null;
 
-      return React.createElement("div", {
-        style: { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` }
-      },
-        React.createElement("h2", { style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 8px" } }, "This week"),
-        React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: C.stone, margin: "0 0 16px" } },
-          `${responseCount} responses`
-        ),
-        React.createElement("div", { style: { borderLeft: `3px solid ${C.tend}`, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 14 } },
-          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 600, color: C.ink, margin: 0 } }, slot1),
-          slot2 && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, lineHeight: 1.7, color: C.ink, margin: 0 } }, slot2),
-          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic", margin: 0 } }, slot3)
+      const usingNew = !!readback.reading;
+      const usingLegacy = !usingNew && !!readback.slot1;
+      if (!usingNew && !usingLegacy) return null;
+
+      const responseCount = readback.responseCount || 0;
+      const responsesLabel = `${responseCount} ${responseCount === 1 ? "response" : "responses"}`;
+
+      const card = { background: "white", borderRadius: 20, padding: isDesktop ? 32 : 24, marginTop: 24, border: `1px solid ${C.sand}` };
+      const sectionStack = { borderLeft: `3px solid ${C.tend}`, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 14 };
+      const headerEls = [
+        React.createElement("h2", { key: "title", style: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 700, color: C.ink, margin: "0 0 8px" } }, "This week"),
+        React.createElement("p", { key: "count", style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: C.stone, margin: "0 0 16px" } }, responsesLabel),
+      ];
+
+      if (usingNew) {
+        const readingParas = (readback.reading || "")
+          .split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+        const stackChildren = [];
+        readingParas.forEach((para, i) => {
+          stackChildren.push(React.createElement("p", {
+            key: `reading-${i}`,
+            style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, lineHeight: 1.7, color: C.ink, margin: 0 }
+          }, para));
+        });
+        if (readback.threads) {
+          stackChildren.push(React.createElement("div", {
+            key: "threads",
+            style: { borderTop: `1px dashed ${C.sand}`, paddingTop: 14, marginTop: 4 }
+          },
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: C.stone, margin: "0 0 6px" } }, "Threads"),
+            React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, lineHeight: 1.65, color: C.ink, margin: 0 } }, readback.threads)
+          ));
+        }
+        if (readback.question) {
+          stackChildren.push(React.createElement("p", {
+            key: "question",
+            style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic", margin: "4px 0 0", lineHeight: 1.6 }
+          }, readback.question));
+        }
+
+        const leadBlock = readback.isLead && (readback.confidence || readback.notesForLead)
+          ? React.createElement("div", {
+              key: "lead",
+              style: { marginTop: 24, padding: 16, background: C.cream, borderRadius: 12, border: `1px dashed ${C.sand}` }
+            },
+              React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: C.stone, margin: "0 0 8px" } }, "Lead view — not shown to the team"),
+              readback.confidence && React.createElement("p", {
+                style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.ink, margin: "0 0 6px" }
+              }, `Confidence: ${readback.confidence}`),
+              readback.notesForLead && React.createElement("p", {
+                style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.ink, margin: 0, lineHeight: 1.55 }
+              }, readback.notesForLead)
+            )
+          : null;
+
+        return React.createElement("div", { style: card },
+          ...headerEls,
+          React.createElement("div", { key: "stack", style: sectionStack }, ...stackChildren),
+          leadBlock
+        );
+      }
+
+      // Legacy fallback (slot1/slot2/slot3 — cycles closed before 4 May 2026).
+      return React.createElement("div", { style: card },
+        ...headerEls,
+        React.createElement("div", { style: sectionStack },
+          React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 600, color: C.ink, margin: 0 } }, readback.slot1),
+          readback.slot2 && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, lineHeight: 1.7, color: C.ink, margin: 0 } }, readback.slot2),
+          readback.slot3 && React.createElement("p", { style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: C.stone, fontStyle: "italic", margin: 0 } }, readback.slot3)
         )
       );
     }
@@ -3667,12 +3731,41 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       );
     }
 
-    const DIMENSIONS_32 = {
-      spark: { label: "What the team drives", items: ["Purpose","Vision","Decision","Transformation","Momentum","Courage","Ambition","Challenge"] },
-      glow:  { label: "How the team connects", items: ["Collaboration","Communication","Environment","Team Meetings","Celebration","Inclusion","Belonging","Energy"] },
-      tend:  { label: "What the team holds", items: ["Trust","Accountability","Commitment","Diversity","Wellbeing","Consistency","Loyalty","Memory"] },
-      flow:  { label: "What the team structures", items: ["Planning","Processes","Roles & Skills","Reflection","Clarity","Evidence","Learning","Systems"] },
+    // ─── 32-dimension panel data ───────────────────────────────────────────
+    // Items are populated at runtime from GET /api/dimensions. The canonical
+    // source is dimensions.js (which loads checkin-dimensions.json). Do NOT
+    // edit the items below as a way to add or rename dimensions — that change
+    // belongs in checkin-dimensions.json. The hardcoded values here exist
+    // only as a fallback so the panel still renders correctly if the API
+    // call hasn't resolved yet on first render.
+    //
+    // Section labels ("What the team drives" etc.) are UI strings and stay
+    // here — they are not part of the canonical dimension data.
+    const DIMENSION_PANEL_HEADERS = {
+      spark: "What the team drives",
+      glow:  "How the team connects",
+      tend:  "What the team holds",
+      flow:  "What the team structures",
     };
+    let DIMENSIONS_32 = {
+      spark: { label: DIMENSION_PANEL_HEADERS.spark, items: ["Purpose","Vision","Decision","Transformation","Momentum","Courage","Ambition","Challenge"] },
+      glow:  { label: DIMENSION_PANEL_HEADERS.glow,  items: ["Collaboration","Communication","Environment","Team Meetings","Celebration","Inclusion","Belonging","Energy"] },
+      tend:  { label: DIMENSION_PANEL_HEADERS.tend,  items: ["Trust","Accountability","Commitment","Diversity","Wellbeing","Consistency","Loyalty","Memory"] },
+      flow:  { label: DIMENSION_PANEL_HEADERS.flow,  items: ["Planning","Processes","Roles & Skills","Reflection","Clarity","Evidence","Learning","Systems"] },
+    };
+    fetch("/api/dimensions").then(r => r.ok ? r.json() : null).then(data => {
+      if (!Array.isArray(data) || data.length === 0) return;
+      const next = { spark: [], glow: [], tend: [], flow: [] };
+      for (const d of data) {
+        if (next[d.energy]) next[d.energy].push(d);
+      }
+      const out = {};
+      for (const e of ["spark","glow","tend","flow"]) {
+        next[e].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        out[e] = { label: DIMENSION_PANEL_HEADERS[e], items: next[e].map(d => d.label) };
+      }
+      DIMENSIONS_32 = out;
+    }).catch(() => {});
 
     function BandDot({ band, energy }) {
       const col = C[energy];

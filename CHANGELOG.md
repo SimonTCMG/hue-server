@@ -4,6 +4,73 @@ All notable changes to the MyHue product. Ordered by date, most recent first. Ea
 
 ---
 
+## 4 May 2026 — Team check-in readback redesign — full build complete
+
+Replaces the mechanical 3-slot readback (top dimensions + Q2 distribution + keyed prompt) with an LLM-driven three-part readback that reads each cycle through the lens of the team's energy shape. The full eight-item build instruction landed in a single day; first cycle on the new engine fires Friday 8 May 15:00 UK (TCMG). Hard freeze Thursday 7 May 17:00 UK. Design rationale: `claude-project-files/team assessment redesign/team-checkin-readback-redesign-v1.md`.
+
+### What changed at the user level
+
+The team-facing readback is now three parts:
+- **The reading** — up to three short paragraphs naming what the cycle's data shows about how the team's natural shape met the cycle. Energy-aware. Specific. Anchored to data points (every substantive claim has a `claim`/`anchor` pair the post-check verifies).
+- **The threads** — one short paragraph surfacing themes that recurred across multiple Q3/Q4 responses. Null when nothing recurred — no padding.
+- **The question** — one earned sentence the team can take into a conversation. Not advice, not motivational.
+
+Leads/admins additionally see a "Lead view — not shown to the team" block beneath the readback, with `confidence` (high/moderate/low/insufficient) and `notes_for_lead`. Members never receive these fields in the API payload.
+
+The Monday 09:00 close cron now flips the dashboard reveal automatically once the readback is generated, so the team sees it the next time they open the dashboard. Lead-gate-before-reveal remains available as a kill-switch by setting `dashboard_revealed = 0` manually before close.
+
+### Engine architecture
+
+`generateReadback(teamId, checkinId)` is now an async orchestrator:
+
+1. Assemble structured context — `getTeamAggregate` + `getCheckinResponses` + `getMostRecentClosedReadback`. `describeTeamShape` turns band counts into a structured shape (`wellRepresented`, `thin`, `absent`, `developing`, `balanced`). `extractThemesFromFreeText` deduplicates and length-filters Q3/Q4 strings. No user_id ever leaves the DB layer.
+2. Insufficient-data short-circuit — if `responseCount < threshold` or `ANTHROPIC_API_KEY` is missing, persist the deterministic `INSUFFICIENT_CONFIDENCE_READBACK` template and return.
+3. LLM call — `claude-sonnet-4-6`, max 1500 tokens. System prompt = `HUE_VOICE_RULES` + `READBACK_VOICE_RULES` + task framing + 20-pattern `PATTERN_LIBRARY` + 3 worked few-shot examples + output schema. User message = team profile + cycle data + previous readback.
+4. Parse + post-check — `parseReadbackJSON` is tolerant of code fences and surrounding text. `runReadbackPostCheck` enforces: schema, four valid `confidence` values, length ceilings (1200/400/200), single-sentence question ending in `?`, banned-phrase scan (coach-speak, AI cadence, energy-words-as-plain-English, the word "data" in member-facing copy), first-person attribution scan (anonymity), and that every claim has both `claim` and `anchor`.
+5. Up to 3 attempts. After 3 post-check failures, falls back to insufficient-confidence with a lead-only note explaining the failure.
+6. Persists atomically — `team_checkins` updated with reading/threads/question/confidence; `team_checkin_readbacks` audit row written with full prompt + raw response + parsed response + post-check result + attempts + model. Audit logging stays verbose for the first 4–6 cycles.
+
+### Files
+
+**New:**
+- `dimensions.js` — single source of truth for the 32 Functional Dimensions. Loads `checkin-dimensions.json` once, validates 32-entries / 8-per-energy / unique-keys / valid-energies at module load. Exports `DIMENSIONS`, `DIMENSIONS_BY_ENERGY` (energy-keyed, sortOrder-sorted), `DIMENSION_KEYS`, `ENERGY_IDS`, `getDimension`, `getDimensionEnergy`, `groupDimensionsByEnergy`.
+- `readback.js` — readback voice rules + 20-pattern `PATTERN_LIBRARY` + `describeTeamShape` + `extractThemesFromFreeText` + `topDimensionsByFrequency` + `q1ByEnergyCounts` + `q2Distribution` + `buildReadbackSystemPrompt(huevoice, teamName)` + `buildReadbackUserMessage(context)` + `parseReadbackJSON` + `runReadbackPostCheck` + `INSUFFICIENT_CONFIDENCE_READBACK`. Pure logic — no DB, no network.
+- `dimensions.test.js` — 12 tests over the dimension helpers.
+- `readback.test.js` — 29 tests over the readback helpers, including a sanity check that the insufficient-confidence fallback itself passes the post-check (it has to — it's the official fallback) and that the rendered system prompt includes every pattern in the library.
+
+**Modified:**
+- `server.js` — imports from `dimensions.js` + `readback.js`; `generateReadback` rewritten as the async LLM orchestrator above; close cron now `await`s the engine and auto-flips `dashboard_revealed`; readback API endpoints (`/api/team/:teamId/checkin/:checkinId/readback`, `/api/team/:teamId/checkin/latest`) updated via `buildReadbackPayload(checkin, isLead)` to return the new schema with lead-only fields gated server-side; legacy `slot1/slot2/slot3` still returned alongside for cycles closed before the redesign; new `GET /api/dimensions` (public) returns canonical dimensions; new `POST /api/admin/dry-run-readback/:checkinId` (SESSION_SECRET-gated) lets Simon preview the engine against real check-in data without firing the cron — default returns context + assembled prompts only; `?live=true` actually calls the model and returns the parsed result + post-check verdict; never persists.
+- `db.js` — idempotent migration adds `readback_reading`, `readback_threads`, `readback_question`, `readback_confidence` columns to `team_checkins`; new `team_checkin_readbacks` audit table with index on `checkin_id`. New helpers: `persistReadback(checkinId, readback, responseCount, audit)` (atomic transaction, writes both team_checkins update and audit row), `getReadbackForCheckin(checkinId)` (most recent audit row), `getMostRecentClosedReadback(teamId)` (used to feed previous-cycle context into prompt). `getCheckinResponses` widened to include Q3/Q4 (still no `user_id` returned — anonymity preserved). Legacy `closeCheckin(checkinId, slot1, slot2, slot3, count)` retained for backward compatibility but no longer called.
+- `public/hue.html` — `TeamCheckinReadback` rewritten to render reading paragraphs (split on blank lines), conditional threads block (only when non-null), italic question, and a lead-only "Lead view — not shown to the team" block beneath the team-facing readback. Falls back to legacy slot1/slot2/slot3 rendering when `reading` is null (covers cycles closed before the redesign). `DIMENSIONS_32` continues to derive from `/api/dimensions` (item 2.1).
+- `package.json` — `npm test` wired up; runs both test files.
+
+### What stayed the same
+
+- The check-in machinery itself: Friday 15:00 open cron, Sunday 18:00 reminder, Monday 09:00 close cron, the four questions, anonymity model, ad-hoc trigger, 48h window, MailerSend templates, response validation, threshold gating.
+- Pipeline 3 anonymity guarantee — no user_id leaves the DB layer; the LLM only sees aggregated counts and deduplicated themes.
+- Reveal-gate flow — kill-switch still available; default behaviour just changes the trigger from "lead clicks reveal" to "engine generated readback".
+
+### Verified
+
+- 41/41 tests pass (`npm test`).
+- Server boots cleanly with both shape validations passing (dimensions + audit migration).
+- All endpoints respond correctly: `GET /api/dimensions` (200, 32 entries), `POST /api/admin/dry-run-readback` (403 without secret), `GET /` (200, no console errors).
+- Browser verification: `DIMENSIONS_32` populates from `/api/dimensions` correctly; `TeamCheckinReadback` component is defined; no console errors on home page.
+- Schema check on `team_checkins`: new columns present and nullable. `team_checkin_readbacks` table exists with the index.
+- Frontend handles both new schema (cycles closed after 4 May 2026) and legacy schema (TCMG's 1 May cycle has slot1/slot2/slot3 only — falls back automatically).
+
+### Important visible side-effect
+
+The 32-dimension panel chip order within each quadrant now follows `sortOrder` from `checkin-dimensions.json` (defaultVisible chips first per energy) rather than the previous hand-typed order. Same dimensions, slightly reordered. Most visible on Tend (was Trust/Accountability/Commitment/...; now Accountability/Wellbeing/Trust/...). Flag if this is wrong.
+
+### Next steps
+
+- Simon: review the system prompt + a synthetic dry-run before Friday's cycle. The admin endpoint accepts `?live=true` to actually call the model — useful for sanity-checking against TCMG's 1 May data once we recreate it (TCMG production has the data; local dev DB is empty).
+- After Friday's cycle: read the audit row for TCMG's first new-engine readback. If the post-check fired or anything reads off, the pattern library and voice rules are the dials to turn — they live in `readback.js` and are the easy part of the system to adjust.
+- Logging stays verbose for the first 4–6 cycles per the build instruction. After ~6 cycles, evaluate whether `system_prompt`/`user_message`/`raw_response` need to keep being persisted on every audit row.
+
+---
+
 ## 2 May 2026 — Assessment v2.1: signal-density gate + always-all-four progress line (CLAUDE.md item 117)
 
 The v2 assessment (12–18 exchanges, fixed coverage gate) was over-asking in-depth respondents — a verbose user could satisfy all five coverage counters in 6–8 exchanges but the floor of 12 forced another 4–6 turns of essentially redundant questioning. v2.1 fixes that without weakening the coverage rigour, and adds an ambient progress indicator so the user can sense how far through the picture is.

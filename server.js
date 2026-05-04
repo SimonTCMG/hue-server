@@ -70,6 +70,9 @@ import db, {
   getOpenCheckin,
   getCheckin,
   closeCheckin,
+  persistReadback,
+  getReadbackForCheckin,
+  getMostRecentClosedReadback,
   submitCheckinResponse,
   hasUserRespondedToCheckin,
   getCheckinResponses,
@@ -83,11 +86,35 @@ import db, {
   getTeamsEligibleForCheckin,
 } from "./db.js";
 
-// Check-in dimensions config — 32 entries, 12 defaultVisible
-const CHECKIN_DIMENSIONS = JSON.parse(
-  readFileSync(join(__dirname, "checkin-dimensions.json"), "utf8")
-);
-const DIMENSION_KEYS = new Set(CHECKIN_DIMENSIONS.map(d => d.key));
+// Canonical dimension data — single source of truth lives in dimensions.js,
+// which loads and validates checkin-dimensions.json at module load. Both the
+// server and the client (via GET /api/dimensions) consume from this module.
+import {
+  DIMENSIONS as CHECKIN_DIMENSIONS,
+  DIMENSIONS_BY_ENERGY,
+  DIMENSION_KEYS,
+  getDimension,
+  getDimensionEnergy,
+  groupDimensionsByEnergy,
+} from "./dimensions.js";
+
+// Readback engine helpers — voice rules, prompt builders, post-check, helpers,
+// pattern library, insufficient-confidence fallback. All pure logic; the
+// orchestrator (`generateReadback` below) handles network + DB.
+import {
+  READBACK_VOICE_RULES,
+  PATTERN_LIBRARY,
+  INSUFFICIENT_CONFIDENCE_READBACK,
+  describeTeamShape,
+  extractThemesFromFreeText,
+  topDimensionsByFrequency,
+  q1ByEnergyCounts,
+  q2Distribution,
+  buildReadbackSystemPrompt,
+  buildReadbackUserMessage,
+  parseReadbackJSON,
+  runReadbackPostCheck,
+} from "./readback.js";
 
 import { upsertSubscriber } from "./mailerlite.js";
 import { sendEmail } from "./mailersend.js";
@@ -350,6 +377,65 @@ app.post("/api/admin/fix-invitation/:email", (req, res) => {
   const email = decodeURIComponent(req.params.email).toLowerCase().trim();
   const result = db.prepare("UPDATE invitations SET status = 'registered' WHERE email = ? AND status = 'invited'").run(email);
   res.json({ ok: true, email, updated: result.changes });
+});
+
+// Admin dry-run for the readback engine. Lets Simon preview what the engine
+// would produce against an existing check-in's data without firing the cron
+// or persisting anything. Default: assembles the prompt and returns the
+// context + prompt only (no LLM call). Pass ?live=true to actually call the
+// model and return the parsed result + post-check verdict.
+//
+// curl -X POST -H "x-admin-secret: $SESSION_SECRET" \
+//   "http://localhost:3001/api/admin/dry-run-readback/<checkin-id>?live=true"
+app.post("/api/admin/dry-run-readback/:checkinId", async (req, res) => {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== process.env.SESSION_SECRET) return res.status(403).json({ error: "Forbidden" });
+
+  const { checkinId } = req.params;
+  const checkin = getCheckin(checkinId);
+  if (!checkin) return res.status(404).json({ error: "Check-in not found" });
+
+  let context;
+  try {
+    context = buildReadbackContext(checkin.team_id, checkinId);
+  } catch (err) {
+    return res.status(500).json({ error: String(err?.message || err) });
+  }
+
+  const systemPrompt = buildReadbackSystemPrompt(HUE_VOICE_RULES, context.team.name);
+  const userMessage  = buildReadbackUserMessage(context);
+
+  if (req.query.live !== "true") {
+    return res.json({
+      mode: "preview",
+      context,
+      systemPrompt,
+      userMessage,
+      systemPromptChars: systemPrompt.length,
+      userMessageChars: userMessage.length,
+    });
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: "ANTHROPIC_API_KEY missing" });
+  }
+
+  try {
+    const rawText = await callReadbackLLM(systemPrompt, userMessage);
+    const parsed  = parseReadbackJSON(rawText);
+    const check   = parsed ? runReadbackPostCheck(parsed) : { passed: false, failures: ["JSON parse failed"] };
+    return res.json({
+      mode: "live",
+      context,
+      systemPrompt,
+      userMessage,
+      raw: rawText,
+      parsed,
+      postCheck: check,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: String(err?.message || err) });
+  }
 });
 
 // ─── TCMG org bootstrap (idempotent — runs once on first deploy) ──────────
@@ -2035,6 +2121,15 @@ app.put("/api/team/:teamId/reveal", (req, res) => {
 
 // ─── Check-in API (Pipeline 3 — anonymous team state) ────────────────────────
 
+// GET /api/dimensions
+// Returns the canonical 32-dimension array (key, label, energy, defaultVisible,
+// sortOrder). Public — no auth required. The client uses this to populate the
+// 32-dimension panel on the team dashboard so that no dimension/energy mapping
+// is hardcoded on the client side. dimensions.js is the single source of truth.
+app.get("/api/dimensions", (_req, res) => {
+  res.json(CHECKIN_DIMENSIONS);
+});
+
 // GET /api/team/:teamId/checkin/current
 // Returns the open check-in for this team and whether the auth'd user has already responded.
 // Individual responses are never surfaced — anonymity is preserved at the DB query level.
@@ -2165,6 +2260,37 @@ app.post("/api/team/:teamId/checkin/:checkinId/respond", (req, res) => {
   res.json({ ok: true });
 });
 
+// Build the readback API payload from a closed check-in row. Leads/admins also
+// receive `confidence`, `notesForLead`, and `claims` from the audit row;
+// members never see those. Legacy slot1/slot2/slot3 fields are included so
+// the frontend can fall back gracefully for cycles closed before the redesign.
+function buildReadbackPayload(checkin, isLead) {
+  const payload = {
+    checkinId: checkin.id,
+    openedAt: checkin.opened_at,
+    closedAt: checkin.closed_at,
+    responseCount: checkin.response_count,
+    reading: checkin.readback_reading || null,
+    threads: checkin.readback_threads || null,
+    question: checkin.readback_question || null,
+    slot1: checkin.readback_slot_1 || null,
+    slot2: checkin.readback_slot_2 || null,
+    slot3: checkin.readback_slot_3 || null,
+    isLead,
+  };
+  if (isLead) {
+    const audit = getReadbackForCheckin(checkin.id);
+    payload.confidence = checkin.readback_confidence || audit?.confidence || null;
+    payload.notesForLead = audit?.notes_for_lead || null;
+    try {
+      payload.claims = audit?.claims ? JSON.parse(audit.claims) : null;
+    } catch {
+      payload.claims = null;
+    }
+  }
+  return payload;
+}
+
 // GET /api/team/:teamId/checkin/:checkinId/readback
 // Returns readback only when: closed + threshold met + reveal gate respected.
 // Leads may view between close and reveal; members wait for reveal.
@@ -2190,15 +2316,8 @@ app.get("/api/team/:teamId/checkin/:checkinId/readback", (req, res) => {
     return res.json({ gated: true, reason: "reveal" });
   }
 
-  res.json({
-    checkinId: checkin.id,
-    openedAt: checkin.opened_at,
-    closedAt: checkin.closed_at,
-    responseCount: checkin.response_count,
-    slot1: checkin.readback_slot_1,
-    slot2: checkin.readback_slot_2,
-    slot3: checkin.readback_slot_3,
-  });
+  const isLead = role === "team-lead" || role === "org-admin";
+  res.json(buildReadbackPayload(checkin, isLead));
 });
 
 // GET /api/team/:teamId/checkin/latest
@@ -2223,15 +2342,8 @@ app.get("/api/team/:teamId/checkin/latest", (req, res) => {
     return res.json({ gated: true, reason: "reveal" });
   }
 
-  res.json({
-    checkinId: checkin.id,
-    openedAt: checkin.opened_at,
-    closedAt: checkin.closed_at,
-    responseCount: checkin.response_count,
-    slot1: checkin.readback_slot_1,
-    slot2: checkin.readback_slot_2,
-    slot3: checkin.readback_slot_3,
-  });
+  const isLead = role === "team-lead" || role === "org-admin";
+  res.json(buildReadbackPayload(checkin, isLead));
 });
 
 // PUT /api/team/:teamId/checkin/notification-email
@@ -2877,75 +2989,209 @@ function getISOWeek(date) {
 
 // Slot 3 keyed prompts — one per Q2 landing distribution pattern.
 // Slot 2 is null until Simon writes the ~40-sentence observation library.
-// TODO: wire in Slot 2 observations from hue-observations-v1.md when ready.
-const CHECKIN_SLOT3_PROMPTS = {
-  stretch: "This was a stretching week — the kind that asks more than usual. Notice what the team reached for and what helped. That pattern is worth holding on to.",
-  matched: "The week landed close to expectations. There's something steady in that — a team that reads its own rhythm accurately is a team that can trust its own signals.",
-  celebratory: "Something in this week's picture stands out. The team arrived lighter than expected, and that's worth naming — not just as relief, but as a signal about what's working.",
-  quiet: "The week left a lot of people unsure about how to describe it. That's a useful signal in itself — sometimes ambiguity is the thing worth sitting with as a team.",
-  mixed: "This week showed up differently for different people. That range is part of the team picture too — and worth acknowledging rather than averaging away.",
-};
+// ─── Readback engine (4 May 2026 redesign) ────────────────────────────────
+//
+// Replaces the previous mechanical 3-slot readback with an LLM-driven
+// three-part readback (reading + threads + question) plus confidence,
+// claims, and lead-only notes. See readback.js for voice rules, pattern
+// library, helpers, prompt assembly, and post-check.
+//
+// Flow:
+//   1. Assemble structured context from getTeamAggregate + getCheckinResponses
+//      + getMostRecentClosedReadback. Anonymise: never includes user_id.
+//   2. If response_count < threshold OR API key is missing, persist the
+//      insufficient-confidence fallback and return.
+//   3. Otherwise, call the Anthropic API up to 3 times. Each response is
+//      JSON-parsed, then run through runReadbackPostCheck. First passing
+//      response wins.
+//   4. After 3 failed attempts, fall back to insufficient-confidence with a
+//      lead-only note explaining the failure.
+//   5. Persist atomically (team_checkins update + team_checkin_readbacks
+//      audit row). Returns the readback + responseCount.
+//
+// PRIVACY COMMITMENT: This API payload contains no personally identifying
+// information. User identity is resolved server-side only. Only anonymised
+// profile data and aggregated/deduplicated response themes are sent to the
+// Anthropic API. Do not add user.name, user.email, user.id, or any other
+// PII to this payload. This is a published promise to users — see /privacy.
 
-// Generate the three readback slots for a closed check-in.
-// Slot 1: template aggregate from actual responses.
-// Slot 2: null (observation library not yet written — frontend renders 2-slot layout).
-// Slot 3: keyed prompt based on Q2 landing distribution.
-function generateReadback(teamId, checkinId) {
+const READBACK_MODEL = "claude-sonnet-4-6";
+const READBACK_MAX_TOKENS = 1500;
+const READBACK_MAX_ATTEMPTS = 3;
+
+async function callReadbackLLM(systemPrompt, userMessage) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+    },
+    body: JSON.stringify({
+      model: READBACK_MODEL,
+      max_tokens: READBACK_MAX_TOKENS,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Anthropic ${response.status}: ${body.slice(0, 400)}`);
+  }
+  const data = await response.json();
+  return data.content?.find(b => b.type === "text")?.text || "";
+}
+
+function buildReadbackContext(teamId, checkinId) {
+  const team = getTeam(teamId);
+  if (!team) throw new Error(`buildReadbackContext: no team ${teamId}`);
   const responses = getCheckinResponses(checkinId);
-  const total = responses.length;
+  const aggregate = getTeamAggregate(teamId);
+  const previous = getMostRecentClosedReadback(teamId);
 
-  // Tally Q1 dimension mentions
-  const dimCounts = {};
-  for (const r of responses) {
-    const dims = JSON.parse(r.q1_dimensions || "[]");
-    for (const key of dims) {
-      dimCounts[key] = (dimCounts[key] || 0) + 1;
-    }
-  }
+  const teamShape = describeTeamShape(aggregate);
 
-  // Top 3 dimensions by frequency, mapped to labels
-  const topDims = Object.entries(dimCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([key]) => {
-      const dim = CHECKIN_DIMENSIONS.find(d => d.key === key);
-      return dim ? dim.label : key;
+  const q1Counts = q1ByEnergyCounts(responses);
+  const q1Top = topDimensionsByFrequency(responses, 5);
+  const q1EnergiesPresent = ["spark", "glow", "tend", "flow"].filter(e => q1Counts[e] > 0);
+  const q1EnergiesAbsent = ["spark", "glow", "tend", "flow"].filter(e => q1Counts[e] === 0);
+  const q2 = q2Distribution(responses);
+  const q3Themes = extractThemesFromFreeText(responses.map(r => r.q3_helped));
+  const q4Themes = extractThemesFromFreeText(responses.map(r => r.q4_carrying));
+
+  const threshold = team.checkin_min_responses || 8;
+
+  return {
+    team: {
+      name: team.name || "your",
+      memberCount: aggregate.memberCount,
+      energyDistribution: {
+        spark: aggregate.spark,
+        glow:  aggregate.glow,
+        tend:  aggregate.tend,
+        flow:  aggregate.flow,
+      },
+      teamShape,
+    },
+    cycle: {
+      responseCount: responses.length,
+      threshold,
+      q1ByEnergy: q1Counts,
+      q1Top,
+      q1EnergiesPresent,
+      q1EnergiesAbsent,
+      q2Distribution: q2,
+      q3Themes,
+      q4Themes,
+    },
+    previousReadback: previous && previous.reading ? previous : null,
+  };
+}
+
+async function generateReadback(teamId, checkinId) {
+  const context = buildReadbackContext(teamId, checkinId);
+  const responseCount = context.cycle.responseCount;
+
+  // Insufficient-data short-circuit. The close cron already suppresses the
+  // lead email below threshold, but we still write a record so the audit
+  // log is complete.
+  if (responseCount < context.cycle.threshold) {
+    persistReadback(checkinId, INSUFFICIENT_CONFIDENCE_READBACK, responseCount, {
+      attempts: 0,
+      model: READBACK_MODEL,
+      fallback: true,
+      postCheckPassed: false,
+      postCheckNotes: `below threshold: ${responseCount} < ${context.cycle.threshold}`,
     });
+    return { readback: INSUFFICIENT_CONFIDENCE_READBACK, responseCount };
+  }
 
-  // Q2 landing distribution
-  const landingCounts = { heavier: 0, expected: 0, lighter: 0, unsure: 0 };
-  for (const r of responses) {
-    if (r.q2_landing && Object.prototype.hasOwnProperty.call(landingCounts, r.q2_landing)) {
-      landingCounts[r.q2_landing]++;
+  // No API key — surface clearly to the lead and use the fallback. This
+  // shouldn't happen in production but we shouldn't take down the close cron
+  // if the env var is missing.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const fallback = {
+      ...INSUFFICIENT_CONFIDENCE_READBACK,
+      notes_for_lead:
+        "ANTHROPIC_API_KEY missing — readback engine could not run. Insufficient-confidence fallback used.",
+    };
+    persistReadback(checkinId, fallback, responseCount, {
+      attempts: 0,
+      model: READBACK_MODEL,
+      fallback: true,
+      postCheckPassed: false,
+      postCheckNotes: "ANTHROPIC_API_KEY missing",
+    });
+    return { readback: fallback, responseCount };
+  }
+
+  const systemPrompt = buildReadbackSystemPrompt(HUE_VOICE_RULES, context.team.name);
+  const userMessage  = buildReadbackUserMessage(context);
+
+  let lastRaw = null;
+  let lastParsed = null;
+  let lastFailures = null;
+
+  for (let attempt = 1; attempt <= READBACK_MAX_ATTEMPTS; attempt++) {
+    let rawText;
+    try {
+      rawText = await callReadbackLLM(systemPrompt, userMessage);
+    } catch (err) {
+      lastRaw = String(err?.message || err);
+      console.error(`generateReadback attempt ${attempt} fetch error:`, err);
+      continue;
     }
+
+    lastRaw = rawText;
+    const parsed = parseReadbackJSON(rawText);
+    lastParsed = parsed;
+    if (!parsed) {
+      lastFailures = ["JSON parse failed"];
+      continue;
+    }
+
+    const check = runReadbackPostCheck(parsed);
+    if (check.passed) {
+      persistReadback(checkinId, parsed, responseCount, {
+        systemPrompt,
+        userMessage,
+        rawResponse: rawText,
+        parsedResponse: parsed,
+        postCheckPassed: true,
+        postCheckNotes: null,
+        attempts: attempt,
+        model: READBACK_MODEL,
+        fallback: false,
+      });
+      return { readback: parsed, responseCount };
+    }
+
+    lastFailures = check.failures;
+    console.warn(
+      `generateReadback attempt ${attempt} post-check failed for checkin ${checkinId}:`,
+      check.failures
+    );
   }
-  const pct = k => (total > 0 ? Math.round((landingCounts[k] / total) * 100) : 0);
 
-  // Slot 1 — template sentence
-  let slot1;
-  if (topDims.length > 0) {
-    const dimList =
-      topDims.length === 1 ? topDims[0]
-      : topDims.length === 2 ? `${topDims[0]} and ${topDims[1]}`
-      : `${topDims[0]}, ${topDims[1]} and ${topDims[2]}`;
-    slot1 = `This week, the team noticed ${dimList}.`;
-  } else {
-    slot1 = "This week's check-in captured the team's overall shape.";
-  }
-  slot1 += ` The week felt ${pct("heavier")}% heavier than expected, ${pct("expected")}% as expected, ${pct("lighter")}% lighter, and ${pct("unsure")}% were unsure.`;
-
-  // Slot 2 — null until observation library is written
-  const slot2 = null;
-
-  // Slot 3 — keyed prompt based on Q2 majority
-  let slot3Key = "mixed";
-  if (pct("heavier") >= 50) slot3Key = "stretch";
-  else if (pct("lighter") >= 50) slot3Key = "celebratory";
-  else if (pct("expected") >= 50) slot3Key = "matched";
-  else if (pct("unsure") >= 50) slot3Key = "quiet";
-  const slot3 = CHECKIN_SLOT3_PROMPTS[slot3Key];
-
-  return { slot1, slot2, slot3, responseCount: total };
+  // All attempts failed — persist the fallback with a lead-visible note.
+  const fallback = {
+    ...INSUFFICIENT_CONFIDENCE_READBACK,
+    notes_for_lead:
+      `Readback generation failed post-check ${READBACK_MAX_ATTEMPTS} times. ` +
+      `Last failures: ${(lastFailures || []).join("; ")}. Audit row stores the last attempt.`,
+  };
+  persistReadback(checkinId, fallback, responseCount, {
+    systemPrompt,
+    userMessage,
+    rawResponse: lastRaw,
+    parsedResponse: lastParsed,
+    postCheckPassed: false,
+    postCheckNotes: (lastFailures || []).join("; "),
+    attempts: READBACK_MAX_ATTEMPTS,
+    model: READBACK_MODEL,
+    fallback: true,
+  });
+  return { readback: fallback, responseCount };
 }
 
 // ─── Check-in cron jobs ────────────────────────────────────────────────────────
@@ -3052,6 +3298,14 @@ async function sendCheckinReminders() {
 
 // Monday 09:00 — close all open check-ins, generate readbacks, notify leads/admins.
 // Members see the readback on their dashboard; only leads/admins receive an email.
+//
+// Redesign (4 May 2026): generateReadback is now async (LLM call). The dashboard
+// reveal flips automatically on close once the readback has been generated, so
+// the team sees the readback the next time they open the dashboard. This is
+// the lighter-touch lead-review pattern decided in §4 of the build instruction
+// — Simon reviews after publication, tweaks for next cycle. The lead-gate
+// kill-switch (don't auto-flip) remains available by setting the team's
+// dashboard_revealed manually before close.
 async function closeCheckinsAndGenerateReadbacks() {
   const openCheckins = getOpenCheckins();
 
@@ -3060,11 +3314,20 @@ async function closeCheckinsAndGenerateReadbacks() {
     if (!team) continue;
 
     try {
-      const { slot1, slot2, slot3, responseCount } = generateReadback(checkin.team_id, checkin.id);
-      closeCheckin(checkin.id, slot1, slot2, slot3, responseCount);
+      const { responseCount } = await generateReadback(checkin.team_id, checkin.id);
       logTeamNotification(checkin.team_id, "checkin_close", false, null);
-
       console.log(`Checkin closed for team ${checkin.team_id} (${team.name || team.id}), ${responseCount} responses`);
+
+      // Auto-flip the dashboard reveal once the readback has been generated.
+      // No-op if the team is already revealed.
+      if (!team.dashboard_revealed) {
+        try {
+          revealDashboard(checkin.team_id);
+          console.log(`Dashboard reveal flipped for team ${checkin.team_id} on first readback close.`);
+        } catch (err) {
+          console.error(`revealDashboard failed for team ${checkin.team_id}:`, err);
+        }
+      }
 
       // Only email leads/admins if threshold was met — members see it on the dashboard
       if (responseCount >= (team.checkin_min_responses || 8)) {

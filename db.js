@@ -766,6 +766,42 @@ db.exec(`
   )
 `);
 
+// ─── Readback redesign (4 May 2026) — new columns + audit table ─────────────
+// New three-part readback shape (reading + threads + question + confidence)
+// stored on team_checkins. Full structured output (claims + notes_for_lead +
+// prompt + raw response) stored on team_checkin_readbacks for audit and the
+// lead-only view. The legacy readback_slot_1/2/3 columns stay until the next
+// cycle confirms the new schema is in flight, then they can go away.
+try { db.exec(`ALTER TABLE team_checkins ADD COLUMN readback_reading TEXT`); } catch {}
+try { db.exec(`ALTER TABLE team_checkins ADD COLUMN readback_threads TEXT`); } catch {}
+try { db.exec(`ALTER TABLE team_checkins ADD COLUMN readback_question TEXT`); } catch {}
+try { db.exec(`ALTER TABLE team_checkins ADD COLUMN readback_confidence TEXT`); } catch {}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_checkin_readbacks (
+    id                 TEXT PRIMARY KEY,
+    checkin_id         TEXT NOT NULL,
+    reading            TEXT,
+    threads            TEXT,
+    question           TEXT,
+    confidence         TEXT,
+    claims             TEXT,
+    notes_for_lead     TEXT,
+    system_prompt      TEXT,
+    user_message       TEXT,
+    raw_response       TEXT,
+    parsed_response    TEXT,
+    post_check_passed  INTEGER,
+    post_check_notes   TEXT,
+    attempts           INTEGER,
+    model              TEXT,
+    fallback           INTEGER DEFAULT 0,
+    created_at         INTEGER NOT NULL,
+    FOREIGN KEY (checkin_id) REFERENCES team_checkins(id)
+  )
+`);
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_readbacks_checkin ON team_checkin_readbacks(checkin_id)`); } catch {}
+
 // ─── Check-in CRUD ────────────────────────────────────────────────────────
 
 export function createCheckin(teamId, cadenceType, triggeredBy = null, contextNote = null) {
@@ -789,6 +825,8 @@ export function getCheckin(checkinId) {
   return db.prepare("SELECT * FROM team_checkins WHERE id = ?").get(checkinId);
 }
 
+// Legacy 3-slot close — retained for backward compatibility but no longer
+// called by the new readback engine. The redesign uses persistReadback() below.
 export function closeCheckin(checkinId, readback1, readback2, readback3, responseCount) {
   return db.prepare(
     `UPDATE team_checkins
@@ -796,6 +834,90 @@ export function closeCheckin(checkinId, readback1, readback2, readback3, respons
          readback_slot_2 = ?, readback_slot_3 = ?, response_count = ?
      WHERE id = ?`
   ).run(Date.now(), readback1, readback2, readback3, responseCount, checkinId);
+}
+
+// Atomic close + persist for the redesigned readback (4 May 2026).
+// Marks the check-in closed, writes the three member-facing fields onto
+// team_checkins, and writes the full structured output + audit log onto
+// team_checkin_readbacks in a single transaction.
+//
+// `readback` shape: { reading, threads, question, confidence, claims, notes_for_lead }
+// `audit` shape:    { systemPrompt, userMessage, rawResponse, parsedResponse,
+//                     postCheckPassed, postCheckNotes, attempts, model, fallback }
+//
+// Both `readback` and `audit` are required. If the engine fell back to the
+// insufficient-confidence template, set audit.fallback = true and audit.attempts
+// to the number of LLM tries before fallback.
+export function persistReadback(checkinId, readback, responseCount, audit) {
+  const now = Date.now();
+  const auditId = uuidv4();
+  const tx = db.transaction(() => {
+    db.prepare(
+      `UPDATE team_checkins
+       SET status = 'closed', closed_at = ?,
+           readback_reading = ?, readback_threads = ?, readback_question = ?, readback_confidence = ?,
+           response_count = ?
+       WHERE id = ?`
+    ).run(
+      now,
+      readback.reading || null,
+      readback.threads || null,
+      readback.question || null,
+      readback.confidence || null,
+      responseCount,
+      checkinId
+    );
+    db.prepare(
+      `INSERT INTO team_checkin_readbacks
+         (id, checkin_id, reading, threads, question, confidence, claims, notes_for_lead,
+          system_prompt, user_message, raw_response, parsed_response,
+          post_check_passed, post_check_notes, attempts, model, fallback, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      auditId, checkinId,
+      readback.reading || null,
+      readback.threads || null,
+      readback.question || null,
+      readback.confidence || null,
+      readback.claims ? JSON.stringify(readback.claims) : null,
+      readback.notes_for_lead || null,
+      audit.systemPrompt || null,
+      audit.userMessage || null,
+      audit.rawResponse || null,
+      audit.parsedResponse ? JSON.stringify(audit.parsedResponse) : null,
+      audit.postCheckPassed ? 1 : 0,
+      audit.postCheckNotes || null,
+      audit.attempts ?? 0,
+      audit.model || null,
+      audit.fallback ? 1 : 0,
+      now
+    );
+  });
+  tx();
+  return auditId;
+}
+
+// Most recent audit row for a check-in. Used by the lead-only API view.
+export function getReadbackForCheckin(checkinId) {
+  return db.prepare(
+    "SELECT * FROM team_checkin_readbacks WHERE checkin_id = ? ORDER BY created_at DESC LIMIT 1"
+  ).get(checkinId);
+}
+
+// Most recent CLOSED check-in's readback for a team — used to pass "previous
+// readback" context into the next cycle's prompt assembly.
+export function getMostRecentClosedReadback(teamId) {
+  return db.prepare(
+    `SELECT c.id AS checkin_id, c.closed_at,
+            c.readback_reading AS reading,
+            c.readback_threads AS threads,
+            c.readback_question AS question,
+            c.readback_confidence AS confidence
+     FROM team_checkins c
+     WHERE c.team_id = ? AND c.status = 'closed' AND c.readback_reading IS NOT NULL
+     ORDER BY c.closed_at DESC
+     LIMIT 1`
+  ).get(teamId);
 }
 
 export function submitCheckinResponse(checkinId, userId, q1Dimensions, q2Landing, q3Helped, q4Carrying) {
@@ -819,10 +941,12 @@ export function hasUserRespondedToCheckin(checkinId, userId) {
 }
 
 export function getCheckinResponses(checkinId) {
-  // Returns aggregated data only — never exposing individual user_id in practice.
-  // The user_id is stored for deduplication only.
+  // Returns aggregated/anonymous response data — never exposes user_id. The
+  // user_id is stored for deduplication only and is intentionally not selected.
+  // Q3/Q4 free text is included so the readback engine can extract themes;
+  // the engine deduplicates and never attributes responses to individuals.
   return db.prepare(
-    "SELECT q1_dimensions, q2_landing FROM team_checkin_responses WHERE checkin_id = ?"
+    "SELECT q1_dimensions, q2_landing, q3_helped, q4_carrying FROM team_checkin_responses WHERE checkin_id = ?"
   ).all(checkinId);
 }
 

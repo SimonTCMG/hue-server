@@ -102,6 +102,18 @@ MyHue is an AI-conducted colour energy assessment and ongoing companion. Through
 - Team API endpoints: `/api/teams`, `/api/team/:teamId`, `/api/team/:teamId/visibility`
 - Welcome screen shows team links and "Manage organisation" link for org admins
 
+### Team check-in readback redesign — built (4 May 2026, first cycle on new engine: Friday 8 May 2026 15:00 UK)
+- The mechanical 3-slot readback is replaced by an LLM-driven three-part readback: **the reading** (energy-aware specific observation, up to three short paragraphs), **the threads** (Q3/Q4 themes, null when nothing recurred), **the question** (one earned sentence). Output also carries `confidence` (high/moderate/low/insufficient), `claims` (every substantive statement anchored to a data point), and `notes_for_lead` (lead-only).
+- Engine flow: assemble structured context (team aggregate + describeTeamShape + Q1/Q2 distributions + deduplicated Q3/Q4 themes + previous readback) → if below threshold or no API key, persist insufficient-confidence fallback → otherwise call `claude-sonnet-4-6` with system = HUE_VOICE_RULES + READBACK_VOICE_RULES + 20-pattern library + few-shot + output schema → parse + run post-check → up to 3 attempts → fall back if all fail. All persisted atomically.
+- Post-check enforces: schema, four valid `confidence` values, length ceilings (1200/400/200), single-sentence question ending in `?`, banned coach-speak phrases, banned AI-cadence rhetorical constructions, no first-person attribution (anonymity), no "data" word in member-facing copy, every claim has both `claim` and `anchor`.
+- DB: `team_checkins` gains `readback_reading`, `readback_threads`, `readback_question`, `readback_confidence` columns. New `team_checkin_readbacks` audit table stores full structured output + system prompt + user message + raw response + parsed response + post-check result + attempts + model + fallback flag + timestamp. Audit logging stays verbose for the first 4–6 cycles.
+- Anonymity guarantee unchanged (Pipeline 3). Q3/Q4 free text is included in the LLM prompt but only after `extractThemesFromFreeText` deduplicates and filters out empty/null-equivalent/very-short responses; `getCheckinResponses` still never returns `user_id`.
+- Frontend (`TeamCheckinReadback`) renders the three-part readback. Members see reading + threads (conditional) + question. Leads/admins additionally see a "Lead view — not shown to the team" block with confidence + notes_for_lead. The block is gated server-side via `buildReadbackPayload(checkin, isLead)` — members never receive those fields. Legacy `slot1/slot2/slot3` rendering retained as a fallback for cycles closed before the redesign (e.g. TCMG 1 May cycle).
+- Reveal flow: Monday 09:00 close cron now auto-flips `dashboard_revealed` once the readback has been generated. Lead-gate-before-reveal kill-switch still available — set `dashboard_revealed = 0` manually before close to suppress.
+- Admin dry-run: `POST /api/admin/dry-run-readback/:checkinId` (SESSION_SECRET-gated). Default returns context + assembled prompts only. Pass `?live=true` to actually call the model and return parsed result + post-check verdict. Never persists. Useful for sanity-checking the engine against real check-in data without firing the cron.
+- Files: `dimensions.js` (canonical 32-dimension map + helpers), `readback.js` (voice rules + pattern library + helpers + prompt builders + post-check + fallback), `dimensions.test.js` (12 tests), `readback.test.js` (29 tests). 41/41 tests pass.
+- Source documents: `claude-project-files/team assessment redesign/team-checkin-readback-redesign-v1.md` (rationale), `PATTERN_LIBRARY.js` (20 patterns drafted; embedded in `readback.js`), `SYSTEM_PROMPT_TEMPLATE.js` (template; implemented in `readback.js`).
+
 ### TCMG beta — live and ready
 - Organisation "The Change Maker Group" created on production (ID: `tcmg-org-001`)
 - Team "TCMG" created (ID: `tcmg-team-001`)
@@ -153,6 +165,10 @@ MyHue is an AI-conducted colour energy assessment and ongoing companion. Through
 | `public/visual-system.html` | Anyan visual system design reference at `/visual-system` — standalone, no shared state with app, public (no auth) |
 | `server.js` | Node/Express backend, proxies Anthropic API calls, Stripe, email cron |
 | `db.js` | SQLite schema and queries — users, teams, orgs, shares, summaries, trial emails |
+| `dimensions.js` | Single source of truth for the 32 Functional Dimensions. Loads `checkin-dimensions.json`, validates shape at boot, exports `DIMENSIONS`, `DIMENSIONS_BY_ENERGY`, `DIMENSION_KEYS`, `getDimension`, `getDimensionEnergy`, `groupDimensionsByEnergy`. Client gets the same data via `GET /api/dimensions`. |
+| `readback.js` | Pure logic for the team check-in readback engine: `READBACK_VOICE_RULES`, `PATTERN_LIBRARY` (20 patterns), `describeTeamShape`, `extractThemesFromFreeText`, `topDimensionsByFrequency`, `q1ByEnergyCounts`, `q2Distribution`, `buildReadbackSystemPrompt`, `buildReadbackUserMessage`, `parseReadbackJSON`, `runReadbackPostCheck`, `INSUFFICIENT_CONFIDENCE_READBACK`. The async `generateReadback` orchestrator lives in `server.js` — it imports from here. |
+| `dimensions.test.js` | 12 tests over `dimensions.js` helpers. Node built-in test runner, no framework. |
+| `readback.test.js` | 29 tests over `readback.js` helpers — describeTeamShape, post-check (banned phrases, schema, length, claims, question rules), prompt assembly. |
 | `mailerlite.js` | MailerLite subscriber sync |
 | `mailersend.js` | MailerSend email sending |
 | `.env` | Local API keys (ANTHROPIC_API_KEY, STRIPE, MAILERLITE, MAILERSEND) |
