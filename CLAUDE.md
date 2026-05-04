@@ -1,5 +1,5 @@
 # CLAUDE.md — MyHue / myhue.co
-*Master brief for all Claude sessions. Last updated: 30 April 2026 (Pre-flight for first TCMG check-in run on Friday 1 May: TeamCheckinReadback frontend bug fixed (API/component shape mismatch + conditional slot2 render), accidental-cancellation startup block removed, dashboard_revealed flipped to true for TCMG so all six members see the Monday 4 May readback.).*
+*Master brief for all Claude sessions. Last updated: 2 May 2026 (Assessment v2.1 live in production: signal-density coverage gate (floor 12→8, density-aware increments capped +2 per counter per response, multi-counter increments allowed), always-all-four-colours gradient progress line in the assessment screen header (HueProgressLine, 14s idle drift, fills with coverage points), coverage emission via hidden HTML comment per turn, time estimates updated everywhere to "around 10 minutes". Spec: hue-assessment-v2-code-brief.md.).*
 *Read this before doing anything. All decisions documented here are resolved unless Simon explicitly reopens them.*
 
 ---
