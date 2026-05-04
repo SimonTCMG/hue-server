@@ -4,6 +4,42 @@ All notable changes to the MyHue product. Ordered by date, most recent first. Ea
 
 ---
 
+## 2 May 2026 — Assessment v2.1: signal-density gate + always-all-four progress line (CLAUDE.md item 117)
+
+The v2 assessment (12–18 exchanges, fixed coverage gate) was over-asking in-depth respondents — a verbose user could satisfy all five coverage counters in 6–8 exchanges but the floor of 12 forced another 4–6 turns of essentially redundant questioning. v2.1 fixes that without weakening the coverage rigour, and adds an ambient progress indicator so the user can sense how far through the picture is.
+
+### Assessment loop changes (system prompt in `public/hue.html` ~lines 270–360)
+
+- **Floor lowered: 12 → 8 exchanges.** Preserves a sensible minimum baseline; removes artificial padding for in-depth respondents. Ceiling unchanged at 18.
+- **Density-aware counter increments.** Replaces v2's "+1 per response containing X" with "+1 per *distinct situation or context* in the response that exhibits X." Cap +2 per counter per response so one essay-length answer can't trip a counter alone. Cross-counter increments explicitly allowed — a single rich response may legitimately raise multiple counters at once.
+- **Bias schedule shift.** Exchanges 1–6 from the original topic bank (was 1–8); 7+ coverage-driven (was 12+). Drops the redundant 9–11 transitional band.
+- **Coverage emission.** Model appends a hidden `<!--coverage:{"v":N,"c":N,"r":N,"u":N,"i":N}-->` line at the end of every non-completion turn, allowing the frontend to drive the progress line without exposing the counters to the user.
+
+### Frontend (`public/hue.html`)
+
+- **`HueProgressLine` component** (added near the SpinMark definition). Two-layer always-all-four-colours gradient strip: a 22%-opacity track shimmer (`::before`) and a full-saturation fill, both sized at 200% width with `background-size: 200% 100%` so all four colours are present at any visible width. Same `hue-drift` keyframe animates `background-position-x` from 100% to 0% over 14s on both layers in sync. `prefers-reduced-motion: reduce` halts the drift.
+- **Assessment screen header** gains a new bottom row: `STARTED ──── COMPLETE` strip below the existing SpinMark/MyHue/Home row. Border between header and chat moved to the bottom of the new strip.
+- **`parseCoverage` / `stripCoverage` / `coverageFillPoints`** helpers added next to `parseScores`. Frontend parses the hidden coverage line, strips it before display, and maps the five counters to the 0–8 fill points total (with per-counter caps applied).
+- **`ChatScreen` wiring**: `fillPoints` state, updated on each model reply; rendered into the strip; locked to 8 on the completion turn.
+
+### Time estimate copy
+
+All three places updated to "around 10 minutes — sometimes a bit more if there's more ground to cover":
+- `hue-consent-conversation-v1.md` — Exchange 1
+- `public/hue.html` home screen WelcomeScreen
+- `public/hue.html` ConsentScreen system prompt string
+
+### Files touched
+
+`public/hue.html`, `hue-consent-conversation-v1.md`, `CLAUDE.md` (item 117 added; "Working and live" assessment line + KEY PRODUCT DECISIONS Assessment format paragraph rewritten), `hue-assessment-v2-code-brief.md` (new — full v2.1 spec, reconstructs v2 baseline plus density gate and progress line), `.claude/mocks/progress-line.html` (new — interactive visual mock).
+
+### Open follow-ups
+
+- Counter persistence on browser refresh — currently the line resets on reload; conversation history still lives server-side, so a re-derive-from-history pass could come later (see brief §8.2)
+- Drift behaviour at completion — currently continues until the screen transitions; revisit if the transition feels jarring (see brief §8.3)
+
+---
+
 ## 24 April 2026 — Check-in backend complete (Pipeline 3) — TCMG first run 1 May 2026
 
 The check-in system was previously DB-complete (all CRUD helpers in `db.js`, frontend components in `hue.html`) but had no wired backend. This session verified that gap, then built everything needed for TCMG's first real check-in on Friday 1 May at 15:00 UK.

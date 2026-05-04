@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MyHue assessment progress line — mock v2</title>
+<style>
+  :root {
+    --cream: #FDFAF4;
+    --ink: #1A1410;
+    --sand: #E8DFC8;
+    --stone: #9B8E7E;
+    --spark: #D92010;
+    --glow: #F5D000;
+    --glowOnLight: #C8960C;
+    --tend: #1A8C4E;
+    --flow: #1755B8;
+  }
+  html, body { margin: 0; padding: 0; background: var(--cream); color: var(--ink); font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
+  body { padding: 32px 40px 80px; }
+  h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 16px; margin: 32px 0 12px; color: var(--ink); }
+  .lede { color: var(--stone); font-size: 13px; max-width: 720px; line-height: 1.5; margin: 0 0 24px; }
+
+  /* ─── The progress line ─────────────────────────────────────────────
+     Anatomy:
+       - .progress-line       : sand track + a low-opacity drifting shimmer (::before)
+       - .progress-line .fill : full-saturation drifting gradient, width animated
+     Both layers run the same `hue-drift` keyframe in sync, so the motion
+     reads as one continuous flow at two intensities — pale where empty,
+     vivid where filled. The four colours are always present in both
+     layers; what drifts is their *position* inside the line.            */
+  .progress-line {
+    position: relative;
+    width: 100%;
+    height: 3px;
+    background: var(--sand);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-line::before {
+    /* Always-on shimmer. Gives life from the moment the screen opens,
+       even before the first coverage point is earned. */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      var(--spark), var(--glow), var(--tend), var(--flow),
+      var(--spark), var(--glow), var(--tend), var(--flow)
+    );
+    background-size: 200% 100%;
+    opacity: 0.22;
+    animation: hue-drift 14s linear infinite;
+    pointer-events: none;
+  }
+  .progress-line .fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0%; /* JS sets this from data-points */
+    background: linear-gradient(
+      90deg,
+      var(--spark), var(--glow), var(--tend), var(--flow),
+      var(--spark), var(--glow), var(--tend), var(--flow)
+    );
+    background-size: 200% 100%;
+    animation: hue-drift 14s linear infinite;
+    transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+    border-radius: 2px;
+  }
+  @keyframes hue-drift {
+    from { background-position-x: 100%; }
+    to   { background-position-x: 0%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .progress-line::before,
+    .progress-line .fill {
+      animation: none;
+    }
+  }
+  /* End-cap labels (optional, used in annotated version below) */
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .progress-row .end-label {
+    font-size: 11px;
+    color: var(--stone);
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  /* Mock sticky header — line sits as an integrated underline */
+  .header-mock {
+    background: var(--cream);
+    border: 1px solid var(--sand);
+    border-radius: 12px 12px 0 0;
+    padding: 14px 20px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 720px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  }
+  .header-mock .wordmark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+  }
+  .header-mock .spacer { flex: 1; }
+  .header-mock .home {
+    width: 38px; height: 38px;
+    border-radius: 8px;
+    border: 1px solid var(--sand);
+    display: grid; place-items: center;
+    color: var(--stone);
+  }
+  .header-mock-shell {
+    max-width: 720px;
+  }
+  /* Line embedded as the bottom seam of the header */
+  .header-mock-line {
+    max-width: 720px;
+    border: 1px solid var(--sand);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 0 20px 14px;
+    background: var(--cream);
+  }
+  .chat-stub {
+    max-width: 720px;
+    background: #fff;
+    border: 1px solid var(--sand);
+    border-top: none;
+    border-radius: 0;
+    padding: 24px 20px;
+    color: var(--stone);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  /* Snapshot grid — five fill states */
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 720px;
+    background: #fff;
+    border: 1px solid var(--sand);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .grid-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 60px;
+    gap: 16px;
+    align-items: center;
+  }
+  .grid-row .label {
+    font-size: 12px;
+    color: var(--stone);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .grid-row .pts { font-size: 12px; color: var(--ink); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Scrubber */
+  .scrubber {
+    margin-top: 12px;
+    max-width: 720px;
+    background: #fff;
+    border: 1px solid var(--sand);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .scrubber .scrub-row {
+    display: grid;
+    grid-template-columns: 1fr 240px;
+    gap: 28px;
+    align-items: center;
+  }
+  .scrubber label {
+    display: block;
+    font-size: 12px;
+    color: var(--stone);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .scrubber input[type=range] { width: 100%; accent-color: var(--ink); }
+  .scrubber .read {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .scrubber .read code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    background: var(--sand);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* Anatomy notes */
+  .notes {
+    max-width: 720px;
+    margin-top: 24px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .notes ul { padding-left: 20px; margin: 8px 0 0; }
+  .notes li { margin-bottom: 6px; }
+
+  .variant-card {
+    max-width: 720px;
+    background: #fff;
+    border: 1px solid var(--sand);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 14px;
+  }
+  .variant-card h3 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--stone);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 14px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Assessment progress line — v3</h1>
+<p class="lede">A thin gradient line that extends from "Started" to "Complete" as the conversation builds. <strong>The line itself always contains all four energy colours</strong> — at 1/8 a tiny compressed rainbow, at 8/8 the full-width version. Nothing ever feels "missing." Same Spark→Glow→Tend→Flow palette used as a frame on the Results page extended cards.</p>
+
+<h2>In context — assessment screen sticky header</h2>
+<p class="lede">Header has its own row; below it sits the progress strip with end labels. Strip is the seam between brand bar and chat.</p>
+
+<div class="header-mock-shell">
+  <div class="header-mock">
+    <!-- Static SpinMark -->
+    <svg width="38" height="38" viewBox="0 0 38 38">
+      <circle cx="19" cy="19" r="18.24" fill="#fff"/>
+      <circle cx="11.94" cy="11.94" r="3" fill="var(--spark)"/>
+      <circle cx="26.06" cy="11.94" r="3" fill="var(--glow)"/>
+      <circle cx="26.06" cy="26.06" r="3" fill="var(--tend)"/>
+      <circle cx="11.94" cy="26.06" r="3" fill="var(--flow)"/>
+      <g fill="var(--ink)">
+        <rect x="13.3" y="13.66" width="2.09" height="10.64" rx="0.6"/>
+        <rect x="22.61" y="13.66" width="2.09" height="10.64" rx="0.6"/>
+        <rect x="13.3" y="17.95" width="11.4" height="2.09" rx="0.6"/>
+      </g>
+    </svg>
+    <span class="wordmark">MyHue</span>
+    <span class="spacer"></span>
+    <div class="home">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/>
+      </svg>
+    </div>
+  </div>
+  <div class="header-mock-line">
+    <div class="progress-row">
+      <span class="end-label">STARTED</span>
+      <div class="progress-line" style="flex:1"><div class="fill" data-points="3"></div></div>
+      <span class="end-label">COMPLETE</span>
+    </div>
+  </div>
+  <div class="chat-stub">[chat conversation lives below]</div>
+</div>
+
+<h2>States — empty through complete</h2>
+<p class="lede">Each state shows the line with all four colours present. The line grows in width; the gradient inside it compresses at small widths and stretches as the line extends.</p>
+<div class="grid">
+  <div class="grid-row">
+    <div class="label">Just opened</div>
+    <div class="progress-row" style="width:100%">
+      <span class="end-label">STARTED</span>
+      <div class="progress-line" style="flex:1"><div class="fill" data-points="0"></div></div>
+      <span class="end-label">COMPLETE</span>
+    </div>
+    <div class="pts">0 / 8</div>
+  </div>
+  <div class="grid-row">
+    <div class="label">Warming up</div>
+    <div class="progress-row" style="width:100%">
+      <span class="end-label">STARTED</span>
+      <div class="progress-line" style="flex:1"><div class="fill" data-points="2"></div></div>
+      <span class="end-label">COMPLETE</span>
+    </div>
+    <div class="pts">2 / 8</div>
+  </div>
+  <div class="grid-row">
+    <div class="label">Half a picture</div>
+    <div class="progress-row" style="width:100%">
+      <span class="end-label">STARTED</span>
+      <div class="progress-line" style="flex:1"><div class="fill" data-points="4"></div></div>
+      <span class="end-label">COMPLETE</span>
+    </div>
+    <div class="pts">4 / 8</div>
+  </div>
+  <div class="grid-row">
+    <div class="label">Nearly there</div>
+    <div class="progress-row" style="width:100%">
+      <span class="end-label">STARTED</span>
+      <div class="progress-line" style="flex:1"><div class="fill" data-points="6"></div></div>
+      <span class="end-label">COMPLETE</span>
+    </div>
+    <div class="pts">6 / 8</div>
+  </div>
+  <div class="grid-row">
+    <div class="label">Complete</div>
+    <div class="progress-row" style="width:100%">
+      <span class="end-label">STARTED</span>
+      <div class="progress-line" style="flex:1"><div class="fill" data-points="8"></div></div>
+      <span class="end-label">COMPLETE</span>
+    </div>
+    <div class="pts">8 / 8</div>
+  </div>
+</div>
+
+<h2>Live scrubber</h2>
+<div class="scrubber">
+  <div class="scrub-row">
+    <div>
+      <label for="pts">Coverage points earned (0–8)</label>
+      <input id="pts" type="range" min="0" max="8" value="3" step="1">
+      <div class="read" id="readout"></div>
+    </div>
+    <div>
+      <div class="progress-line" style="height: 4px"><div id="big-fill" class="fill" data-points="3"></div></div>
+    </div>
+  </div>
+</div>
+
+<h2>Anatomy and rules</h2>
+<div class="notes">
+  <ul>
+    <li><strong>Always all four colours.</strong> Both the track shimmer and the fill carry the full Spark → Glow → Tend → Flow palette at all widths. Nothing ever appears or disappears.</li>
+    <li><strong>Subtle drift while idle.</strong> The colours flow gently from right to left across the line on a 14-second loop. Visible from the moment the screen opens — the empty track shimmers at low opacity (≈22%), the filled portion drifts at full saturation. Same animation, two intensities, in sync. Tells the user "this is alive, listening" without any explicit cue.</li>
+    <li><strong>Drift is independent of completion.</strong> The line keeps moving while the user is mid-typing, mid-thinking, mid-anything. Coverage advance and colour drift are two separate animations on the same element.</li>
+    <li><strong>Respects <code>prefers-reduced-motion</code>.</strong> Drift halts; the line still fills as coverage advances.</li>
+    <li><strong>The line grows in width, not in colour count.</strong> What's changing as the conversation builds is how much of the strip is filled. The palette is a constant.</li>
+    <li><strong>Same palette as the Results page card frames.</strong> Already established in the design system as "all four energies as one picture."</li>
+    <li><strong>End labels.</strong> "STARTED" and "COMPLETE" anchor the line. Small letter-spaced stone caps. No number, no percentage, no tooltip.</li>
+    <li><strong>Increment unit.</strong> 8 coverage points → 8 × 12.5% slices of fill width.</li>
+    <li><strong>Completion.</strong> Line reaches "COMPLETE" + exchange floor reached → completion fires.</li>
+    <li><strong>Quarterly retest.</strong> Line opens fully filled (ghost of last completion) at 30% opacity (drift continues), then dims to track and refills as the new conversation runs.</li>
+  </ul>
+</div>
+
+<script>
+  function applyFill(el) {
+    const pts = +el.dataset.points;
+    el.style.width = `${(pts / 8) * 100}%`;
+  }
+
+  document.querySelectorAll('.fill').forEach(applyFill);
+
+  const scrub = document.getElementById('pts');
+  const big = document.getElementById('big-fill');
+  const readout = document.getElementById('readout');
+  function updateReadout() {
+    const p = +scrub.value;
+    const phase = p === 0 ? 'Just opened — no signal yet.'
+      : p <= 2 ? 'Conversation warming up. The first behavioural details are surfacing.'
+      : p <= 4 ? 'Picture filling out. Multiple counters now have signal.'
+      : p <= 6 ? 'Most of the picture is in. Hue is targeting the remaining gaps.'
+      : p === 7 ? 'Last counter to satisfy. One more clear answer should do it.'
+      : 'All five counters satisfied. Completion fires as soon as the floor is reached.';
+    readout.innerHTML = `<code>${p} / 8</code> &nbsp; ${phase}`;
+  }
+  scrub.addEventListener('input', () => {
+    big.dataset.points = scrub.value;
+    applyFill(big);
+    updateReadout();
+  });
+  updateReadout();
+</script>
+
+</body>
+</html>

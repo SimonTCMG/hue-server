@@ -43,6 +43,47 @@
       0%, 100% { transform: scale(1); opacity: 1; }
       50% { transform: scale(1.08); opacity: 0.85; }
     }
+    /* Assessment progress line — see hue-assessment-v2-code-brief.md §5 */
+    @keyframes hue-drift {
+      from { background-position-x: 100%; }
+      to   { background-position-x: 0%; }
+    }
+    .hue-progress-line {
+      position: relative;
+      width: 100%;
+      height: 3px;
+      background: #E8DFC8;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .hue-progress-line::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg,
+        #D92010, #F5D000, #1A8C4E, #1755B8,
+        #D92010, #F5D000, #1A8C4E, #1755B8);
+      background-size: 200% 100%;
+      opacity: 0.22;
+      animation: hue-drift 14s linear infinite;
+      pointer-events: none;
+    }
+    .hue-progress-line .hue-progress-fill {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 0%;
+      background: linear-gradient(90deg,
+        #D92010, #F5D000, #1A8C4E, #1755B8,
+        #D92010, #F5D000, #1A8C4E, #1755B8);
+      background-size: 200% 100%;
+      animation: hue-drift 14s linear infinite;
+      transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+      border-radius: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hue-progress-line::before,
+      .hue-progress-line .hue-progress-fill { animation: none; }
+    }
   </style>
 </head>
 <body>
@@ -280,7 +321,7 @@ topic areas (original) can be asked in any order that fits the conversation.
 The eight additional questions (Q9–Q16) each target a specific scoring signal
 and are selected using the coverage logic below.
 
-Original topic bank (exchanges 1–8 draw primarily from here):
+Original topic bank (exchanges 1–6 draw primarily from here):
 - What energises them
 - How they handle conflict
 - What a great day looks like
@@ -319,24 +360,36 @@ Q15 [updateMechanism]  Tell me about a recent time you changed your mind about
 Q16 [identityInSuccess] When you look back at something you handled well, what
                         part of it feels most like you?
 
-COVERAGE TRACKING — as you read each response, silently update five counters:
+COVERAGE TRACKING — as you read each response, silently update five counters.
+Apply these increment rules per response. Increments are based on the count
+of distinct situations or contexts described in that response, never on word
+count alone. Cap each counter at +2 per response.
 
-- valence:            +1 for each response containing cost, drain, or effort
-                      language; or describing behaviour performed despite
-                      preference
-- crossContext:       +1 for each distinct non-work context the person
-                      describes (home, friends, solo, family, physical body,
-                      community, etc.)
-- recovery:           +1 for each response describing behaviour under pressure,
-                      disruption, overload, or when things go wrong
-- updateMechanism:    +1 for evidence of how the person shifts position — what
-                      they accept as evidence, what changes their mind
-- identityInSuccess:  +1 for unguarded self-location in a good outcome — what
-                      they take credit for, what they're proud of
+- valence:            +1 per distinct situation in the response that contains
+                      cost, drain, or effort language, or describes behaviour
+                      performed despite preference. Cap +2 per response.
+- crossContext:       +1 per distinct non-work context described in the
+                      response (home, friends, solo, family, physical body,
+                      community, etc.). Cap +2 per response.
+- recovery:           +1 per distinct situation described in the response
+                      involving pressure, disruption, overload, or things
+                      going wrong. Cap +2 per response.
+- updateMechanism:    +1 per distinct instance of position-shift evidence —
+                      what the person accepts as evidence, what changes
+                      their mind. Cap +2 per response.
+- identityInSuccess:  +1 per distinct unguarded self-location in a good
+                      outcome — what they take credit for, what they're
+                      proud of. Cap +2 per response.
+
+A single response may legitimately satisfy multiple counters at once. A
+story spanning home and work, performed at a personal cost, describing
+recovery from disruption, would raise crossContext, valence, and recovery
+simultaneously. This is correct behaviour, not double-counting. Density of
+distinct situations is what increments — never length alone.
 
 COMPLETION GATE — before emitting the final JSON, run this check silently:
 
-1. Have you completed at least 12 exchanges? If not, continue asking.
+1. Have you completed at least 8 exchanges? If not, continue asking.
 2. Are all five coverage counters at or above threshold?
      valence ≥ 2
      crossContext ≥ 2 distinct non-work contexts
@@ -348,6 +401,17 @@ COMPLETION GATE — before emitting the final JSON, run this check silently:
    question that targets that counter, move to the next-lowest counter.
 3. Have you reached 18 exchanges? If yes, stop and emit the JSON regardless
    of coverage. Coverage capped by ceiling is acceptable.
+
+COVERAGE EMISSION — at the end of every response except the final completion
+JSON turn, append exactly one line on its own line, in this exact format:
+
+  <!--coverage:{"v":N,"c":N,"r":N,"u":N,"i":N}-->
+
+Where N are the current integer values of the five counters (v=valence,
+c=crossContext, r=recovery, u=updateMechanism, i=identityInSuccess). This
+line is hidden from the user but allows the interface to show conversation
+depth. Do not omit it. Do not modify the format. On the final completion
+JSON turn, emit only the JSON — no coverage line on that turn.
 
 When the minimum floor is met AND either all counters pass OR the ceiling is
 reached, output EXACTLY this JSON on its own line:
@@ -461,6 +525,48 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const m = text.match(/\{"done":true,"scores":\{"spark":(\d+),"glow":(\d+),"tend":(\d+),"flow":(\d+)\}\}/);
       if (!m) return null;
       return { spark: +m[1], glow: +m[2], tend: +m[3], flow: +m[4] };
+    }
+
+    // Coverage line emitted by the assessment model on every non-completion turn.
+    // Format: <!--coverage:{"v":N,"c":N,"r":N,"u":N,"i":N}-->
+    // See hue-assessment-v2-code-brief.md §5 and §6.2.
+    const COVERAGE_RX = /<!--coverage:(\{[^}]*\})-->/;
+    function parseCoverage(text) {
+      const m = text.match(COVERAGE_RX);
+      if (!m) return null;
+      try { return JSON.parse(m[1]); } catch { return null; }
+    }
+    function stripCoverage(text) {
+      return text.replace(COVERAGE_RX, "").trim();
+    }
+    // Map raw counter values to a 0..8 fill point total, applying per-counter caps.
+    function coverageFillPoints(c) {
+      if (!c) return 0;
+      return Math.min(c.v ?? 0, 2)
+           + Math.min(c.c ?? 0, 2)
+           + Math.min(c.r ?? 0, 2)
+           + Math.min(c.u ?? 0, 1)
+           + Math.min(c.i ?? 0, 1);
+    }
+
+    // ─── HueProgressLine — assessment depth indicator ─────────────────────────
+    // Thin gradient line shown in the assessment screen header. Always carries
+    // all four energy colours; width grows with coverage; idle drift runs on
+    // both layers in sync (see hue-assessment-v2-code-brief.md §5).
+    function HueProgressLine({ fillPoints = 0, ghost = false }) {
+      const pct = Math.max(0, Math.min(8, fillPoints)) / 8 * 100;
+      return (
+        <div
+          className="hue-progress-line"
+          role="img"
+          aria-label="Assessment depth indicator"
+        >
+          {ghost && (
+            <div className="hue-progress-fill" style={{ width: "100%", opacity: 0.3 }} />
+          )}
+          <div className="hue-progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+      );
     }
 
     // ─── SpinMark — the Hue logo mark ─────────────────────────────────────────
@@ -1004,7 +1110,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
               <p style={{
                 fontSize: 12, color: C.stone, marginTop: 14,
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-              }}>About 15–20 minutes · No right or wrong answers</p>
+              }}>Around 10 minutes · No right or wrong answers</p>
               <p style={{
                 fontSize: 12, color: C.stone, marginTop: 6,
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -1053,7 +1159,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
 
       const EXCHANGES = [
         {
-          hue:   "Hi. I'm Hue. This is a conversation, not a quiz — it usually takes around 15–20 minutes, sometimes a bit more, sometimes less, depending on how much ground we need to cover together. Sound good?",
+          hue:   "Hi. I'm Hue. This is a conversation, not a quiz — it usually takes around 10 minutes, sometimes a bit more if there's more ground to cover together. Sound good?",
           reply: "Sounds good.",
         },
         {
@@ -1196,6 +1302,7 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const [input, setInput]       = useState("");
       const [typing, setTyping]     = useState(false);
       const [error, setError]       = useState(null);
+      const [fillPoints, setFillPoints] = useState(0);
       const bottomRef = useRef(null);
       const inputRef  = useRef(null);
 
@@ -1209,11 +1316,14 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
           try {
             const seed = [{ role: "user", content: "Hi, I'm ready to start my colour energy assessment." }];
             const reply = await callClaude(seed, ASSESSMENT_PROMPT);
+            const cov = parseCoverage(reply);
+            if (cov) setFillPoints(coverageFillPoints(cov));
+            const cleanReply = stripCoverage(reply);
             setHistory([
               { role: "user",      content: seed[0].content },
               { role: "assistant", content: reply },
             ]);
-            setDisplay([{ from: "hue", text: reply }]);
+            setDisplay([{ from: "hue", text: cleanReply }]);
           } catch {
             setError("Couldn't reach the server. Make sure it's running on localhost:3001.");
           } finally {
@@ -1240,15 +1350,19 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
         try {
           const reply = await callClaude(newHistory, ASSESSMENT_PROMPT);
           const scores = parseScores(reply);
+          const cov = parseCoverage(reply);
+          if (cov) setFillPoints(coverageFillPoints(cov));
 
           if (scores) {
-            const displayText = reply.replace(/\{"done":true.*?\}/, "").trim();
+            // Final completion turn: strip the JSON line and any stray coverage.
+            const displayText = stripCoverage(reply.replace(/\{"done":true.*?\}/, "")).trim();
             if (displayText) setDisplay(d => [...d, { from: "hue", text: displayText }]);
+            setFillPoints(8); // line lands at full as we transition to results
             const fullHistory = [...newHistory, { role: "assistant", content: reply }];
             setTimeout(() => onComplete(scores, fullHistory), displayText ? 1400 : 400);
           } else {
             setHistory(h => [...h, { role: "assistant", content: reply }]);
-            setDisplay(d => [...d, { from: "hue", text: reply }]);
+            setDisplay(d => [...d, { from: "hue", text: stripCoverage(reply) }]);
           }
         } catch {
           setError("Something went wrong — please try again.");
@@ -1266,7 +1380,6 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
             <div style={{
               padding: "18px 20px 14px",
               display: "flex", alignItems: "center", gap: 12,
-              borderBottom: `1px solid ${C.sand}`,
               background: C.cream,
               flexShrink: 0,
               borderRadius: isDesktop ? "32px 32px 0 0" : 0,
@@ -1279,6 +1392,18 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 </div>
               </div>
               <NavIcon type="home" onClick={onHome} />
+            </div>
+
+            <div style={{
+              padding: "0 20px 12px",
+              display: "flex", alignItems: "center", gap: 10,
+              borderBottom: `1px solid ${C.sand}`,
+              background: C.cream,
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 10, color: C.stone, letterSpacing: "0.06em", fontFamily: "'Plus Jakarta Sans', sans-serif", flexShrink: 0 }}>STARTED</span>
+              <div style={{ flex: 1 }}><HueProgressLine fillPoints={fillPoints} /></div>
+              <span style={{ fontSize: 10, color: C.stone, letterSpacing: "0.06em", fontFamily: "'Plus Jakarta Sans', sans-serif", flexShrink: 0 }}>COMPLETE</span>
             </div>
 
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 8px" }}>

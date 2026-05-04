@@ -9,7 +9,7 @@ This replaces a modal or a terms screen. It's a conversation — the first thing
 
 ### Exchange 1 — Hue opens
 
-> "Before we start, I want you to know what you're walking into. This isn't a quiz. I'm going to ask you about real situations — moments from your actual life — and from how you talk about them, I'll build a picture of the energies you tend to reach for most naturally. It takes around 10–15 minutes. Sound good?"
+> "Before we start, I want you to know what you're walking into. This isn't a quiz. I'm going to ask you about real situations — moments from your actual life — and from how you talk about them, I'll build a picture of the energies you tend to reach for most naturally. It takes around 10 minutes — sometimes a bit more if there's more ground to cover together. Sound good?"
 
 *[User responds — yes, or a question, or something else. Hue responds naturally and moves to Exchange 2.]*
 
