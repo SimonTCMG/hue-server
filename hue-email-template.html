@@ -6,7 +6,7 @@
 <tr><td align="center" style="padding:0 24px 48px">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
 
-<!-- FOUR-COLOUR TOP BAR -->
+<!-- FOUR-COLOUR TOP BAR — represents the whole, not the individual -->
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
     <td style="background:#D92010;height:6px;width:25%"></td>
@@ -27,29 +27,15 @@
   </tr></table>
 </td></tr>
 
-<!-- ENERGY BADGES (instinctive + second-ranked) -->
-<tr><td style="padding:18px 0 0">
-  <span style="display:inline-block;border-radius:99px;padding:4px 12px 4px 8px;
-    background:#F9F3E0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
-    letter-spacing:0.06em;text-transform:uppercase;color:{{ENERGY_BADGE_TEXT}}">
-    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;
-      background:{{ENERGY_COLOR}};vertical-align:middle;margin-right:5px"></span>
-    {{ENERGY_NAME}} energy</span>
-  &nbsp;
-  <span style="display:inline-block;border-radius:99px;padding:4px 12px 4px 8px;
-    background:#F0F7F2;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
-    letter-spacing:0.06em;text-transform:uppercase;color:{{SECOND_ENERGY_BADGE_TEXT}}">
-    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;
-      background:{{SECOND_ENERGY_COLOR}};vertical-align:middle;margin-right:5px"></span>
-    {{SECOND_ENERGY_NAME}} energy</span>
-</td></tr>
-
-<!-- CONTENT TYPE LABEL -->
-<tr><td style="padding:18px 0 0;font-family:Arial,sans-serif;font-size:11px;
-  letter-spacing:0.10em;text-transform:uppercase;color:#9B8E7E">{{CONTENT_TYPE}}</td></tr>
+<!-- CONTENT TYPE LABEL — plain text only, no coloured element -->
+<tr><td style="padding:24px 0 0;font-family:Arial,sans-serif;font-size:11px;
+  letter-spacing:0.10em;text-transform:uppercase;color:#9B8E7E">{{CONTENT_TYPE_LABEL}}</td></tr>
 
 <!-- MAIN COPY -->
 <tr><td style="padding:12px 0 0">{{CONTENT_TEXT_FORMATTED}}</td></tr>
+
+<!-- SCENARIO LINE (inline form) — single line below main content, empty when not active -->
+{{SCENARIO_LINE_BLOCK}}
 
 <!-- FOUR-COLOUR ACCENT RULE -->
 <tr><td style="padding:20px 0 0">
@@ -61,18 +47,25 @@
   </tr></table>
 </td></tr>
 
-<!-- CTA BUTTON -->
+<!-- CTA BUTTON — pre-populates companion input with today's prompt -->
 <tr><td style="padding:24px 0 0">
-  <a href="{{CTA_URL}}" style="display:inline-block;background:#1A1410;
+  <a href="{{COMPANION_PROMPT_URL}}" style="display:inline-block;background:#1A1410;
     color:#FDFAF4;border-radius:99px;padding:12px 28px;font-family:Arial,sans-serif;
     font-weight:700;font-size:13px;text-decoration:none">Continue in Hue</a>
+</td></tr>
+
+<!-- SHARE — quiet, persistent, plain text link, never a primary element -->
+<tr><td style="padding:14px 0 0">
+  <a href="{{SHARE_HREF}}" style="font-family:Arial,sans-serif;font-size:12px;
+    color:#9B8E7E;text-decoration:none;border-bottom:1px solid #EAE4DB;
+    padding-bottom:1px">Share this</a>
 </td></tr>
 
 <!-- FOOTER -->
 <tr><td style="padding:32px 0 0;border-top:1px solid #EAE4DB">
   <table width="100%"><tr>
     <td style="font-family:Arial,sans-serif;font-size:11px;color:#9B8E7E">
-      Hue &middot; <a href="https://myhue.co" style="color:#9B8E7E">myhue.co</a></td>
+      MyHue &middot; <a href="https://myhue.co" style="color:#9B8E7E">myhue.co</a></td>
     <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#9B8E7E">
       <a href="{{UNSUBSCRIBE_URL}}" style="color:#9B8E7E">Unsubscribe</a></td>
   </tr><tr>

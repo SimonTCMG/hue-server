@@ -2614,11 +2614,11 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
     }
 
     // ─── Companion screen ─────────────────────────────────────────────────────
-    function CompanionScreen({ ranked, onHome, returning = false }) {
+    function CompanionScreen({ ranked, onHome, returning = false, initialInput = null, onConsumeInitialInput = () => {} }) {
       const isDesktop = useIsDesktop();
       const [display, setDisplay] = useState([]);
       const [history, setHistory] = useState([]);
-      const [input, setInput]     = useState("");
+      const [input, setInput]     = useState(initialInput || "");
       const [typing, setTyping]   = useState(false);
       const [hasSentMessage, setHasSentMessage] = useState(false);
       const [summaries, setSummaries] = useState(null); // null = loading
@@ -2681,6 +2681,16 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       useEffect(() => {
         if (!typing && display.length > 0) inputRef.current?.focus();
       }, [typing]);
+
+      // One-shot: if the daily email handed us a prompt, drop it in the input
+      // and consume it. The user sends, edits, or ignores — never auto-submitted.
+      useEffect(() => {
+        if (initialInput) {
+          setInput(initialInput);
+          onConsumeInitialInput();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
 
       const send = async () => {
         const text = input.trim();
@@ -5615,12 +5625,47 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
       const checkoutResult = urlParams.get("checkout"); // "success" | "cancelled"
       const showSubscribe   = urlParams.get("subscribe") === "1";
 
-      // Clean checkout params from URL without reload
+      // Daily email CTA: ?prompt= pre-populates the companion input field.
+      // Captured here so it survives URL cleanup and (for unauthenticated
+      // visitors) the registration/login round trip via sessionStorage.
+      const [pendingPrompt, setPendingPrompt] = useState(() => {
+        const fromUrl = new URLSearchParams(window.location.search).get("prompt");
+        if (fromUrl) {
+          try { sessionStorage.setItem("hue_pending_prompt", fromUrl); } catch {}
+          return fromUrl;
+        }
+        try { return sessionStorage.getItem("hue_pending_prompt") || null; } catch { return null; }
+      });
+
+      const consumePendingPrompt = () => {
+        setPendingPrompt(null);
+        try { sessionStorage.removeItem("hue_pending_prompt"); } catch {}
+      };
+
+      // Clean checkout/prompt params from URL without reload
       useEffect(() => {
-        if (checkoutResult || showSubscribe) {
+        if (checkoutResult || showSubscribe || pendingPrompt) {
           window.history.replaceState({}, "", "/");
         }
       }, []);
+
+      // Auto-route to companion when an authenticated user with a profile lands
+      // with a pending prompt. Falls back gracefully (clears the prompt) if the
+      // user has no profile yet — never lands on an error path.
+      useEffect(() => {
+        if (!pendingPrompt || !betaUser) return;
+        if (savedProfile) {
+          const restoredRanked = profileToRanked(savedProfile);
+          setScores(savedProfile.scores);
+          setRanked(restoredRanked);
+          setReturningToChat(true);
+          navigate("companion");
+        } else if (betaUser.assessmentCompleted === false) {
+          // Authenticated but no profile yet — clear so the prompt doesn't
+          // fire after the user finishes a future flow.
+          consumePendingPrompt();
+        }
+      }, [pendingPrompt, betaUser, savedProfile]);
 
       // Lock body scroll when chat screens are active (keeps header pinned)
       useEffect(() => {
@@ -5824,7 +5869,13 @@ Flex crossings from ${ranked[0].name}: ${[ranked[1], ranked[2], ranked[3]].map(e
                 />
               )}
               {screen === "companion" && ranked && (
-                <CompanionScreen ranked={ranked} onHome={() => navigate("welcome")} returning={returningToChat} />
+                <CompanionScreen
+                  ranked={ranked}
+                  onHome={() => navigate("welcome")}
+                  returning={returningToChat}
+                  initialInput={pendingPrompt}
+                  onConsumeInitialInput={consumePendingPrompt}
+                />
               )}
               {screen === "settings" && (
                 <AccountSettingsScreen

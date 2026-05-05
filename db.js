@@ -654,6 +654,77 @@ export function incrementTeamNotificationBounce(userId) {
   }
 }
 
+// ─── Daily email companion features (May 2026 redesign) ─────────────────
+// Scenario lines: server tracks last delivery date per user, enforces minimum
+// 6-week gap, alternates between inline and full-email forms. Never fires on
+// a two-facts week. See anyan-daily-email-redesign-v1.md §5.
+//
+// Companion referral: in-app prompt that fires once only, per user, ever.
+// Triggers: 30+ days subscriber, 5+ exchanges, 3+ session days, never shown.
+// Exchange count and session days are tracked here; the prompt is delivered
+// in-conversation via system addendum on /api/chat. See redesign §6.
+try { db.exec(`ALTER TABLE users ADD COLUMN last_scenario_at INTEGER`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN last_scenario_form TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN last_subject_form TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN last_subject_form_at INTEGER`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN referral_prompt_sent INTEGER DEFAULT 0`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN companion_exchange_count INTEGER DEFAULT 0`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN companion_session_days TEXT`); } catch {}
+
+export function recordScenarioSent(userId, form, ts = Date.now()) {
+  return db.prepare(
+    "UPDATE users SET last_scenario_at = ?, last_scenario_form = ? WHERE id = ?"
+  ).run(ts, form, userId);
+}
+
+export function recordSubjectForm(userId, form, ts = Date.now()) {
+  return db.prepare(
+    "UPDATE users SET last_subject_form = ?, last_subject_form_at = ? WHERE id = ?"
+  ).run(form, ts, userId);
+}
+
+export function recordCompanionExchange(userId) {
+  const user = getUser(userId);
+  if (!user) return null;
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  let days;
+  try { days = JSON.parse(user.companion_session_days || "[]"); }
+  catch { days = []; }
+  if (!days.includes(today)) {
+    days.push(today);
+    if (days.length > 30) days = days.slice(-30); // keep window bounded
+  }
+  const newCount = (user.companion_exchange_count || 0) + 1;
+  db.prepare(
+    "UPDATE users SET companion_exchange_count = ?, companion_session_days = ? WHERE id = ?"
+  ).run(newCount, JSON.stringify(days), userId);
+  return { exchangeCount: newCount, sessionDayCount: days.length };
+}
+
+export function markReferralPromptSent(userId) {
+  return db.prepare(
+    "UPDATE users SET referral_prompt_sent = 1 WHERE id = ?"
+  ).run(userId);
+}
+
+export function isReferralEligible(userId) {
+  const user = getUser(userId);
+  if (!user) return false;
+  if (user.referral_prompt_sent) return false;
+  // 30+ day subscriber
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+  const anchor = user.trial_started_at || user.registered_at;
+  if (!anchor || Date.now() - anchor < thirtyDays) return false;
+  // 5+ exchanges
+  if ((user.companion_exchange_count || 0) < 5) return false;
+  // 3+ distinct session days
+  let days;
+  try { days = JSON.parse(user.companion_session_days || "[]"); }
+  catch { days = []; }
+  if (days.length < 3) return false;
+  return true;
+}
+
 // ─── Part B: Team share tokens ────────────────────────────────────────────
 // Extends the individual share token pattern to team dashboards.
 // Only link tokens (30-day, multi-use) in v1. Session tokens deferred to v2.

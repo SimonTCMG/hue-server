@@ -84,6 +84,12 @@ import db, {
   updateTeamNotificationEmail,
   getTeamMembersForNotification,
   getTeamsEligibleForCheckin,
+  // Daily email companion features (May 2026 redesign)
+  recordScenarioSent,
+  recordSubjectForm,
+  recordCompanionExchange,
+  markReferralPromptSent,
+  isReferralEligible,
 } from "./db.js";
 
 // Canonical dimension data — single source of truth lives in dimensions.js,
@@ -1662,10 +1668,38 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ error: "messages must start with role: user" });
   }
 
+  // Track companion exchanges + distinct session days for the referral trigger.
+  // The user is resolved via session cookie — anonymous calls (rare) skip tracking.
+  const chatUser = getUserFromCookie(req);
+  let referralAddendum = "";
+  if (chatUser) {
+    recordCompanionExchange(chatUser.id);
+
+    // Companion referral (§6) — fires once only, ever. Triggers: 30+ days
+    // subscriber, 5+ exchanges, 3+ session days, never shown. The AI is told
+    // it MAY raise this once, only at a natural break. Mark sent on injection
+    // so it never fires again, even if the AI chooses not to use the moment.
+    const userMsgsInSession = messages.filter(m => m.role === "user").length;
+    if (userMsgsInSession >= 3 && isReferralEligible(chatUser.id)) {
+      referralAddendum = `
+
+## Referral moment available — you may raise this ONCE in this conversation, only at a natural break
+
+This person has been a subscriber for over a month and has had substantive conversation with you across several sessions. You MAY ask, exactly once and only at a natural conversational break (never mid-thread, never in response to anything heavy or substantive): something in the register of "You've been using this for a month. Has it been useful enough to mention to anyone?"
+
+If they say yes, respond: "The best way is to send them to myhue.co — they'll find their own way in." No incentive, no link, no mechanism.
+If they decline, deflect, or don't engage with it, acknowledge briefly and move on. Never raise it again.
+If the conversation right now is in the middle of something substantive, do NOT raise it — let the moment pass. This is a once-only invitation; the trigger has been spent.
+
+Do not reference a referral programme (there isn't one). Do not make it transactional.`;
+      markReferralPromptSent(chatUser.id);
+    }
+  }
+
   // Always append the canonical voice rules to whatever system prompt the
   // client sent. This is defence in depth — the client builds the companion
   // prompt, the server enforces voice consistency across every call.
-  const systemWithVoice = `${system}\n\n${HUE_VOICE_RULES}`;
+  const systemWithVoice = `${system}${referralAddendum}\n\n${HUE_VOICE_RULES}`;
 
   // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
   // User identity is resolved server-side only. Only anonymised profile data
@@ -1744,6 +1778,54 @@ const EMAIL_FOCUS_MODE = {
   6: 'intentional',   // Saturday
 };
 
+// Approved scenario territory — universal human situations the companion can hold.
+// Used in §5 inline scenario lines and full scenario emails. Never reference other
+// users, never use recency, never label by energy, never instruct.
+const SCENARIO_TERRITORY = [
+  "the conversation you've been putting off",
+  "a decision that keeps coming back",
+  "when you can see what's happening but can't find the words",
+  "what's draining you that you can't quite name",
+  "a room where you felt completely in your element — or completely out of it",
+  "the thing you nearly said",
+];
+
+const SIX_WEEKS_MS = 6 * 7 * 24 * 60 * 60 * 1000;
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+// Subject line typology — see anyan-daily-email-redesign-v1.md §3.
+// AI selects the form based on content, focus mode, and the two-facts flag.
+// Server enforces the deliberately-incomplete fortnight gap.
+const SUBJECT_FORMS = ["partial-observation", "deliberately-incomplete", "question", "scenario-hook", "two-facts"];
+
+function parseStructuredOutput(text) {
+  // Parse "KEY: value" sections. Last section's value runs to end of text.
+  const result = {};
+  const keys = ["SUBJECT_FORM", "SUBJECT", "CONTENT", "COMPANION_PROMPT", "SCENARIO_LINE"];
+  const pattern = new RegExp(`^(?:${keys.join("|")}):\\s*`, "m");
+  const lines = text.split("\n");
+  let currentKey = null;
+  let buffer = [];
+  for (const line of lines) {
+    const m = line.match(/^([A-Z_]+):\s*(.*)$/);
+    if (m && keys.includes(m[1])) {
+      if (currentKey) result[currentKey] = buffer.join("\n").trim();
+      currentKey = m[1];
+      buffer = m[2] ? [m[2]] : [];
+    } else if (currentKey) {
+      buffer.push(line);
+    }
+  }
+  if (currentKey) result[currentKey] = buffer.join("\n").trim();
+  return result;
+}
+
+function firstSentence(text) {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  const m = cleaned.match(/^.+?[.!?](?=\s|$)/);
+  return (m ? m[0] : cleaned).trim();
+}
+
 async function generateEmailContent(user) {
   const scores = JSON.parse(user.energy_scores);
   const labels = JSON.parse(user.reach_labels || "{}");
@@ -1773,6 +1855,34 @@ async function generateEmailContent(user) {
   // Rotate content type by day of week so users get variety
   const contentType = CONTENT_TYPES[new Date().getDay() % CONTENT_TYPES.length];
 
+  // --- Scenario eligibility (§5) ---
+  // Roughly once every 6–8 weeks per user. Never on a two-facts week. Inline
+  // and full-email forms alternate so they never appear in the same period.
+  // Anchor: last scenario delivery if any, otherwise assessment completion,
+  // otherwise registration. This gives new users a 6-week warm-up before
+  // their first scenario instead of firing it on email 1.
+  const scenarioAnchor = user.last_scenario_at
+    || user.assessment_completed_at
+    || user.registered_at;
+  const scenarioGapMet = scenarioAnchor
+    && (Date.now() - scenarioAnchor) >= SIX_WEEKS_MS;
+  const scenarioActive = scenarioGapMet && !useTwoFacts;
+  const scenarioForm = scenarioActive
+    ? (user.last_scenario_form === "inline" ? "email" : "inline")
+    : null;
+
+  // --- Subject form constraints (§3) ---
+  // Two-facts content always uses two-facts subject. Deliberately-incomplete
+  // is rationed to once per fortnight per user.
+  const lastDeliberateAt = user.last_subject_form === "deliberately-incomplete"
+    ? (user.last_subject_form_at || 0)
+    : 0;
+  const deliberateAvailable = (Date.now() - lastDeliberateAt) >= FOURTEEN_DAYS_MS;
+  const allowedSubjectForms = useTwoFacts
+    ? ["two-facts"]
+    : ["partial-observation", "question", "scenario-hook"]
+        .concat(deliberateAvailable ? ["deliberately-incomplete"] : []);
+
   // --- Two-facts technique instruction (overrides content type when active) ---
   const twoFactsInstruction = `Write exactly two sentences about this person.
 Both must be specific to their profile — observable behaviours, not energy descriptions.
@@ -1798,18 +1908,78 @@ Stop after the second sentence. The silence is the technique.`;
       + ` visible impact. Never frame as weakness or target. Mirror, not prescription.`,
   }[focusMode];
 
-  // Combine focus instruction with content type instruction (unless two-facts overrides)
-  const contentInstruction = useTwoFacts
-    ? focusInstruction   // two-facts overrides content type entirely
-    : {
-      'A thought for today':    `${focusInstruction} Single observation.`,
-      'A question to hold':     `${focusInstruction} Single question. No answer needed.`,
-      'A small experiment':     `${focusInstruction} One thing to notice today. Never advice.`,
+  // --- Content instruction (scenario email overrides content type) ---
+  let contentInstruction;
+  if (useTwoFacts) {
+    contentInstruction = focusInstruction;
+  } else if (scenarioForm === "email") {
+    contentInstruction = `${focusInstruction} Frame the observation through ONE specific universal human situation drawn from this approved territory:
+${SCENARIO_TERRITORY.map(t => `- ${t}`).join("\n")}
+Name the situation in plain, universal language. Stop just short of resolution — the companion is implied, not sold. Single ${contentType.toLowerCase().replace("a ", "")}.`;
+  } else {
+    contentInstruction = {
+      'A thought for today': `${focusInstruction} Single observation.`,
+      'A question to hold':  `${focusInstruction} Single question. No answer needed.`,
+      'A small experiment':  `${focusInstruction} One thing to notice today. Never advice.`,
     }[contentType];
+  }
 
-  const system = `You are Hue — a trusted friend who has been paying very close attention. You are writing 1–3 sentences for a daily email.
+  // --- Scenario rules block (used by inline + email forms) ---
+  const scenarioRules = `## Scenario rules
+- Never reference other users, even anonymously
+- No recency language ("this week," "recently")
+- Do not label the scenario by energy
+- Do not instruct the reader to use the companion
+- Name the situation in plain, universal language — true any day, any week, any person
+- Stop just short of resolution`;
 
-${contentInstruction}
+  // --- Inline scenario instruction (added when scenarioForm === "inline") ---
+  const inlineScenarioInstruction = scenarioForm === "inline"
+    ? `\n\nALSO write a single SCENARIO_LINE — one short, italic-feeling sentence woven below the main content. Draw from this approved territory:
+${SCENARIO_TERRITORY.map(t => `- ${t}`).join("\n")}
+Example shape: "Hue is good for the conversations you've been putting off." Plain text only — the template will italicise it.`
+    : "";
+
+  // --- Subject form guidance ---
+  const subjectFormGuidance = `## Subject line — pick exactly one form
+
+Allowed forms for this email: ${allowedSubjectForms.join(", ")}
+
+Form definitions and shape:
+- partial-observation: states something true but incomplete; the brain wants to finish it. Example shape: "The conversation you keep having with yourself"
+- deliberately-incomplete: creates a gap the reader steps into. Example shape: "Almost the right words"
+- question: one question, no answer implied. Example shape: "What would you do if you weren't managing it?"
+- scenario-hook: names a universal human situation without labelling. Example shape: "The conversation you've been putting off"
+- two-facts: slight tension, no resolution. Example shape: "You moved fast. Something was missed."
+
+Subject rules:
+- Never imply the rotation is visible
+- Never reference the day of the week
+- Never use the person's name
+- Energy name (${ranked.map(e => e.name).join("/")}) may appear ONLY when ${focusMode === "intentional" || focusMode === "developing" ? `today's focus energy is ${focusEnergy.name} (${focusMode}) — you may include it if natural` : `the focus is ${focusMode} — DO NOT include any energy name`}
+- Do not begin with the content type label
+- Generate a fresh subject line; do not copy the example shapes above`;
+
+  const system = `You are Hue — a trusted friend who has been paying very close attention. You are writing the body and metadata for a daily email.
+
+${contentInstruction}${inlineScenarioInstruction}
+
+${scenarioForm ? scenarioRules + "\n\n" : ""}${subjectFormGuidance}
+
+## Companion prompt
+After writing the body, also produce a COMPANION_PROMPT — the same thought or question, lightly reframed as a conversation opener for when the reader taps "Continue in Hue". One sentence. Plain text. No greeting, no name. It will be dropped into the companion input field; the reader can send, edit, or ignore it.
+
+## Output format — STRICT
+
+Output exactly these labelled sections, each on its own line, in this order:
+
+SUBJECT_FORM: <one of: ${allowedSubjectForms.join(" | ")}>
+SUBJECT: <subject line, plain text, no quotes>
+CONTENT: <the email body — 1–3 sentences, plain prose>
+COMPANION_PROMPT: <one sentence conversation opener>
+${scenarioForm === "inline" ? "SCENARIO_LINE: <one short scenario sentence>" : ""}
+
+Use the labels exactly as written. No commentary, no markdown, no extra sections.
 
 ## Context (internal — never include in output)
 
@@ -1818,22 +1988,22 @@ ${ranked.map(e => `- ${e.name}: ${e.label} (${e.pct}%)`).join("\n")}
 
 Today's focus energy: ${focusEnergy.name} (${focusMode} — their ${focusMode} energy).
 
-The context block above is for your use only. Never include it, or any part of it (headings, labels, percentages, energy band descriptions), in the email you generate. The email begins with the first word of the personalised content.
+The context block above is for your use only. Never include it, or any part of it (headings, labels, percentages, energy band descriptions), in any output section.
 
 ${HUE_VOICE_RULES}
 
 ## Email-specific formatting rules
-- 1–3 sentences only
-- No sign-off, no salutation, no subject line
-- Do not use markdown. No ## headings, no **bold**, no *italic*, no bullet points. Plain prose only. Use line breaks between paragraphs. The email is sent as HTML — formatting comes from the template, not from you.
-- Do not include the energy name in the body of the email. Energy names appear only in the template badges, not in your generated text.`;
+- CONTENT is 1–3 sentences only
+- No sign-off, no salutation
+- Do not use markdown. No ## headings, no **bold**, no *italic*, no bullet points. Plain prose only.
+- Do not include the energy name in CONTENT. Energy names appear in the template, not in your body text.`;
 
   // PRIVACY COMMITMENT: This API payload contains no personally identifying information.
   // User identity is resolved server-side only. Only anonymised profile data
   // and conversation content are sent to the Anthropic API.
   // Do not add user.name, user.email, user.id, or any other PII to this payload.
   // This is a published promise to users — see /privacy.
-  const messages = [{ role: "user", content: `Write a "${useTwoFacts ? 'A thought for today' : contentType}" for this person.` }];
+  const messages = [{ role: "user", content: `Write a "${useTwoFacts ? 'A thought for today' : contentType}" for this person and produce the labelled output exactly as specified.` }];
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1843,16 +2013,40 @@ ${HUE_VOICE_RULES}
         "anthropic-version": "2023-06-01",
         "x-api-key": process.env.ANTHROPIC_API_KEY,
       },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, system, messages }),
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 500, system, messages }),
     });
 
     if (!response.ok) return null;
     const data = await response.json();
     const text = data.content?.find(b => b.type === "text")?.text?.trim();
     if (!text) return null;
+
+    const parsed = parseStructuredOutput(text);
+    if (!parsed.CONTENT || !parsed.SUBJECT) return null;
+
+    // Subject form validation: AI may pick anything, but server enforces the
+    // deliberately-incomplete fortnight rule.
+    let subjectForm = parsed.SUBJECT_FORM && SUBJECT_FORMS.includes(parsed.SUBJECT_FORM)
+      ? parsed.SUBJECT_FORM
+      : "partial-observation";
+    if (subjectForm === "deliberately-incomplete" && !deliberateAvailable) {
+      subjectForm = "partial-observation";
+    }
+    if (useTwoFacts) subjectForm = "two-facts";
+
+    // Share text — first sentence of body + Find your own line.
+    const shareSentence = firstSentence(stripMarkdown(parsed.CONTENT));
+    const shareText = `${shareSentence}\n\nFind your own at myhue.co`;
+
     return {
       contentType: useTwoFacts ? 'A thought for today' : contentType,
-      contentText: text,
+      contentText: parsed.CONTENT,
+      companionPrompt: parsed.COMPANION_PROMPT || firstSentence(parsed.CONTENT),
+      shareText,
+      subject: parsed.SUBJECT.replace(/^["'\s]+|["'\s]+$/g, ""),
+      subjectForm,
+      scenarioForm,
+      scenarioLine: scenarioForm === "inline" ? (parsed.SCENARIO_LINE || null) : null,
       focusMode,
       useTwoFacts,
       dominant:  focusEnergy,
@@ -1923,36 +2117,41 @@ async function sendDailyEmails() {
       const firstName = user.name.trim().split(" ")[0];
       const dayName   = new Date().toLocaleDateString("en-GB", { weekday: "long" });
 
-      const html = EMAIL_TEMPLATE
-        .replace(/\{\{FIRST_NAME\}\}/g,               firstName)
-        .replace(/\{\{DAY_NAME\}\}/g,                 dayName)
-        .replace(/\{\{ENERGY_NAME\}\}/g,              content.dominant.name)
-        .replace(/\{\{ENERGY_COLOR\}\}/g,             ENERGY_COLORS[content.dominant.id] || '#1A1410')
-        .replace(/\{\{ENERGY_BADGE_TEXT\}\}/g,        ENERGY_BADGE_TEXT[content.dominant.id] || '#1A1410')
-        .replace(/\{\{SECOND_ENERGY_NAME\}\}/g,       content.second?.name || '')
-        .replace(/\{\{SECOND_ENERGY_COLOR\}\}/g,      ENERGY_COLORS[content.second?.id] || '#9B8E7E')
-        .replace(/\{\{SECOND_ENERGY_BADGE_TEXT\}\}/g, ENERGY_BADGE_TEXT[content.second?.id] || '#5A4A3A')
-        .replace(/\{\{CONTENT_TYPE\}\}/g,             content.contentType)
-        .replace(/\{\{CONTENT_TEXT_FORMATTED\}\}/g,   formatEmailCopy(stripMarkdown(content.contentText)))
-        .replace(/\{\{CTA_URL\}\}/g,                  'https://myhue.co')
-        .replace(/\{\{UNSUBSCRIBE_URL\}\}/g,          `https://myhue.co/unsubscribe?id=${user.id}`);
+      // Inline scenario block — empty when no scenario or when scenario is
+      // an entire-email form (the body itself carries the scenario).
+      const scenarioBlock = (content.scenarioForm === "inline" && content.scenarioLine)
+        ? `<tr><td style="padding:14px 0 0;font-family:Georgia,serif;font-size:15px;font-style:italic;line-height:1.55;color:#5A4A3A">${content.scenarioLine}</td></tr>`
+        : "";
 
-      // Energy name in subject line only on intentional and developing days —
-      // instinctive and fluent days keep the subject clean and pattern-free.
-      const subject = (content.focusMode === 'intentional' || content.focusMode === 'developing')
-        ? `${content.contentType} — your ${content.dominant.name} energy — ${dayName}`
-        : `${content.contentType} — ${dayName}`;
+      // Companion prompt URL — reader's tap on "Continue in Hue" lands on the
+      // app with the prompt pre-populated in the companion input.
+      const companionPromptUrl = `https://myhue.co?prompt=${encodeURIComponent(content.companionPrompt)}`;
+
+      // Share — mailto with pre-filled body. User edits before sending.
+      const shareHref = `mailto:?body=${encodeURIComponent(content.shareText)}`;
+
+      const html = EMAIL_TEMPLATE
+        .replace(/\{\{FIRST_NAME\}\}/g,             firstName)
+        .replace(/\{\{DAY_NAME\}\}/g,               dayName)
+        .replace(/\{\{CONTENT_TYPE_LABEL\}\}/g,     content.contentType)
+        .replace(/\{\{CONTENT_TEXT_FORMATTED\}\}/g, formatEmailCopy(stripMarkdown(content.contentText)))
+        .replace(/\{\{SCENARIO_LINE_BLOCK\}\}/g,    scenarioBlock)
+        .replace(/\{\{COMPANION_PROMPT_URL\}\}/g,   companionPromptUrl)
+        .replace(/\{\{SHARE_HREF\}\}/g,             shareHref)
+        .replace(/\{\{UNSUBSCRIBE_URL\}\}/g,        `https://myhue.co/unsubscribe?id=${user.id}`);
 
       const sent = await sendEmail({
         to:      user.email,
         toName:  firstName,
-        subject,
+        subject: content.subject,
         html,
       });
 
       if (sent) {
         updateLastEmailSent(user.id, Date.now());
-        console.log(`Daily email: sent to ${user.email}`);
+        if (content.scenarioForm) recordScenarioSent(user.id, content.scenarioForm);
+        recordSubjectForm(user.id, content.subjectForm);
+        console.log(`Daily email: sent to ${user.email} — subject "${content.subject}" (form: ${content.subjectForm}${content.scenarioForm ? `, scenario: ${content.scenarioForm}` : ""})`);
       }
     } catch (err) {
       console.error(`Daily email: error sending to ${user.email}:`, err);
